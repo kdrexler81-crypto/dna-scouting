@@ -258,18 +258,18 @@ const ProfilePage = ({ player, onBack }) => {
     const statStyle = getMetricStyle(playerStat);
     return (
       <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg">
-        <div className="flex items-center gap-3 w-1/2">
-          <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors">
+        <div className="flex items-center gap-3 w-[45%]">
+          <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0">
             <Icon size={18} className="text-slate-700" />
           </div>
-          <span className="text-xs font-bold text-slate-800 uppercase tracking-tight">{label}</span>
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-tight truncate">{label}</span>
         </div>
-        <div className="w-1/4 text-center">
+        <div className="w-[30%] text-center">
           <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm`}>
             {playerStat}
           </span>
         </div>
-        <div className="w-1/4 text-center flex justify-center items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+        <div className="w-[25%] text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
           {avgStat} <ChevronLeft size={10} className="rotate-180" />
         </div>
       </div>
@@ -277,122 +277,146 @@ const ProfilePage = ({ player, onBack }) => {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4 py-8 animate-in slide-in-from-bottom-8">
-      <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+    <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8">
+      <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
       
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8">
-        <div className="bg-slate-900 p-4 pb-0 relative">
-           <div className="absolute top-4 left-4"><DNALogo /></div>
-           <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Athlete Profile</div>
-           <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player.name} />
-        </div>
+      <div className="flex flex-col lg:flex-row gap-8">
         
-        <div className="bg-slate-900 text-center pb-6">
-          <h1 className="text-3xl font-bold text-white uppercase">{player.name}</h1>
-          <p className="font-semibold text-xs uppercase tracking-widest" style={{ color: '#1c7ed6' }}>{player.pos} • Class of {player.gradYear} • {player.city}, {player.state}</p>
+        {/* LEFT COLUMN: HERO & IDENTIFICATION */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-6">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200">
+            <div className="bg-slate-900 p-4 pb-0 relative">
+               <div className="absolute top-4 left-4"><DNALogo /></div>
+               <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified</div>
+               <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player.name} />
+            </div>
+            
+            <div className="bg-slate-900 text-center pb-6">
+              <h1 className="text-3xl font-bold text-white uppercase">{player.name}</h1>
+              <p className="font-semibold text-xs uppercase tracking-widest" style={{ color: '#1c7ed6' }}>{player.pos} • Class of {player.gradYear} • {player.city}, {player.state}</p>
+            </div>
+
+            <div className="flex bg-slate-50 border-b border-slate-200">
+              <div className="w-1/3 p-4 text-center border-r border-slate-200">
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Grade</span>
+                <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{player.dnaScore}</span>
+              </div>
+              <div className="w-1/3 p-4 text-center border-r border-slate-200 flex flex-col justify-center items-center">
+                <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Average</span>
+                <span className="bg-slate-200 text-slate-700 font-bold text-lg px-3 py-0.5 rounded shadow-inner">7.0</span>
+              </div>
+              <div className="w-1/3 p-4 text-center flex flex-col justify-center items-center bg-white">
+                <span className="block text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mb-1" style={{ color: '#1c7ed6' }}><Eye size={10}/> Views</span>
+                <span className="text-2xl font-bold text-slate-800 flex items-center gap-1">
+                  {player.views || 0} <TrendingUp size={16} className="text-emerald-500"/>
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white p-6">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center justify-center gap-2" style={{ color: '#d6336c' }}>
+                <Shield size={16} /> Verified Regular Season Stats
+              </h3>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span>
+                  <span className="text-xl font-black" style={{ color: '#1c7ed6' }}>{player.seasonStats?.passingYards ?? 0}</span>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span>
+                  <span className="text-xl font-black" style={{ color: '#d6336c' }}>{player.seasonStats?.flagPulls ?? 0}</span>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                  <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Intercept</span>
+                  <span className="text-xl font-black text-slate-800">{player.seasonStats?.interceptions ?? 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex bg-slate-50 border-b border-slate-200">
-          <div className="w-1/3 p-4 text-center border-r border-slate-200">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Grade</span>
-            <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{player.dnaScore}</span>
-          </div>
-          <div className="w-1/3 p-4 text-center border-r border-slate-200 flex flex-col justify-center items-center">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Average</span>
-            <span className="bg-slate-200 text-slate-700 font-bold text-lg px-3 py-0.5 rounded shadow-inner">7.0</span>
-          </div>
-          <div className="w-1/3 p-4 text-center flex flex-col justify-center items-center bg-white">
-            <span className="block text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mb-1" style={{ color: '#1c7ed6' }}><Eye size={10}/> Views</span>
-            <span className="text-2xl font-bold text-slate-800 flex items-center gap-1">
-              {player.views || 0} <TrendingUp size={16} className="text-emerald-500"/>
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-5 border-b border-slate-200">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center justify-center gap-2" style={{ color: '#d6336c' }}>
-            <Shield size={16} /> Verified Regular Season Stats
-          </h3>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span>
-              <span className="text-xl font-black" style={{ color: '#1c7ed6' }}>{player.seasonStats?.passingYards ?? 0}</span>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span>
-              <span className="text-xl font-black" style={{ color: '#d6336c' }}>{player.seasonStats?.flagPulls ?? 0}</span>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Interceptions</span>
-              <span className="text-xl font-black text-slate-800">{player.seasonStats?.interceptions ?? 0}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-5">
-          <h3 className="text-center text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Verified Athletic Metrics</h3>
+        {/* RIGHT COLUMN: METRICS & TAPE */}
+        <div className="w-full lg:w-2/3 flex flex-col gap-6">
           
-          {player.combineEvent && (
-            <div className="text-center mb-6 bg-slate-50 py-2 px-4 rounded-lg border border-slate-200 w-max mx-auto flex items-center gap-2 shadow-sm">
-              <Calendar size={12} className="text-slate-500" />
-              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
-                {player.combineEvent.location} • {player.combineEvent.date}
-              </span>
-            </div>
-          )}
-          
-          <MetricRow icon={Ruler} label="Height" playerStat={player.height} avgStat={NAT_AVG.height} />
-          <MetricRow icon={Activity} label="Weight" playerStat={`${player.weight} lbs`} avgStat={NAT_AVG.weight} />
-          <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player.metrics.sprint} avgStat={NAT_AVG.sprint} />
-          <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player.metrics.shuttle} avgStat={NAT_AVG.shuttle} />
-          <MetricRow icon={Target} label="Broad Jump" playerStat={player.metrics.broad} avgStat={NAT_AVG.broad} />
-          <MetricRow icon={Target} label="Vertical Jump" playerStat={player.metrics.vertical} avgStat={NAT_AVG.vertical} />
-          <MetricRow icon={Target} label="Catching Challenge" playerStat={player.metrics.catching} avgStat={NAT_AVG.catching} />
-          <MetricRow icon={Target} label="Throwing Accuracy" playerStat={player.metrics.throwing} avgStat={NAT_AVG.throwing} />
-          <MetricRow icon={Target} label="Flag Pull Challenge" playerStat={player.metrics.flag} avgStat={NAT_AVG.flag} />
-        </div>
-
-        {player.hudlLink && (
-          <div className="bg-slate-50 p-5 border-t border-slate-200">
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center justify-center gap-2" style={{ color: '#1c7ed6' }}>
-              <Video size={16} /> Verified Film & Tape
-            </h3>
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shadow-inner">
-              {embedUrl ? (
-                <iframe src={embedUrl} title="Highlight Reel" className="w-full h-full" allowFullScreen></iframe>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-                  <p className="text-xs text-slate-500 mb-3 font-bold">Hudl / External Tape Link Connected</p>
-                  <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform text-white text-xs font-bold px-5 py-2.5 rounded-lg uppercase tracking-wider flex items-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-                    Watch Film On Hudl <ExternalLink size={14} />
-                  </a>
+          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-slate-100 pb-4 mb-4">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Verified Athletic Metrics</h3>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Combine Results & Scoring</p>
+              </div>
+              {player.combineEvent && (
+                <div className="bg-slate-50 py-2 px-4 rounded-lg border border-slate-200 flex items-center gap-2 shadow-sm text-right">
+                  <Calendar size={14} className="text-slate-500" />
+                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
+                    {player.combineEvent.location}<br/>{player.combineEvent.date}
+                  </span>
                 </div>
               )}
             </div>
+            
+            <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
+              <div>
+                <MetricRow icon={Ruler} label="Height" playerStat={player.height} avgStat={NAT_AVG.height} />
+                <MetricRow icon={Activity} label="Weight" playerStat={`${player.weight} lbs`} avgStat={NAT_AVG.weight} />
+                <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player.metrics.sprint} avgStat={NAT_AVG.sprint} />
+                <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player.metrics.shuttle} avgStat={NAT_AVG.shuttle} />
+                <MetricRow icon={Target} label="Broad Jump" playerStat={player.metrics.broad} avgStat={NAT_AVG.broad} />
+              </div>
+              <div>
+                <MetricRow icon={Target} label="Vertical Jump" playerStat={player.metrics.vertical} avgStat={NAT_AVG.vertical} />
+                <MetricRow icon={Target} label="Catching Chal." playerStat={player.metrics.catching} avgStat={NAT_AVG.catching} />
+                <MetricRow icon={Target} label="Throwing Acc." playerStat={player.metrics.throwing} avgStat={NAT_AVG.throwing} />
+                <MetricRow icon={Target} label="Flag Pull Chal." playerStat={player.metrics.flag} avgStat={NAT_AVG.flag} />
+              </div>
+            </div>
           </div>
-        )}
 
-        {player.combineHistory && player.combineHistory.length > 1 && (
-          <div className="bg-white p-5 border-t border-slate-200">
-             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2 justify-center">
-               <History size={14} /> Combine Progression History
-             </h3>
-             <div className="space-y-3">
-                {[...player.combineHistory].reverse().map((hist, idx) => (
-                   <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date} • {hist.location}</p>
-                        <p className="text-sm font-bold text-slate-800 mt-1">DNA Score: <span className="text-lg font-black" style={{ color: '#d6336c' }}>{hist.dnaScore}</span></p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
-                        <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics.sprint} 40-yd | {hist.metrics.vertical} Vert</span>
-                      </div>
-                   </div>
-                ))}
-             </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {player.hudlLink && (
+              <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
+                <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}>
+                  <Video size={16} /> Verified Film & Tape
+                </h3>
+                <div className="relative w-full flex-grow rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shadow-inner min-h-[200px]">
+                  {embedUrl ? (
+                    <iframe src={embedUrl} title="Highlight Reel" className="absolute inset-0 w-full h-full" allowFullScreen></iframe>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+                      <p className="text-xs text-slate-500 mb-3 font-bold">Hudl / External Tape Link Connected</p>
+                      <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform text-white text-xs font-bold px-5 py-2.5 rounded-lg uppercase tracking-wider flex items-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
+                        Watch Film On Hudl <ExternalLink size={14} />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {player.combineHistory && player.combineHistory.length > 1 && (
+              <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
+                 <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <History size={16} /> Progression History
+                 </h3>
+                 <div className="space-y-3 flex-grow overflow-y-auto max-h-[250px] pr-2">
+                    {[...player.combineHistory].reverse().map((hist, idx) => (
+                       <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                          <div>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{hist.location}</p>
+                            <p className="text-sm font-bold text-slate-800 mt-2">Score: <span className="text-lg font-black" style={{ color: '#d6336c' }}>{hist.dnaScore}</span></p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
+                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics.sprint} 40-yd</span>
+                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics.vertical} Vert</span>
+                          </div>
+                       </div>
+                    ))}
+                 </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
