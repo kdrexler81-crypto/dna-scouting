@@ -6,7 +6,7 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
-
+import { getAuth, signInAnonymously, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
 let isFirebaseActive = false;
@@ -33,47 +33,9 @@ try {
 
 // --- INITIAL SEED DATA ---
 const INITIAL_SEED = {
-  players: [
-    { 
-      id: 'p1', name: "Avery Miller", pos: "QB/WR", gradYear: 2030, state: "AU", city: "Mandurah", 
-      height: "5'2\"", weight: 105, dnaScore: "7.1", avatar: "", views: 342,
-      hudlLink: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      combineEvent: { location: "DNA National Combine", date: "2026-08-15", timestamp: "10:30 AM" },
-      metrics: { sprint: "6.5s", shuttle: "5.4s", broad: "6'0\"", vertical: "9.2\"", catching: "70%", throwing: "6.5", flag: "60%" },
-      seasonStats: { passingYards: 850, flagPulls: 24, interceptions: 6 },
-      combineHistory: [{
-        location: "DNA National Combine", date: "2026-08-15", timestamp: "10:30 AM", dnaScore: "7.1", height: "5'2\"", weight: 105,
-        metrics: { sprint: "6.5s", shuttle: "5.4s", broad: "6'0\"", vertical: "9.2\"", catching: "70%", throwing: "6.5", flag: "60%" }
-      }]
-    },
-    { 
-      id: 'p2', name: "Sarah Jenkins", pos: "DB/WR", gradYear: 2028, state: "NJ", city: "Randolph", 
-      height: "5'5\"", weight: 120, dnaScore: "8.4", avatar: "", views: 128,
-      hudlLink: "https://www.hudl.com/profile/123456",
-      combineEvent: { location: "Northeast Regional Camp", date: "2026-08-20", timestamp: "2:15 PM" },
-      metrics: { sprint: "5.8s", shuttle: "4.9s", broad: "7'2\"", vertical: "14.5\"", catching: "85%", throwing: "7.2", flag: "88%" },
-      seasonStats: { passingYards: 120, flagPulls: 48, interceptions: 11 },
-      combineHistory: [
-        {
-          location: "NJ Spring Showcase", date: "2025-04-10", timestamp: "9:00 AM", dnaScore: "7.5", height: "5'4\"", weight: 115,
-          metrics: { sprint: "6.1s", shuttle: "5.1s", broad: "6'8\"", vertical: "12.0\"", catching: "75%", throwing: "6.8", flag: "70%" }
-        },
-        {
-          location: "Northeast Regional Camp", date: "2026-08-20", timestamp: "2:15 PM", dnaScore: "8.4", height: "5'5\"", weight: 120,
-          metrics: { sprint: "5.8s", shuttle: "4.9s", broad: "7'2\"", vertical: "14.5\"", catching: "85%", throwing: "7.2", flag: "88%" }
-        }
-      ]
-    }
-  ],
-  news: [
-    { id: 'n1', title: "Inaugural Girls Flag Football Combine Details Released", date: "Aug 30, 2026", category: "DNA Official", createdAt: 1693400000000 },
-    { id: 'n2', title: "USA Football announces new Flag guidelines for 2026", date: "Aug 25, 2026", category: "External Feed", createdAt: 1692900000000 },
-    { id: 'n3', title: "Top 10 Quarterback Prospects in the Northeast", date: "Aug 20, 2026", category: "Scouting Report", createdAt: 1692500000000 }
-  ]
+  players: [],
+  news: []
 };
-
-const NAT_AVG = { height: "5'3\"", weight: "110 lbs", sprint: "6.9s", shuttle: "5.8s", broad: "5'6\"", vertical: "7.6\"", catching: "62%", throwing: "5.9", flag: "52%" };
-
 // --- BRAND COMPONENTS ---
 const DNALogo = () => (
   <div className="flex items-center gap-3">
@@ -124,20 +86,18 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const expectedUsername = import.meta.env.VITE_ADMIN_USERNAME || 'admin';
-    const expectedPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'dna2026';
-
-    if (username.trim() === expectedUsername && password === expectedPassword) {
-      setError('');
-      setUsername('');
-      setPassword('');
-      onLoginSuccess();
-    } else {
-      setError('Invalid username or password');
-    }
-  };
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await signInWithEmailAndPassword(auth, username, password);
+    setError('');
+    setUsername('');
+    setPassword('');
+    onLoginSuccess();
+  } catch (err) {
+    setError('Invalid email or password. Are you authorized?');
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
@@ -1056,22 +1016,23 @@ export default function App() {
   });
 
   useEffect(() => {
-    if (!isFirebaseActive || !db) return;
-    setDbStatus("CONNECTING...");
-    signInAnonymously(auth).then(() => {
-      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
-        const items = [];
-        snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-        if (items.length > 0) setPlayers(items);
-      });
-      onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
-        const newsItems = [];
-        snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
-        if (newsItems.length > 0) setNews(newsItems);
-        setDbStatus("LIVE SYNC");
-      });
-    }).catch(() => setDbStatus("OFFLINE DEMO"));
-  }, []);
+  if (!isFirebaseActive || !db) return;
+  setDbStatus("CONNECTING...");
+  
+  // Direct connection for public reads
+  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
+    const items = [];
+    snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+    setPlayers(items); 
+  });
+  
+  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
+    const newsItems = [];
+    snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
+    setNews(newsItems);
+    setDbStatus("LIVE SYNC");
+  });
+}, []);
 
   const handleAdminClick = () => {
     if (isAdminLoggedIn) {
@@ -1090,12 +1051,13 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleLogout = () => {
-    setIsAdminLoggedIn(false);
-    sessionStorage.removeItem('dna_admin_authenticated');
-    setView('home');
-    window.scrollTo(0, 0);
-  };
+ const handleLogout = async () => {
+  if (auth) await signOut(auth);
+  setIsAdminLoggedIn(false);
+  sessionStorage.removeItem('dna_admin_authenticated');
+  setView('home');
+  window.scrollTo(0, 0);
+};
 
   const handlePlayerSelect = async (p) => {
     setSelectedPlayer(p);
