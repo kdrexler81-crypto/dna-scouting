@@ -247,12 +247,14 @@ const ProfilePage = ({ player, onBack }) => {
   const embedUrl = getEmbedUrl(player.hudlLink);
 
   const getMetricStyle = (val) => {
-    const num = parseFloat(val);
-    if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-    if (num >= 8.0 || val.includes('%') && num >= 80) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
-    if (num >= 6.0 || val.includes('%') && num >= 60) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-    return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
-  };
+  if (!val && val !== 0) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+  const strVal = String(val);
+  const num = parseFloat(strVal);
+  if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+  if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
+  if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
+  return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+};
 
   const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
     const statStyle = getMetricStyle(playerStat);
@@ -354,21 +356,21 @@ const ProfilePage = ({ player, onBack }) => {
               )}
             </div>
             
-            <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
-              <div>
-                <MetricRow icon={Ruler} label="Height" playerStat={player.height} avgStat={NAT_AVG.height} />
-                <MetricRow icon={Activity} label="Weight" playerStat={`${player.weight} lbs`} avgStat={NAT_AVG.weight} />
-                <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player.metrics.sprint} avgStat={NAT_AVG.sprint} />
-                <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player.metrics.shuttle} avgStat={NAT_AVG.shuttle} />
-                <MetricRow icon={Target} label="Broad Jump" playerStat={player.metrics.broad} avgStat={NAT_AVG.broad} />
-              </div>
-              <div>
-                <MetricRow icon={Target} label="Vertical Jump" playerStat={player.metrics.vertical} avgStat={NAT_AVG.vertical} />
-                <MetricRow icon={Target} label="Catching Chal." playerStat={player.metrics.catching} avgStat={NAT_AVG.catching} />
-                <MetricRow icon={Target} label="Throwing Acc." playerStat={player.metrics.throwing} avgStat={NAT_AVG.throwing} />
-                <MetricRow icon={Target} label="Flag Pull Chal." playerStat={player.metrics.flag} avgStat={NAT_AVG.flag} />
-              </div>
-            </div>
+           <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
+          <div>
+            <MetricRow icon={Ruler} label="Height" playerStat={player?.height || "N/A"} avgStat={NAT_AVG.height} />
+            <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : "N/A"} avgStat={NAT_AVG.weight} />
+            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player?.metrics?.sprint || "N/A"} avgStat={NAT_AVG.sprint} />
+            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player?.metrics?.shuttle || "N/A"} avgStat={NAT_AVG.shuttle} />
+            <MetricRow icon={Target} label="Broad Jump" playerStat={player?.metrics?.broad || "N/A"} avgStat={NAT_AVG.broad} />
+          </div>
+          <div>
+            <MetricRow icon={Target} label="Vertical Jump" playerStat={player?.metrics?.vertical || "N/A"} avgStat={NAT_AVG.vertical} />
+            <MetricRow icon={Target} label="Catching Chal." playerStat={player?.metrics?.catching || "N/A"} avgStat={NAT_AVG.catching} />
+            <MetricRow icon={Target} label="Throwing Acc." playerStat={player?.metrics?.throwing || "N/A"} avgStat={NAT_AVG.throwing} />
+            <MetricRow icon={Target} label="Flag Pull Chal." playerStat={player?.metrics?.flag || "N/A"} avgStat={NAT_AVG.flag} />
+          </div>
+        </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
