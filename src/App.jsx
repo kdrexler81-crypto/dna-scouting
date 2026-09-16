@@ -6,6 +6,7 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { Analytics } from '@vercel/analytics/react';
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
 let isFirebaseActive = false;
@@ -1143,6 +1144,7 @@ export default function App() {
         onClose={() => setIsLoginModalOpen(false)} 
         onLoginSuccess={handleLoginSuccess} 
       />
+      <Analytics />
     </div>
   );
 }
