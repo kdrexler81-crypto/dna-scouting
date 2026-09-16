@@ -90,7 +90,7 @@ const SanctionedFooter = () => (
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-center gap-6">
           <img 
-            src="/usa-football-logo.png" 
+            src="/usa-football-logo.jpg" 
             alt="USA Football Sanctioned" 
             className="h-10 w-auto object-contain transition-all duration-300" 
             onError={(e) => { e.target.style.display = 'none'; }} 
@@ -1117,7 +1117,7 @@ export default function App() {
           <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
             <div className="flex gap-4 items-center">
-               <span className="text-[10px] font-bold text-slate-400 hidden sm:inline-flex items-center gap-1"><Database size={12}/> {dbStatus}</span>
+               
                
                <button 
                  onClick={() => { setView('about'); window.scrollTo(0,0); }} 
