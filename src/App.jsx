@@ -496,7 +496,7 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
       </div>
 
       <div className="grid md:grid-cols-3 gap-8">
-        <div className="md:col-span-1 space-y-6">
+        <div className="md:col-span-1 order-2 md:order-1 space-y-6">
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News Feed</h2>
             <div className="space-y-4">
@@ -538,7 +538,7 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
           </div>
         </div>
 
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 order-1 md:order-2">
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #d6336c' }}>
             <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
               <div>
