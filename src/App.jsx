@@ -228,7 +228,15 @@ const AboutPage = ({ onBack }) => {
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
-  if (!player) return null;
+  // Safe fallback if player data is missing entirely
+  if (!player) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center">
+        <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+        <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Error: Athlete profile data could not be loaded.</p>
+      </div>
+    );
+  }
 
   const getEmbedUrl = (url) => {
     if (!url) return null;
@@ -244,17 +252,17 @@ const ProfilePage = ({ player, onBack }) => {
     return null;
   };
 
-  const embedUrl = getEmbedUrl(player.hudlLink);
+  const embedUrl = getEmbedUrl(player?.hudlLink);
 
   const getMetricStyle = (val) => {
-  if (!val && val !== 0) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-  const strVal = String(val);
-  const num = parseFloat(strVal);
-  if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-  if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
-  if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-  return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
-};
+    if (val === undefined || val === null || val === '') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+    const strVal = String(val);
+    const num = parseFloat(strVal);
+    if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+    if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
+    if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
+    return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+  };
 
   const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
     const statStyle = getMetricStyle(playerStat);
@@ -268,7 +276,7 @@ const ProfilePage = ({ player, onBack }) => {
         </div>
         <div className="w-[30%] text-center">
           <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm`}>
-            {playerStat}
+            {playerStat ?? "N/A"}
           </span>
         </div>
         <div className="w-[25%] text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
@@ -277,6 +285,12 @@ const ProfilePage = ({ player, onBack }) => {
       </div>
     );
   };
+
+  // Safe metrics extraction with fallbacks so it never crashes
+  const metrics = player?.metrics || {};
+  const seasonStats = player?.seasonStats || {};
+  const combineEvent = player?.combineEvent || null;
+  const combineHistory = player?.combineHistory || [];
 
   return (
     <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8">
@@ -290,18 +304,18 @@ const ProfilePage = ({ player, onBack }) => {
             <div className="bg-slate-900 p-4 pb-0 relative">
                <div className="absolute top-4 left-4"><DNALogo /></div>
                <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified</div>
-               <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player.name} />
+               <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
             </div>
             
             <div className="bg-slate-900 text-center pb-6">
-              <h1 className="text-3xl font-bold text-white uppercase">{player.name}</h1>
-              <p className="font-semibold text-xs uppercase tracking-widest" style={{ color: '#1c7ed6' }}>{player.pos} • Class of {player.gradYear} • {player.city}, {player.state}</p>
+              <h1 className="text-3xl font-bold text-white uppercase">{player?.name || "Unknown Athlete"}</h1>
+              <p className="font-semibold text-xs uppercase tracking-widest" style={{ color: '#1c7ed6' }}>{player?.pos || "ATH"} • Class of {player?.gradYear || "2026"} • {player?.city || ""}, {player?.state || ""}</p>
             </div>
 
             <div className="flex bg-slate-50 border-b border-slate-200">
               <div className="w-1/3 p-4 text-center border-r border-slate-200">
                 <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Grade</span>
-                <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{player.dnaScore}</span>
+                <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
               </div>
               <div className="w-1/3 p-4 text-center border-r border-slate-200 flex flex-col justify-center items-center">
                 <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Average</span>
@@ -310,7 +324,7 @@ const ProfilePage = ({ player, onBack }) => {
               <div className="w-1/3 p-4 text-center flex flex-col justify-center items-center bg-white">
                 <span className="block text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mb-1" style={{ color: '#1c7ed6' }}><Eye size={10}/> Views</span>
                 <span className="text-2xl font-bold text-slate-800 flex items-center gap-1">
-                  {player.views || 0} <TrendingUp size={16} className="text-emerald-500"/>
+                  {player?.views || 0} <TrendingUp size={16} className="text-emerald-500"/>
                 </span>
               </div>
             </div>
@@ -322,15 +336,15 @@ const ProfilePage = ({ player, onBack }) => {
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
                   <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span>
-                  <span className="text-xl font-black" style={{ color: '#1c7ed6' }}>{player.seasonStats?.passingYards ?? 0}</span>
+                  <span className="text-xl font-black" style={{ color: '#1c7ed6' }}>{seasonStats.passingYards ?? 0}</span>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
                   <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span>
-                  <span className="text-xl font-black" style={{ color: '#d6336c' }}>{player.seasonStats?.flagPulls ?? 0}</span>
+                  <span className="text-xl font-black" style={{ color: '#d6336c' }}>{seasonStats.flagPulls ?? 0}</span>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
                   <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Intercept</span>
-                  <span className="text-xl font-black text-slate-800">{player.seasonStats?.interceptions ?? 0}</span>
+                  <span className="text-xl font-black text-slate-800">{seasonStats.interceptions ?? 0}</span>
                 </div>
               </div>
             </div>
@@ -346,35 +360,35 @@ const ProfilePage = ({ player, onBack }) => {
                 <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Verified Athletic Metrics</h3>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Combine Results & Scoring</p>
               </div>
-              {player.combineEvent && (
+              {combineEvent && (
                 <div className="bg-slate-50 py-2 px-4 rounded-lg border border-slate-200 flex items-center gap-2 shadow-sm text-right">
                   <Calendar size={14} className="text-slate-500" />
                   <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
-                    {player.combineEvent.location}<br/>{player.combineEvent.date}
+                    {combineEvent.location}<br/>{combineEvent.date}
                   </span>
                 </div>
               )}
             </div>
             
-           <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
-          <div>
-            <MetricRow icon={Ruler} label="Height" playerStat={player?.height || "N/A"} avgStat={NAT_AVG.height} />
-            <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : "N/A"} avgStat={NAT_AVG.weight} />
-            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player?.metrics?.sprint || "N/A"} avgStat={NAT_AVG.sprint} />
-            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player?.metrics?.shuttle || "N/A"} avgStat={NAT_AVG.shuttle} />
-            <MetricRow icon={Target} label="Broad Jump" playerStat={player?.metrics?.broad || "N/A"} avgStat={NAT_AVG.broad} />
-          </div>
-          <div>
-            <MetricRow icon={Target} label="Vertical Jump" playerStat={player?.metrics?.vertical || "N/A"} avgStat={NAT_AVG.vertical} />
-            <MetricRow icon={Target} label="Catching Chal." playerStat={player?.metrics?.catching || "N/A"} avgStat={NAT_AVG.catching} />
-            <MetricRow icon={Target} label="Throwing Acc." playerStat={player?.metrics?.throwing || "N/A"} avgStat={NAT_AVG.throwing} />
-            <MetricRow icon={Target} label="Flag Pull Chal." playerStat={player?.metrics?.flag || "N/A"} avgStat={NAT_AVG.flag} />
-          </div>
-        </div>
+            <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
+              <div>
+                <MetricRow icon={Ruler} label="Height" playerStat={player?.height} avgStat={NAT_AVG.height} />
+                <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : null} avgStat={NAT_AVG.weight} />
+                <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint} avgStat={NAT_AVG.sprint} />
+                <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle} avgStat={NAT_AVG.shuttle} />
+                <MetricRow icon={Target} label="Broad Jump" playerStat={metrics.broad} avgStat={NAT_AVG.broad} />
+              </div>
+              <div>
+                <MetricRow icon={Target} label="Vertical Jump" playerStat={metrics.vertical} avgStat={NAT_AVG.vertical} />
+                <MetricRow icon={Target} label="Catching Chal." playerStat={metrics.catching} avgStat={NAT_AVG.catching} />
+                <MetricRow icon={Target} label="Throwing Acc." playerStat={metrics.throwing} avgStat={NAT_AVG.throwing} />
+                <MetricRow icon={Target} label="Flag Pull Chal." playerStat={metrics.flag} avgStat={NAT_AVG.flag} />
+              </div>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {player.hudlLink && (
+            {player?.hudlLink && (
               <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
                 <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}>
                   <Video size={16} /> Verified Film & Tape
@@ -394,13 +408,13 @@ const ProfilePage = ({ player, onBack }) => {
               </div>
             )}
 
-            {player.combineHistory && player.combineHistory.length > 1 && (
+            {combineHistory.length > 1 && (
               <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
                  <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                    <History size={16} /> Progression History
                  </h3>
                  <div className="space-y-3 flex-grow overflow-y-auto max-h-[250px] pr-2">
-                    {[...player.combineHistory].reverse().map((hist, idx) => (
+                    {[...combineHistory].reverse().map((hist, idx) => (
                        <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
                           <div>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date}</p>
@@ -409,8 +423,8 @@ const ProfilePage = ({ player, onBack }) => {
                           </div>
                           <div className="text-right">
                             <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
-                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics.sprint} 40-yd</span>
-                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics.vertical} Vert</span>
+                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint || ""} 40-yd</span>
+                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.vertical || ""} Vert</span>
                           </div>
                        </div>
                     ))}
