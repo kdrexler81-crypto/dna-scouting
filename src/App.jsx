@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
-  Activity, Database, Check, Loader2, Video, ExternalLink, Shield, Calendar, MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User
+  Activity, Database, Check, Loader2, Video, ExternalLink, Shield, Calendar, MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
@@ -87,17 +87,16 @@ const SanctionedFooter = () => (
   <footer className="bg-white border-t border-slate-200 py-12 mt-20 text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
     <div className="max-w-7xl mx-auto px-4 flex flex-col items-center justify-center space-y-6">
       <div className="flex flex-col items-center space-y-2">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Official Sanctioned Organization</span>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-center gap-6">
           <img 
-            src="/usa-football-logo.jpg
-            " 
+            src="/usa-football-logo.png" 
             alt="USA Football Sanctioned" 
             className="h-10 w-auto object-contain transition-all duration-300" 
             onError={(e) => { e.target.style.display = 'none'; }} 
           />
           <div className="h-8 w-px bg-slate-300"></div>
-          <span className="text-xs font-display font-bold text-slate-800 uppercase tracking-wider">USA Football Partner</span>
+          <span className="text-xs font-display font-bold text-slate-800 uppercase tracking-wider">USA Football & NFL FLAG Partner</span>
         </div>
       </div>
 
@@ -200,6 +199,69 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
             Authenticate & Enter
           </button>
         </form>
+      </div>
+    </div>
+  );
+};
+
+// --- ABOUT PAGE ---
+const AboutPage = ({ onBack }) => {
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-8 animate-in slide-in-from-bottom-8">
+      <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6] hover:opacity-80 transition-opacity">
+        <ChevronLeft size={16} /> Back to Hub
+      </button>
+
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8" style={{ borderTop: '4px solid #1c7ed6' }}>
+        <div className="p-8 md:p-12">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm" style={{ color: '#d6336c' }}>
+              <Shield size={32} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">About DNA Athletics</h1>
+              <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elevating the Game</p>
+            </div>
+          </div>
+          
+          <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
+            <p className="text-lg leading-relaxed">
+              <strong>DNA Athletics</strong> is a premier girls' flag football organization, officially sanctioned by both <strong>USA Football</strong> and <strong>NFL FLAG</strong>. We are dedicated to providing a high-level, competitive platform for female athletes to develop, showcase their skills, and gain exposure at the regional and national levels.
+            </p>
+
+            <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight mt-8 mb-4 border-b border-slate-100 pb-2">Why It Matters</h2>
+            <p className="leading-relaxed">
+              Girls' flag football is one of the fastest-growing sports in the country, rapidly expanding across high school and collegiate levels. As the talent pool deepens and scouting becomes more competitive, athletes need a standardized, objective way to be evaluated. DNA Athletics bridges the gap between raw potential and verified performance, providing athletes with the concrete metrics that scouts and programs demand.
+            </p>
+
+            <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+              <Activity size={20} style={{ color: '#d6336c' }} /> The DNA Score
+            </h2>
+            <p className="leading-relaxed">
+              The <strong>DNA Score</strong> is our proprietary scouting metric, designed to give a comprehensive snapshot of an athlete's physical explosiveness and on-field positional skills. 
+            </p>
+            
+            <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mt-4 shadow-sm">
+              <ul className="space-y-3 mb-0">
+                <li className="flex items-start gap-2">
+                  <Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" />
+                  <span><strong>Physical Measurables:</strong> We independently verify speed, agility, and explosiveness through standardized combine events, including the 40-yard dash, 5-10-5 shuttle, broad jump, and vertical leap.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" />
+                  <span><strong>Positional Skills:</strong> Athletes are tested on game-specific mechanics, such as throwing accuracy, catching consistency, and flag-pulling efficiency under pressure.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" />
+                  <span><strong>The Formula:</strong> These weighted metrics are processed through our proprietary algorithm to generate a single composite DNA Score (scaled 1.0 to 10.0). This creates a completely objective, national benchmark, allowing athletes to see exactly where they stand and what they need to improve.</span>
+                </li>
+              </ul>
+            </div>
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mt-6 text-center">
+              Verify your physicals. Earn your score. Secure your ranking.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -378,10 +440,43 @@ const ProfilePage = ({ player, onBack }) => {
 };
 
 // --- 2. PUBLIC HUB ---
-const PublicHub = ({ players, news, onSelect }) => {
+const PublicHub = ({ players, news: localNews, onSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
+  
+  const [externalNews, setExternalNews] = useState([]);
+  const [loadingNews, setLoadingNews] = useState(true);
+
+  useEffect(() => {
+    const fetchLiveNews = async () => {
+      try {
+        const rssUrl = encodeURIComponent('https://news.google.com/rss/search?q="girls+flag+football"&hl=en-US&gl=US&ceid=US:en');
+        const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${rssUrl}`);
+        const data = await res.json();
+        
+        if (data.items) {
+          const formattedNews = data.items.slice(0, 6).map(item => {
+            const dateObj = new Date(item.pubDate);
+            return {
+              id: item.guid || item.link,
+              title: item.title,
+              date: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              category: 'Global News',
+              link: item.link,
+              createdAt: dateObj.getTime()
+            };
+          });
+          setExternalNews(formattedNews);
+        }
+      } catch (error) {
+        console.error("Failed to fetch live news feed", error);
+      } finally {
+        setLoadingNews(false);
+      }
+    };
+    fetchLiveNews();
+  }, []);
 
   const uniquePositions = useMemo(() => {
     const posSet = new Set();
@@ -411,8 +506,9 @@ const PublicHub = ({ players, news, onSelect }) => {
   }, [players, searchTerm, posFilter, yearFilter]);
 
   const sortedNews = useMemo(() => {
-    return [...news].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  }, [news]);
+    const combined = [...localNews, ...externalNews];
+    return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
+  }, [localNews, externalNews]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -442,17 +538,41 @@ const PublicHub = ({ players, news, onSelect }) => {
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1 space-y-6">
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> DNA News Feed</h2>
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News Feed</h2>
             <div className="space-y-4">
-              {sortedNews.length === 0 ? (
+              
+              {loadingNews && localNews.length === 0 ? (
+                 <div className="flex items-center gap-2 text-slate-500 text-sm italic font-bold">
+                   <Loader2 size={14} className="animate-spin text-[#d6336c]" /> Fetching latest headlines...
+                 </div>
+              ) : sortedNews.length === 0 ? (
                  <p className="text-slate-500 text-sm italic">No recent updates.</p>
               ) : (
-                 sortedNews.map(item => (
-                   <div key={item.id} className="pl-3" style={{ borderLeft: '2px solid #d6336c' }}>
-                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#d6336c' }}>{item.category} • {item.date}</span>
-                     <p className="text-sm font-bold text-slate-800 mt-1 cursor-pointer transition-colors hover:text-[#1c7ed6]">{item.title}</p>
-                   </div>
-                 ))
+                 sortedNews.map(item => {
+                   const isExternal = !!item.link;
+                   const Wrapper = isExternal ? 'a' : 'div';
+                   
+                   return (
+                     <Wrapper
+                       key={item.id}
+                       href={item.link || undefined}
+                       target={isExternal ? "_blank" : undefined}
+                       rel={isExternal ? "noopener noreferrer" : undefined}
+                       className={`block pl-3 transition-transform ${isExternal ? 'hover:-translate-y-0.5 cursor-pointer group' : ''}`}
+                       style={{ borderLeft: `2px solid ${item.category === 'Global News' ? '#1c7ed6' : '#d6336c'}` }}
+                     >
+                       <div className="flex items-center gap-1.5">
+                         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: item.category === 'Global News' ? '#1c7ed6' : '#d6336c' }}>
+                           {item.category} • {item.date}
+                         </span>
+                         {isExternal && <ExternalLink size={10} className="text-slate-400 group-hover:text-[#1c7ed6] transition-colors" />}
+                       </div>
+                       <p className={`text-sm font-bold text-slate-800 mt-1 transition-colors ${isExternal ? 'group-hover:text-[#1c7ed6]' : ''}`}>
+                         {item.title}
+                       </p>
+                     </Wrapper>
+                   );
+                 })
               )}
             </div>
           </div>
@@ -535,6 +655,18 @@ const PublicHub = ({ players, news, onSelect }) => {
     </div>
   );
 };
+
+// --- CUSTOM INPUT COMPONENTS FOR ADMIN PANEL ---
+const InputLabel = ({ children }) => (
+  <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>
+);
+
+const FormInput = (props) => (
+  <input 
+    {...props} 
+    className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`}
+  />
+);
 
 // --- 3. ADMIN PANEL ---
 const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
@@ -665,23 +797,24 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     }
     setSavingAthlete(false);
   };
-const deleteAthlete = async () => {
-  if (!selectedExistingId) return;
-  const confirmDelete = window.confirm(`Are you sure you want to completely remove ${metrics.name}? This cannot be undone.`);
-  if (!confirmDelete) return;
 
-  try {
-    if (dbConfigured && db) {
-      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId));
+  const deleteAthlete = async () => {
+    if (!selectedExistingId) return;
+    const confirmDelete = window.confirm(`Are you sure you want to completely remove ${metrics.name}? This cannot be undone.`);
+    if (!confirmDelete) return;
+
+    try {
+      if (dbConfigured && db) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId));
+      }
+      alert("Athlete deleted successfully.");
+      setMetrics(defaultMetrics);
+      setSelectedExistingId("");
+      setPhotoPreview(null);
+    } catch (err) {
+      alert("Error deleting athlete: " + err.message);
     }
-    alert("Athlete deleted successfully.");
-    setMetrics(defaultMetrics);
-    setSelectedExistingId("");
-    setPhotoPreview(null);
-  } catch (err) {
-    alert("Error deleting athlete: " + err.message);
-  }
-};
+  };
 
   const submitNews = async (e) => {
     e.preventDefault();
@@ -709,17 +842,6 @@ const deleteAthlete = async () => {
     }
     setSavingNews(false);
   };
-
-  const InputLabel = ({ children }) => (
-    <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>
-  );
-
-  const FormInput = (props) => (
-    <input 
-      {...props} 
-      className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`}
-    />
-  );
 
   return (
     <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
@@ -820,7 +942,7 @@ const deleteAthlete = async () => {
                         <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-widest">Take Photo</span>
                       </div>
                     )}
-                    <input type="file" accept="image/*" capture="user" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
                   <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
                      <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
@@ -900,17 +1022,17 @@ const deleteAthlete = async () => {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-  <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-    {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete to Cloud Database
-  </button>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
+                    {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete to Cloud Database
+                  </button>
 
-  {selectedExistingId && (
-    <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider shadow-md bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2">
-      <X size={20} /> Delete
-    </button>
-  )}
-</div>
+                  {selectedExistingId && (
+                    <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider shadow-md bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2">
+                      <X size={20} /> Delete
+                    </button>
+                  )}
+                </div>
               </form>
            </div>
         )}
@@ -921,7 +1043,7 @@ const deleteAthlete = async () => {
 
 // --- 4. MASTER APP CONTROLLER ---
 export default function App() {
-  const [view, setView] = useState('home');
+  const [view, setView] = useState('home'); // 'home', 'profile', 'admin', 'about'
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [players, setPlayers] = useState(INITIAL_SEED.players);
   const [news, setNews] = useState(INITIAL_SEED.news);
@@ -996,6 +1118,14 @@ export default function App() {
             <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
             <div className="flex gap-4 items-center">
                <span className="text-[10px] font-bold text-slate-400 hidden sm:inline-flex items-center gap-1"><Database size={12}/> {dbStatus}</span>
+               
+               <button 
+                 onClick={() => { setView('about'); window.scrollTo(0,0); }} 
+                 className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200" 
+               >
+                 <Info size={12}/> About
+               </button>
+
                <button 
                  onClick={handleAdminClick} 
                  className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" 
@@ -1014,6 +1144,7 @@ export default function App() {
         <main className="min-h-[calc(100vh-260px)]">
           {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
           {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
+          {view === 'about' && <AboutPage onBack={() => setView('home')} />}
           {view === 'admin' && isAdminLoggedIn && (
             <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />
           )}
