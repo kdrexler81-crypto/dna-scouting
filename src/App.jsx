@@ -4,9 +4,8 @@ import {
   Activity, Database, Check, Loader2, Video, ExternalLink, Shield, Calendar, MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
-import { getAuth, signInAnonymously, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
 let isFirebaseActive = false;
