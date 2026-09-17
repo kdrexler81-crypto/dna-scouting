@@ -723,14 +723,51 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     }
   };
 
-  const handlePhotoCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result);
-      reader.readAsDataURL(file);
-    }
-  };
+ const handlePhotoCapture = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Create an invisible image and canvas to resize the photo
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400; // Resize to max 400px wide
+        const MAX_HEIGHT = 400; // Resize to max 400px tall
+        let width = img.width;
+        let height = img.height;
+
+        // Calculate new dimensions while keeping aspect ratio
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw the compressed image
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to lightweight JPEG (70% quality)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        
+        // Save the compressed, database-friendly version
+        setPhotoPreview(compressedBase64);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+};
 
   const calculatedDNAScore = useMemo(() => {
     const sprintScore = Math.max(0, 10 - (metrics.sprint - 4.5) * 2);
