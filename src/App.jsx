@@ -228,11 +228,16 @@ const AboutPage = ({ onBack }) => {
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
-  // Safe fallback if player data is missing entirely
+  // 1. SAFEGUARD: Define National Averages inside the component so it can never be missing
+  const NAT_AVG = { height: "5'3\"", weight: "110 lbs", sprint: "6.9s", shuttle: "5.8s", broad: "5'6\"", vertical: "7.6\"", catching: "62%", throwing: "5.9", flag: "52%" };
+
+  // 2. SAFEGUARD: Fallback if player data is missing entirely
   if (!player) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center">
-        <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+        <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6]">
+          <ChevronLeft size={16} /> Back to Hub
+        </button>
         <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Error: Athlete profile data could not be loaded.</p>
       </div>
     );
@@ -255,13 +260,17 @@ const ProfilePage = ({ player, onBack }) => {
   const embedUrl = getEmbedUrl(player?.hudlLink);
 
   const getMetricStyle = (val) => {
-    if (val === undefined || val === null || val === '') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-    const strVal = String(val);
-    const num = parseFloat(strVal);
-    if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-    if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
-    if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-    return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+    try {
+      if (val === undefined || val === null || val === '') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+      const strVal = String(val);
+      const num = parseFloat(strVal);
+      if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+      if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
+      if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
+      return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+    } catch (e) {
+      return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+    }
   };
 
   const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
@@ -270,7 +279,7 @@ const ProfilePage = ({ player, onBack }) => {
       <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg">
         <div className="flex items-center gap-3 w-[45%]">
           <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0">
-            <Icon size={18} className="text-slate-700" />
+            {Icon && <Icon size={18} className="text-slate-700" />}
           </div>
           <span className="text-xs font-bold text-slate-800 uppercase tracking-tight truncate">{label}</span>
         </div>
@@ -280,17 +289,17 @@ const ProfilePage = ({ player, onBack }) => {
           </span>
         </div>
         <div className="w-[25%] text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
-          {avgStat} <ChevronLeft size={10} className="rotate-180" />
+          {avgStat ?? "N/A"} <ChevronLeft size={10} className="rotate-180" />
         </div>
       </div>
     );
   };
 
-  // Safe metrics extraction with fallbacks so it never crashes
+  // 3. SAFEGUARD: Strict extraction so nested objects never cause a crash
   const metrics = player?.metrics || {};
   const seasonStats = player?.seasonStats || {};
   const combineEvent = player?.combineEvent || null;
-  const combineHistory = player?.combineHistory || [];
+  const combineHistory = Array.isArray(player?.combineHistory) ? player.combineHistory : [];
 
   return (
     <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8">
@@ -302,7 +311,6 @@ const ProfilePage = ({ player, onBack }) => {
         <div className="w-full lg:w-1/3 flex flex-col gap-6">
           <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200">
             <div className="bg-slate-900 p-4 pb-0 relative">
-               <div className="absolute top-4 left-4"><DNALogo /></div>
                <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified</div>
                <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
             </div>
