@@ -989,9 +989,11 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
                     <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
                   <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
-                     <div><InputLabel>Position</InputLabel><FormInput value={metrics.pos} onChange={e => setMetrics({...metrics, pos: e.target.value})} /></div>
-                     <div><InputLabel>Grad Year</InputLabel><FormInput type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
+   <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
+   <div><InputLabel>Position</InputLabel><FormInput required value={metrics.pos} onChange={e => setMetrics({...metrics, pos: e.target.value})} /></div>
+   <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
+   <div><InputLabel>City</InputLabel><FormInput required value={metrics.city} onChange={e => setMetrics({...metrics, city: e.target.value})} /></div>
+   <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
                   </div>
                 </div>
 
