@@ -783,24 +783,78 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     const rawScore = (speedRating * 0.5) + (skillRating * 0.5);
     return Math.min(10.0, Math.max(1.0, rawScore)).toFixed(1);
   }, [metrics]);
+const handleDeleteHistoryEvent = async (indexToRemove) => {
+  if (!window.confirm("Are you sure you want to delete this event from the athlete's history?")) return;
 
+  const existingPlayer = players.find(p => p.id === selectedExistingId);
+  if (!existingPlayer || !existingPlayer.combineHistory) return;
+
+  // Create a new history array without the deleted event
+  const updatedHistory = existingPlayer.combineHistory.filter((_, idx) => idx !== indexToRemove);
+
+  // Roll back the main profile stats to match the NEW most recent event
+  let updatedProfileData = { combineHistory: updatedHistory };
+
+  if (updatedHistory.length > 0) {
+    const latestEvent = updatedHistory[updatedHistory.length - 1];
+    updatedProfileData.dnaScore = latestEvent.dnaScore;
+    updatedProfileData.height = latestEvent.height;
+    updatedProfileData.weight = latestEvent.weight;
+    updatedProfileData.metrics = latestEvent.metrics;
+    updatedProfileData.combineEvent = {
+      location: latestEvent.location,
+      date: latestEvent.date,
+      timestamp: latestEvent.timestamp
+    };
+  } else {
+    // If all history is deleted, reset the main profile
+    updatedProfileData.dnaScore = "0.0";
+    updatedProfileData.metrics = {};
+    updatedProfileData.combineEvent = null;
+  }
+
+  try {
+    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
+    await updateDoc(playerRef, updatedProfileData);
+  } catch (err) {
+    alert("Error deleting event: " + err.message);
+  }
+};
   const submitCombineData = async (e) => {
-    e.preventDefault();
-    setSavingAthlete(true);
+  e.preventDefault();
+  setSavingAthlete(true);
+  
+  try {
+    const functions = getFunctions(app);
+    const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
     
+    // Pass 0 if a field is empty to prevent backend crashes on partial saves
+    const result = await calculateDNAScore({
+      sprint: Number(metrics.sprint) || 0,
+      shuttle: Number(metrics.shuttle) || 0,
+      catchingPct: Number(metrics.catchingPct) || 0,
+      throwingScore: Number(metrics.throwingScore) || 0,
+      flagPullingPct: Number(metrics.flagPullingPct) || 0
+    });
+    
+    const secureDNAScore = result.data.dnaScore;
     const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     const newCombineRecord = {
       location: metrics.combineLocation || "DNA Regional Combine",
       date: metrics.combineDate,
       timestamp: uploadTime,
-      dnaScore: calculatedDNAScore,
+      dnaScore: secureDNAScore,
       height: `${metrics.heightFeet}'${metrics.heightInches}"`,
-      weight: Number(metrics.weight),
+      weight: Number(metrics.weight) || 0,
       metrics: {
-        sprint: `${metrics.sprint}s`, shuttle: `${metrics.shuttle}s`,
-        broad: `${metrics.broadFeet}'${metrics.broadInches}"`, vertical: `${metrics.verticalInches}"`,
-        catching: `${metrics.catchingPct}%`, throwing: `${metrics.throwingScore}`, flag: `${metrics.flagPullingPct}%`
+        sprint: metrics.sprint ? `${metrics.sprint}s` : "", 
+        shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
+        broad: `${metrics.broadFeet}'${metrics.broadInches}"`, 
+        vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
+        catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", 
+        throwing: metrics.throwingScore ? `${metrics.throwingScore}` : "", 
+        flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
       }
     };
 
@@ -808,39 +862,50 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
       name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
       city: metrics.city, state: metrics.state,
       height: newCombineRecord.height, weight: newCombineRecord.weight,
-      dnaScore: calculatedDNAScore, avatar: photoPreview || "",
+      dnaScore: secureDNAScore, 
       hudlLink: metrics.hudlLink,
       combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
-      seasonStats: { passingYards: Number(metrics.passingYards), flagPulls: Number(metrics.flagPulls), interceptions: Number(metrics.interceptions) },
+      seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
       metrics: newCombineRecord.metrics,
       updatedAt: Date.now()
     };
 
-    try {
-      if (dbConfigured && db) {
-        if (selectedExistingId) {
-          const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
-          await updateDoc(playerRef, {
-            ...playerData,
-            combineHistory: arrayUnion(newCombineRecord)
-          });
+    if (dbConfigured && db) {
+      if (selectedExistingId) {
+        const existingPlayer = players.find(p => p.id === selectedExistingId);
+        let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+
+        // PARTIAL SAVE LOGIC: If the date matches the latest event, overwrite it instead of duplicating.
+        if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) {
+           updatedHistory[updatedHistory.length - 1] = newCombineRecord;
         } else {
-          playerData.views = 0;
-          playerData.createdAt = Date.now();
-          playerData.combineHistory = [newCombineRecord];
-          const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
-          await addDoc(playersRef, playerData);
+           updatedHistory.push(newCombineRecord);
         }
+
+        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
+        await updateDoc(playerRef, {
+          ...playerData,
+          combineHistory: updatedHistory,
+          avatar: photoPreview || existingPlayer?.avatar || "" // Preserve their photo!
+        });
+      } else {
+        playerData.avatar = photoPreview || "";
+        playerData.views = 0;
+        playerData.createdAt = Date.now();
+        playerData.combineHistory = [newCombineRecord];
+        const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+        await addDoc(playersRef, playerData);
       }
-      alert(`Athlete saved! Verified DNA Score: ${calculatedDNAScore}`);
-      setMetrics(defaultMetrics);
-      setSelectedExistingId("");
-      setPhotoPreview(null);
-    } catch (err) {
-      alert("Error saving athlete: " + err.message);
     }
-    setSavingAthlete(false);
-  };
+    alert(`Athlete saved! DNA Score: ${secureDNAScore}`);
+    setMetrics(defaultMetrics);
+    setSelectedExistingId("");
+    setPhotoPreview(null);
+  } catch (err) {
+    alert("Error saving athlete: " + err.message);
+  }
+  setSavingAthlete(false);
+};
 
   const deleteAthlete = async () => {
     if (!selectedExistingId) return;
@@ -1079,6 +1144,35 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
                     </button>
                   )}
                 </div>
+                {selectedExistingId && (
+  <div className="mt-8 pt-8 border-t border-slate-200">
+    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+      <History size={18} className="text-slate-500" />
+      Manage Event History
+    </h3>
+    <div className="space-y-3">
+      {players.find(p => p.id === selectedExistingId)?.combineHistory?.map((event, idx) => (
+         <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+           <div>
+             <p className="font-bold text-sm text-slate-800">{event.date} - {event.location}</p>
+             <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">Score: {event.dnaScore}</p>
+           </div>
+           <button
+             type="button"
+             onClick={() => handleDeleteHistoryEvent(idx)}
+             className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors shadow-sm"
+             title="Delete this event"
+           >
+             <X size={16} />
+           </button>
+         </div>
+      ))}
+      {(!players.find(p => p.id === selectedExistingId)?.combineHistory || players.find(p => p.id === selectedExistingId)?.combineHistory.length === 0) && (
+        <p className="text-sm text-slate-500 font-medium">No event history found for this athlete.</p>
+      )}
+    </div>
+  </div>
+)}
               </form>
            </div>
         )}
