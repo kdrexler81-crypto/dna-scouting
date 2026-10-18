@@ -6,6 +6,7 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
 let isFirebaseActive = false;
