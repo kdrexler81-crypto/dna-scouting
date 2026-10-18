@@ -7,6 +7,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
 let isFirebaseActive = false;
@@ -36,6 +37,7 @@ const INITIAL_SEED = {
   players: [],
   news: []
 };
+
 // --- BRAND COMPONENTS ---
 const DNALogo = () => (
   <div className="flex items-center gap-3">
@@ -87,17 +89,17 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    await signInWithEmailAndPassword(auth, username, password);
-    setError('');
-    setUsername('');
-    setPassword('');
-    onLoginSuccess();
-  } catch (err) {
-    setError('Invalid email or password. Are you authorized?');
-  }
-};
+    e.preventDefault();
+    try {
+      await signInWithEmailAndPassword(auth, username, password);
+      setError('');
+      setUsername('');
+      setPassword('');
+      onLoginSuccess();
+    } catch (err) {
+      setError('Invalid email or password. Are you authorized?');
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
@@ -122,13 +124,13 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Username</label>
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-widest block mb-1">Email Address</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 required 
-                type="text" 
-                placeholder="Enter username" 
+                type="email" 
+                placeholder="Enter coach email" 
                 className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6]"
                 value={username} 
                 onChange={e => setUsername(e.target.value)} 
@@ -229,10 +231,8 @@ const AboutPage = ({ onBack }) => {
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
-  // 1. SAFEGUARD: Define National Averages inside the component so it can never be missing
   const NAT_AVG = { height: "5'3\"", weight: "110 lbs", sprint: "6.9s", shuttle: "5.8s", broad: "5'6\"", vertical: "7.6\"", catching: "62%", throwing: "5.9", flag: "52%" };
 
-  // 2. SAFEGUARD: Fallback if player data is missing entirely
   if (!player) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center">
@@ -296,7 +296,6 @@ const ProfilePage = ({ player, onBack }) => {
     );
   };
 
-  // 3. SAFEGUARD: Strict extraction so nested objects never cause a crash
   const metrics = player?.metrics || {};
   const seasonStats = player?.seasonStats || {};
   const combineEvent = player?.combineEvent || null;
@@ -423,20 +422,20 @@ const ProfilePage = ({ player, onBack }) => {
                    <History size={16} /> Progression History
                  </h3>
                  <div className="space-y-3 flex-grow overflow-y-auto max-h-[250px] pr-2">
-                    {[...combineHistory].reverse().map((hist, idx) => (
-                       <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                          <div>
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{hist.location}</p>
-                            <p className="text-sm font-bold text-slate-800 mt-2">Score: <span className="text-lg font-black" style={{ color: '#d6336c' }}>{hist.dnaScore}</span></p>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
-                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint || ""} 40-yd</span>
-                            <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.vertical || ""} Vert</span>
-                          </div>
-                       </div>
-                    ))}
+                   {[...combineHistory].reverse().map((hist, idx) => (
+                      <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                         <div>
+                           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date}</p>
+                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{hist.location}</p>
+                           <p className="text-sm font-bold text-slate-800 mt-2">Score: <span className="text-lg font-black" style={{ color: '#d6336c' }}>{hist.dnaScore}</span></p>
+                         </div>
+                         <div className="text-right">
+                           <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
+                           <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint || ""} 40-yd</span>
+                           <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.vertical || ""} Vert</span>
+                         </div>
+                      </div>
+                   ))}
                  </div>
               </div>
             )}
@@ -724,51 +723,45 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     }
   };
 
- const handlePhotoCapture = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // Create an invisible image and canvas to resize the photo
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400; // Resize to max 400px wide
-        const MAX_HEIGHT = 400; // Resize to max 400px tall
-        let width = img.width;
-        let height = img.height;
+  const handlePhotoCapture = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 400; 
+          const MAX_HEIGHT = 400; 
+          let width = img.width;
+          let height = img.height;
 
-        // Calculate new dimensions while keeping aspect ratio
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
 
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Draw the compressed image
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Convert to lightweight JPEG (70% quality)
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-        
-        // Save the compressed, database-friendly version
-        setPhotoPreview(compressedBase64);
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          setPhotoPreview(compressedBase64);
+        };
+        img.src = reader.result;
       };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
-};
+      reader.readAsDataURL(file);
+    }
+  };
 
   const calculatedDNAScore = useMemo(() => {
     const sprintScore = Math.max(0, 10 - (metrics.sprint - 4.5) * 2);
@@ -784,129 +777,133 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     const rawScore = (speedRating * 0.5) + (skillRating * 0.5);
     return Math.min(10.0, Math.max(1.0, rawScore)).toFixed(1);
   }, [metrics]);
-const handleDeleteHistoryEvent = async (indexToRemove) => {
-  if (!window.confirm("Are you sure you want to delete this event from the athlete's history?")) return;
 
-  const existingPlayer = players.find(p => p.id === selectedExistingId);
-  if (!existingPlayer || !existingPlayer.combineHistory) return;
+  const handleDeleteHistoryEvent = async (indexToRemove) => {
+    if (!window.confirm("Are you sure you want to delete this event from the athlete's history?")) return;
 
-  // Create a new history array without the deleted event
-  const updatedHistory = existingPlayer.combineHistory.filter((_, idx) => idx !== indexToRemove);
+    const existingPlayer = players.find(p => p.id === selectedExistingId);
+    if (!existingPlayer || !existingPlayer.combineHistory) return;
 
-  // Roll back the main profile stats to match the NEW most recent event
-  let updatedProfileData = { combineHistory: updatedHistory };
+    const updatedHistory = existingPlayer.combineHistory.filter((_, idx) => idx !== indexToRemove);
 
-  if (updatedHistory.length > 0) {
-    const latestEvent = updatedHistory[updatedHistory.length - 1];
-    updatedProfileData.dnaScore = latestEvent.dnaScore;
-    updatedProfileData.height = latestEvent.height;
-    updatedProfileData.weight = latestEvent.weight;
-    updatedProfileData.metrics = latestEvent.metrics;
-    updatedProfileData.combineEvent = {
-      location: latestEvent.location,
-      date: latestEvent.date,
-      timestamp: latestEvent.timestamp
-    };
-  } else {
-    // If all history is deleted, reset the main profile
-    updatedProfileData.dnaScore = "0.0";
-    updatedProfileData.metrics = {};
-    updatedProfileData.combineEvent = null;
-  }
+    let updatedProfileData = { combineHistory: updatedHistory };
 
-  try {
-    const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
-    await updateDoc(playerRef, updatedProfileData);
-  } catch (err) {
-    alert("Error deleting event: " + err.message);
-  }
-};
-  const submitCombineData = async (e) => {
-  e.preventDefault();
-  setSavingAthlete(true);
-  
-  try {
-    const functions = getFunctions(app);
-    const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
-    
-    // Pass 0 if a field is empty to prevent backend crashes on partial saves
-    const result = await calculateDNAScore({
-      sprint: Number(metrics.sprint) || 0,
-      shuttle: Number(metrics.shuttle) || 0,
-      catchingPct: Number(metrics.catchingPct) || 0,
-      throwingScore: Number(metrics.throwingScore) || 0,
-      flagPullingPct: Number(metrics.flagPullingPct) || 0
-    });
-    
-    const secureDNAScore = result.data.dnaScore;
-    const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newCombineRecord = {
-      location: metrics.combineLocation || "DNA Regional Combine",
-      date: metrics.combineDate,
-      timestamp: uploadTime,
-      dnaScore: secureDNAScore,
-      height: `${metrics.heightFeet}'${metrics.heightInches}"`,
-      weight: Number(metrics.weight) || 0,
-      metrics: {
-        sprint: metrics.sprint ? `${metrics.sprint}s` : "", 
-        shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
-        broad: `${metrics.broadFeet}'${metrics.broadInches}"`, 
-        vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
-        catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", 
-        throwing: metrics.throwingScore ? `${metrics.throwingScore}` : "", 
-        flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
-      }
-    };
-
-    const playerData = {
-      name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
-      city: metrics.city, state: metrics.state,
-      height: newCombineRecord.height, weight: newCombineRecord.weight,
-      dnaScore: secureDNAScore, 
-      hudlLink: metrics.hudlLink,
-      combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
-      seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
-      metrics: newCombineRecord.metrics,
-      updatedAt: Date.now()
-    };
-
-    if (dbConfigured && db) {
-      if (selectedExistingId) {
-        const existingPlayer = players.find(p => p.id === selectedExistingId);
-        let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
-
-        // PARTIAL SAVE LOGIC: If the date matches the latest event, overwrite it instead of duplicating.
-        if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) {
-           updatedHistory[updatedHistory.length - 1] = newCombineRecord;
-        } else {
-           updatedHistory.push(newCombineRecord);
-        }
-
-        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
-        await updateDoc(playerRef, {
-          ...playerData,
-          combineHistory: updatedHistory,
-          avatar: photoPreview || existingPlayer?.avatar || "" // Preserve their photo!
-        });
-      } else {
-        playerData.avatar = photoPreview || "";
-        playerData.views = 0;
-        playerData.createdAt = Date.now();
-        playerData.combineHistory = [newCombineRecord];
-        const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
-        await addDoc(playersRef, playerData);
-      }
+    if (updatedHistory.length > 0) {
+      const latestEvent = updatedHistory[updatedHistory.length - 1];
+      updatedProfileData.dnaScore = latestEvent.dnaScore;
+      updatedProfileData.height = latestEvent.height;
+      updatedProfileData.weight = latestEvent.weight;
+      updatedProfileData.metrics = latestEvent.metrics;
+      updatedProfileData.combineEvent = {
+        location: latestEvent.location,
+        date: latestEvent.date,
+        timestamp: latestEvent.timestamp
+      };
+    } else {
+      updatedProfileData.dnaScore = "0.0";
+      updatedProfileData.metrics = {};
+      updatedProfileData.combineEvent = null;
     }
-    alert(`Athlete saved! DNA Score: ${secureDNAScore}`);
-    setMetrics(defaultMetrics);
-    setSelectedExistingId("");
-    setPhotoPreview(null);
-  } catch (err) {
-    alert("Error saving athlete: " + err.message);
-  }
-  setSavingAthlete(false);
-};
+
+    try {
+      const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
+      await updateDoc(playerRef, updatedProfileData);
+    } catch (err) {
+      alert("Error deleting event: " + err.message);
+    }
+  };
+
+  const submitCombineData = async (e) => {
+    e.preventDefault();
+    setSavingAthlete(true);
+    
+    try {
+      const auth = getAuth(app);
+      if (!auth.currentUser) {
+        alert("Firebase Error: No secure session found. Please refresh and log in again.");
+        setSavingAthlete(false);
+        return;
+      }
+
+      const functions = getFunctions(app);
+      const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
+      
+      const result = await calculateDNAScore({
+        sprint: Number(metrics.sprint) || 0,
+        shuttle: Number(metrics.shuttle) || 0,
+        catchingPct: Number(metrics.catchingPct) || 0,
+        throwingScore: Number(metrics.throwingScore) || 0,
+        flagPullingPct: Number(metrics.flagPullingPct) || 0
+      });
+      
+      const secureDNAScore = result.data.dnaScore;
+      const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      const newCombineRecord = {
+        location: metrics.combineLocation || "DNA Regional Combine",
+        date: metrics.combineDate,
+        timestamp: uploadTime,
+        dnaScore: secureDNAScore,
+        height: `${metrics.heightFeet}'${metrics.heightInches}"`,
+        weight: Number(metrics.weight) || 0,
+        metrics: {
+          sprint: metrics.sprint ? `${metrics.sprint}s` : "", 
+          shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
+          broad: `${metrics.broadFeet}'${metrics.broadInches}"`, 
+          vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
+          catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", 
+          throwing: metrics.throwingScore ? `${metrics.throwingScore}` : "", 
+          flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
+        }
+      };
+
+      const playerData = {
+        name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
+        city: metrics.city, state: metrics.state,
+        height: newCombineRecord.height, weight: newCombineRecord.weight,
+        dnaScore: secureDNAScore, 
+        hudlLink: metrics.hudlLink,
+        combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
+        seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
+        metrics: newCombineRecord.metrics,
+        updatedAt: Date.now()
+      };
+
+      if (dbConfigured && db) {
+        if (selectedExistingId) {
+          const existingPlayer = players.find(p => p.id === selectedExistingId);
+          let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+
+          if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) {
+             updatedHistory[updatedHistory.length - 1] = newCombineRecord;
+          } else {
+             updatedHistory.push(newCombineRecord);
+          }
+
+          const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId);
+          await updateDoc(playerRef, {
+            ...playerData,
+            combineHistory: updatedHistory,
+            avatar: photoPreview || existingPlayer?.avatar || ""
+          });
+        } else {
+          playerData.avatar = photoPreview || "";
+          playerData.views = 0;
+          playerData.createdAt = Date.now();
+          playerData.combineHistory = [newCombineRecord];
+          const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+          await addDoc(playersRef, playerData);
+        }
+      }
+      alert(`Athlete saved! Verified DNA Score: ${secureDNAScore}`);
+      setMetrics(defaultMetrics);
+      setSelectedExistingId("");
+      setPhotoPreview(null);
+    } catch (err) {
+      alert("Error saving athlete: " + err.message);
+    }
+    setSavingAthlete(false);
+  };
 
   const deleteAthlete = async () => {
     if (!selectedExistingId) return;
@@ -1118,189 +1115,13 @@ const handleDeleteHistoryEvent = async (indexToRemove) => {
 
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}>
-                    <Video size={14} /> 4. Tape & Video Highlight Link
+                    <Video size={14} /> 4. Tape & Video Highlight
                   </h3>
-                  <FormInput type="url" placeholder="https://www.hudl.com/profile/... OR https://www.youtube.com/watch?v=..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
                 </div>
-
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#d6336c' }}>
-                    <Shield size={14} /> 5. Regular Season On-Field Stats
-                  </h3>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div><InputLabel>Passing Yards</InputLabel><FormInput type="number" value={metrics.passingYards} onChange={e => setMetrics({...metrics, passingYards: e.target.value})} /></div>
-                    <div><InputLabel>Flag Pulls</InputLabel><FormInput type="number" value={metrics.flagPulls} onChange={e => setMetrics({...metrics, flagPulls: e.target.value})} /></div>
-                    <div><InputLabel>Interceptions</InputLabel><FormInput type="number" value={metrics.interceptions} onChange={e => setMetrics({...metrics, interceptions: e.target.value})} /></div>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-                    {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete to Cloud Database
-                  </button>
-
-                  {selectedExistingId && (
-                    <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider shadow-md bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2">
-                      <X size={20} /> Delete
-                    </button>
-                  )}
-                </div>
-                {selectedExistingId && (
-  <div className="mt-8 pt-8 border-t border-slate-200">
-    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-      <History size={18} className="text-slate-500" />
-      Manage Event History
-    </h3>
-    <div className="space-y-3">
-      {players.find(p => p.id === selectedExistingId)?.combineHistory?.map((event, idx) => (
-         <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
-           <div>
-             <p className="font-bold text-sm text-slate-800">{event.date} - {event.location}</p>
-             <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">Score: {event.dnaScore}</p>
-           </div>
-           <button
-             type="button"
-             onClick={() => handleDeleteHistoryEvent(idx)}
-             className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors shadow-sm"
-             title="Delete this event"
-           >
-             <X size={16} />
-           </button>
-         </div>
-      ))}
-      {(!players.find(p => p.id === selectedExistingId)?.combineHistory || players.find(p => p.id === selectedExistingId)?.combineHistory.length === 0) && (
-        <p className="text-sm text-slate-500 font-medium">No event history found for this athlete.</p>
-      )}
-    </div>
-  </div>
-)}
               </form>
-           </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// --- 4. MASTER APP CONTROLLER ---
-export default function App() {
-  const [view, setView] = useState('home'); // 'home', 'profile', 'admin', 'about'
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [players, setPlayers] = useState(INITIAL_SEED.players);
-  const [news, setNews] = useState(INITIAL_SEED.news);
-  const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
-
-  // Admin Security States
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    return sessionStorage.getItem('dna_admin_authenticated') === 'true';
-  });
-
-  useEffect(() => {
-  if (!isFirebaseActive || !db) return;
-  setDbStatus("CONNECTING...");
-  
-  // Direct connection for public reads
-  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
-    const items = [];
-    snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-    setPlayers(items); 
-  });
-  
-  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
-    const newsItems = [];
-    snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
-    setNews(newsItems);
-    setDbStatus("LIVE SYNC");
-  });
-}, []);
-
-  const handleAdminClick = () => {
-    if (isAdminLoggedIn) {
-      setView('admin');
-      window.scrollTo(0, 0);
-    } else {
-      setIsLoginModalOpen(true);
-    }
-  };
-
-  const handleLoginSuccess = () => {
-    setIsAdminLoggedIn(true);
-    sessionStorage.setItem('dna_admin_authenticated', 'true');
-    setIsLoginModalOpen(false);
-    setView('admin');
-    window.scrollTo(0, 0);
-  };
-
- const handleLogout = async () => {
-  if (auth) await signOut(auth);
-  setIsAdminLoggedIn(false);
-  sessionStorage.removeItem('dna_admin_authenticated');
-  setView('home');
-  window.scrollTo(0, 0);
-};
-
-  const handlePlayerSelect = async (p) => {
-    setSelectedPlayer(p);
-    setView('profile');
-    window.scrollTo(0,0);
-
-    if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") {
-      try {
-        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id);
-        await updateDoc(playerRef, { views: increment(1) });
-      } catch (err) { }
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
-      <div>
-        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-            <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
-            <div className="flex gap-4 items-center">
-               
-               
-               <button 
-                 onClick={() => { setView('about'); window.scrollTo(0,0); }} 
-                 className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200" 
-               >
-                 <Info size={12}/> About
-               </button>
-
-               <button 
-                 onClick={handleAdminClick} 
-                 className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" 
-                 style={{ 
-                   color: isAdminLoggedIn ? '#059669' : '#d6336c', 
-                   border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, 
-                   backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' 
-                 }}
-               >
-                 <Lock size={12}/> {isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}
-               </button>
             </div>
-          </div>
-        </div>
-
-        <main className="min-h-[calc(100vh-260px)]">
-          {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
-          {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
-          {view === 'about' && <AboutPage onBack={() => setView('home')} />}
-          {view === 'admin' && isAdminLoggedIn && (
-            <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />
           )}
-        </main>
+        </div>
       </div>
-
-      <SanctionedFooter />
-
-      <LoginModal 
-        isOpen={isLoginModalOpen} 
-        onClose={() => setIsLoginModalOpen(false)} 
-        onLoginSuccess={handleLoginSuccess} 
-      />
-    </div>
   );
-}
+};
