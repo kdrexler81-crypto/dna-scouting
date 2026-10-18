@@ -1115,13 +1115,188 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
 
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}>
-                    <Video size={14} /> 4. Tape & Video Highlight
+                    <Video size={14} /> 4. Tape & Video Highlight Link
                   </h3>
+                  <FormInput type="url" placeholder="https://www.hudl.com/profile/... OR https://www.youtube.com/watch?v=..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
                 </div>
+
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#d6336c' }}>
+                    <Shield size={14} /> 5. Regular Season On-Field Stats
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div><InputLabel>Passing Yards</InputLabel><FormInput type="number" value={metrics.passingYards} onChange={e => setMetrics({...metrics, passingYards: e.target.value})} /></div>
+                    <div><InputLabel>Flag Pulls</InputLabel><FormInput type="number" value={metrics.flagPulls} onChange={e => setMetrics({...metrics, flagPulls: e.target.value})} /></div>
+                    <div><InputLabel>Interceptions</InputLabel><FormInput type="number" value={metrics.interceptions} onChange={e => setMetrics({...metrics, interceptions: e.target.value})} /></div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
+                    {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete to Cloud Database
+                  </button>
+
+                  {selectedExistingId && (
+                    <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider shadow-md bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2">
+                      <X size={20} /> Delete
+                    </button>
+                  )}
+                </div>
+                {selectedExistingId && (
+                  <div className="mt-8 pt-8 border-t border-slate-200">
+                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <History size={18} className="text-slate-500" />
+                      Manage Event History
+                    </h3>
+                    <div className="space-y-3">
+                      {players.find(p => p.id === selectedExistingId)?.combineHistory?.map((event, idx) => (
+                         <div key={idx} className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200">
+                           <div>
+                             <p className="font-bold text-sm text-slate-800">{event.date} - {event.location}</p>
+                             <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">Score: {event.dnaScore}</p>
+                           </div>
+                           <button
+                             type="button"
+                             onClick={() => handleDeleteHistoryEvent(idx)}
+                             className="p-2 bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition-colors shadow-sm"
+                             title="Delete this event"
+                           >
+                             <X size={16} />
+                           </button>
+                         </div>
+                      ))}
+                      {(!players.find(p => p.id === selectedExistingId)?.combineHistory || players.find(p => p.id === selectedExistingId)?.combineHistory.length === 0) && (
+                        <p className="text-sm text-slate-500 font-medium">No event history found for this athlete.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </form>
-            </div>
-          )}
-        </div>
+           </div>
+        )}
       </div>
+    </div>
   );
 };
+
+// --- 4. MASTER APP CONTROLLER ---
+export default function App() {
+  const [view, setView] = useState('home'); // 'home', 'profile', 'admin', 'about'
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [players, setPlayers] = useState(INITIAL_SEED.players);
+  const [news, setNews] = useState(INITIAL_SEED.news);
+  const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
+
+  // Admin Security States
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+    return sessionStorage.getItem('dna_admin_authenticated') === 'true';
+  });
+
+  useEffect(() => {
+  if (!isFirebaseActive || !db) return;
+  setDbStatus("CONNECTING...");
+  
+  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
+    const items = [];
+    snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+    setPlayers(items); 
+  });
+  
+  onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
+    const newsItems = [];
+    snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
+    setNews(newsItems);
+    setDbStatus("LIVE SYNC");
+  });
+}, []);
+
+  const handleAdminClick = () => {
+    if (isAdminLoggedIn) {
+      setView('admin');
+      window.scrollTo(0, 0);
+    } else {
+      setIsLoginModalOpen(true);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsAdminLoggedIn(true);
+    sessionStorage.setItem('dna_admin_authenticated', 'true');
+    setIsLoginModalOpen(false);
+    setView('admin');
+    window.scrollTo(0, 0);
+  };
+
+ const handleLogout = async () => {
+  if (auth) await signOut(auth);
+  setIsAdminLoggedIn(false);
+  sessionStorage.removeItem('dna_admin_authenticated');
+  setView('home');
+  window.scrollTo(0, 0);
+};
+
+  const handlePlayerSelect = async (p) => {
+    setSelectedPlayer(p);
+    setView('profile');
+    window.scrollTo(0,0);
+
+    if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") {
+      try {
+        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id);
+        await updateDoc(playerRef, { views: increment(1) });
+      } catch (err) { }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
+      <div>
+        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+            <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
+            <div className="flex gap-4 items-center">
+               
+               
+               <button 
+                 onClick={() => { setView('about'); window.scrollTo(0,0); }} 
+                 className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200" 
+               >
+                 <Info size={12}/> About
+               </button>
+
+               <button 
+                 onClick={handleAdminClick} 
+                 className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" 
+                 style={{ 
+                   color: isAdminLoggedIn ? '#059669' : '#d6336c', 
+                   border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, 
+                   backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' 
+                 }}
+               >
+                 <Lock size={12}/> {isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}
+               </button>
+            </div>
+          </div>
+        </div>
+
+        <main className="min-h-[calc(100vh-260px)]">
+          {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
+          {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
+          {view === 'about' && <AboutPage onBack={() => setView('home')} />}
+          {view === 'admin' && isAdminLoggedIn && (
+            <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />
+          )}
+        </main>
+      </div>
+
+      <SanctionedFooter />
+
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        onLoginSuccess={handleLoginSuccess} 
+      />
+    </div>
+  );
+}
