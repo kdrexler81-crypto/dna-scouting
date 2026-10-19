@@ -29,9 +29,9 @@ exports.calculateDNAScore = functions.https.onCall(async (rawPayload, context) =
     throw new functions.https.HttpsError("permission-denied", `Unauthorized coach email: ${decodedToken.email}`);
   }
 
-  // 4. Proprietary DNA Score Formula
-  const sprintScore = Math.max(0, 10 - ((data.sprint || 0) - 4.5) * 2);
-  const shuttleScore = Math.max(0, 10 - ((data.shuttle || 0) - 4.0) * 2);
+ // 4. Proprietary DNA Score Formula
+  const sprintScore = (data.sprint > 0) ? Math.max(0, 10 - (data.sprint - 4.5) * 2) : 0;
+  const shuttleScore = (data.shuttle > 0) ? Math.max(0, 10 - (data.shuttle - 4.0) * 2) : 0;
   const speedRating = (sprintScore + shuttleScore) / 2;
 
   const skillRating = (
@@ -41,7 +41,7 @@ exports.calculateDNAScore = functions.https.onCall(async (rawPayload, context) =
   ) / 3;
 
   const rawScore = (speedRating * 0.5) + (skillRating * 0.5);
-  const finalScore = Math.min(10.0, Math.max(1.0, rawScore));
+  const finalScore = (rawScore > 0) ? Math.min(10.0, Math.max(1.0, rawScore)) : 0;
 
   return { dnaScore: finalScore.toFixed(1) };
 });

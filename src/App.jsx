@@ -734,25 +734,6 @@ if (p) {
   setPhotoPreview(p.avatar || null);
 }
 };
-    const p = players.find(player => player.id === playerId);
-    if (p) {
-      const hFeet = p.height ? parseInt(p.height.split("'")[0]) : 5;
-      const hInches = p.height ? parseInt(p.height.split("'")[1].replace('"', '')) : 2;
-      
-      setMetrics({
-        ...defaultMetrics,
-        name: p.name, pos: p.pos, gradYear: p.gradYear, city: p.city, state: p.state,
-        heightFeet: hFeet, heightInches: hInches, weight: p.weight,
-        hudlLink: p.hudlLink || '',
-        passingYards: p.seasonStats?.passingYards || 0,
-        flagPulls: p.seasonStats?.flagPulls || 0,
-        interceptions: p.seasonStats?.interceptions || 0,
-        combineLocation: '', combineDate: today
-      });
-      setPhotoPreview(p.avatar || null);
-    }
-  };
-
   const handlePhotoCapture = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -831,67 +812,116 @@ if (p) {
   };
 
   const submitCombineData = async (e) => {
-  e.preventDefault();
-  setSavingAthlete(true);
+e.preventDefault();
+setSavingAthlete(true);
+
+try {
+  const auth = getAuth(app);
+  if (!auth.currentUser) {
+    alert("Firebase Error: No secure session found. Please refresh and log in again.");
+    setSavingAthlete(false);
+    return;
+  }
+
+  const secureToken = await auth.currentUser.getIdToken(true);
+  const functions = getFunctions(app);
+  const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
+
+  // --- 1. SUPER SCORE AGGREGATION ---
+  const existingPlayer = selectedExistingId ? players.find(p => p.id === selectedExistingId) : null;
+  const history = existingPlayer?.combineHistory || [];
+
+  const parseNum = (val) => Number(String(val).replace(/[^0-9.]/g, '')) || 0;
   
-  try {
-    const auth = getAuth(app);
-    if (!auth.currentUser) {
-      alert("Firebase Error: No secure session found. Please refresh and log in again.");
-      setSavingAthlete(false);
-      return;
+  const getBestTime = (field, currentVal) => {
+    const vals = [...history.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0);
+    return vals.length ? Math.min(...vals) : 0;
+  };
+  
+  const getBestScore = (field, currentVal) => {
+    const vals = [...history.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0);
+    return vals.length ? Math.max(...vals) : 0;
+  };
+
+  const bestSprint = getBestTime('sprint', metrics.sprint);
+  const bestShuttle = getBestTime('shuttle', metrics.shuttle);
+  const bestCatching = getBestScore('catching', metrics.catchingPct);
+  const bestThrowing = getBestScore('throwing', metrics.throwingScore);
+  const bestFlag = getBestScore('flag', metrics.flagPullingPct);
+
+  const parseBroad = (val) => {
+     if (!val) return 0;
+     const parts = String(val).split("'");
+     return parts.length === 2 ? (Number(parts[0]) * 12) + Number(parts[1].replace('"', '')) : 0;
+  };
+  const currentBroadInches = (Number(metrics.broadFeet) || 0) * 12 + (Number(metrics.broadInches) || 0);
+  const bestBroadTotalInches = Math.max(...history.map(e => parseBroad(e.metrics?.broad)), currentBroadInches);
+  const bestBroadStr = bestBroadTotalInches > 0 ? `${Math.floor(bestBroadTotalInches / 12)}'${bestBroadTotalInches % 12}"` : "";
+
+  const bestVertical = getBestScore('vertical', metrics.verticalInches);
+
+  // --- 2. CALCULATE EVENT & OVERALL SCORES ---
+  const eventResult = await calculateDNAScore({
+    token: secureToken,
+    sprint: Number(metrics.sprint) || 0,
+    shuttle: Number(metrics.shuttle) || 0,
+    catchingPct: Number(metrics.catchingPct) || 0,
+    throwingScore: Number(metrics.throwingScore) || 0,
+    flagPullingPct: Number(metrics.flagPullingPct) || 0
+  });
+  
+  const overallResult = await calculateDNAScore({
+    token: secureToken,
+    sprint: bestSprint,
+    shuttle: bestShuttle,
+    catchingPct: bestCatching,
+    throwingScore: bestThrowing,
+    flagPullingPct: bestFlag
+  });
+
+  const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // --- 3. SAVE SPECIFIC EVENT TO HISTORY ---
+  const newCombineRecord = {
+    location: metrics.combineLocation || "DNA Regional Combine",
+    date: metrics.combineDate,
+    timestamp: uploadTime,
+    dnaScore: eventResult.data.dnaScore,
+    height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`,
+    weight: Number(metrics.weight) || 0,
+    metrics: {
+      sprint: metrics.sprint ? `${metrics.sprint}s` : "", 
+      shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
+      broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", 
+      vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
+      catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", 
+      throwing: metrics.throwingScore ? `${metrics.throwingScore}` : "", 
+      flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
     }
+  };
 
-    // 1. Force fetch a fresh, explicit ID token
-    const secureToken = await auth.currentUser.getIdToken(true);
+  // --- 4. UPDATE LEADERBOARD PROFILE WITH SUPER SCORE ---
+  const playerData = {
+    name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
+    city: metrics.city, state: metrics.state,
+    height: newCombineRecord.height, weight: newCombineRecord.weight,
+    dnaScore: overallResult.data.dnaScore, 
+    hudlLink: metrics.hudlLink,
+    combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
+    seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
+    metrics: {
+      sprint: bestSprint ? `${bestSprint}s` : "", 
+      shuttle: bestShuttle ? `${bestShuttle}s` : "",
+      broad: bestBroadStr, 
+      vertical: bestVertical ? `${bestVertical}"` : "",
+      catching: bestCatching ? `${bestCatching}%` : "", 
+      throwing: bestThrowing ? `${bestThrowing}` : "", 
+      flag: bestFlag ? `${bestFlag}%` : ""
+    },
+    updatedAt: Date.now()
+  };
 
-    const functions = getFunctions(app);
-    const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
-    
-    // 2. Pass the token directly inside the payload
-    const result = await calculateDNAScore({
-      token: secureToken,
-      sprint: Number(metrics.sprint) || 0,
-      shuttle: Number(metrics.shuttle) || 0,
-      catchingPct: Number(metrics.catchingPct) || 0,
-      throwingScore: Number(metrics.throwingScore) || 0,
-      flagPullingPct: Number(metrics.flagPullingPct) || 0
-    });
-    
-    const secureDNAScore = result.data.dnaScore;
-      const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      const newCombineRecord = {
-        location: metrics.combineLocation || "DNA Regional Combine",
-        date: metrics.combineDate,
-        timestamp: uploadTime,
-        dnaScore: secureDNAScore,
-        height: `${metrics.heightFeet}'${metrics.heightInches}"`,
-        weight: Number(metrics.weight) || 0,
-        metrics: {
-          sprint: metrics.sprint ? `${metrics.sprint}s` : "", 
-          shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
-          broad: `${metrics.broadFeet}'${metrics.broadInches}"`, 
-          vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
-          catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", 
-          throwing: metrics.throwingScore ? `${metrics.throwingScore}` : "", 
-          flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
-        }
-      };
-
-      const playerData = {
-        name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
-        city: metrics.city, state: metrics.state,
-        height: newCombineRecord.height, weight: newCombineRecord.weight,
-        dnaScore: secureDNAScore, 
-        hudlLink: metrics.hudlLink,
-        combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
-        seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
-        metrics: newCombineRecord.metrics,
-        updatedAt: Date.now()
-      };
-
-      if (dbConfigured && db) {
+  if (dbConfigured && db) {
         if (selectedExistingId) {
           const existingPlayer = players.find(p => p.id === selectedExistingId);
           let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
