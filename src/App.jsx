@@ -185,25 +185,46 @@ return null;
 
 const embedUrl = getEmbedUrl(player?.hudlLink);
 
-const getMetricStyle = (val) => {
+// Smart color-coding based on what type of drill it is
+const getMetricStyle = (val, label) => {
 try {
-  if (val === undefined || val === null || val === '') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-  const strVal = String(val);
-  const num = parseFloat(strVal);
+  if (!val || val === "N/A" || label === 'Height' || label === 'Weight') {
+    return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+  }
+  
+  const num = parseFloat(String(val));
   if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-  if (num >= 8.0 || (strVal.includes('%') && num >= 80)) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
-  if (num >= 6.0 || (strVal.includes('%') && num >= 60)) return { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-  return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+
+  const green = { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
+  const yellow = { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
+  const red = { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+
+  // TIMED DRILLS (LOWER IS BETTER)
+  if (label.includes('Sprint')) return num <= 6.5 ? green : num <= 7.2 ? yellow : red;
+  if (label.includes('Shuttle')) return num <= 5.5 ? green : num <= 6.2 ? yellow : red;
+  if (label.includes('Drill')) return num <= 7.8 ? green : num <= 8.8 ? yellow : red;
+
+  // SPEED & DISTANCE (HIGHER IS BETTER)
+  if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red;
+  if (label.includes('Vertical')) return num >= 10.0 ? green : num >= 7.0 ? yellow : red;
+  if (label.includes('Broad')) return num >= 6.0 ? green : num >= 5.0 ? yellow : red;
+
+  // PERCENTAGES (HIGHER IS BETTER)
+  if (String(val).includes('%')) {
+    return num >= 75 ? green : num >= 60 ? yellow : red;
+  }
+
+  return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
 } catch (e) {
   return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
 }
 };
 
 const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
-const statStyle = getMetricStyle(playerStat);
+// Pass the label into the function so it knows which logic to use
+const statStyle = getMetricStyle(playerStat, label); 
 return (
   <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2">
-    {/* Left Column: Label (Now flexible so it never gets cut off) */}
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0">
         {Icon && <Icon size={18} className="text-slate-700" />}
@@ -213,14 +234,12 @@ return (
       </span>
     </div>
     
-    {/* Middle Column: Player Stat (Fixed width, forces text to stay on one line) */}
     <div className="w-24 shrink-0 text-center">
       <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}>
         {playerStat ?? "N/A"}
       </span>
     </div>
     
-    {/* Right Column: National Average (Fixed width) */}
     <div className="w-16 shrink-0 text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
       {avgStat ?? "N/A"} <ChevronLeft size={10} className="rotate-180" />
     </div>
