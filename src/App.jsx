@@ -202,19 +202,26 @@ try {
 const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
 const statStyle = getMetricStyle(playerStat);
 return (
-  <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg">
-    <div className="flex items-center gap-3 w-[45%]">
+  <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2">
+    {/* Left Column: Label (Now flexible so it never gets cut off) */}
+    <div className="flex items-center gap-3 flex-1 min-w-0">
       <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0">
         {Icon && <Icon size={18} className="text-slate-700" />}
       </div>
-      <span className="text-xs font-bold text-slate-800 uppercase tracking-tight truncate">{label}</span>
+      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">
+        {label}
+      </span>
     </div>
-    <div className="w-[38%] text-center">
-      <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm`}>
+    
+    {/* Middle Column: Player Stat (Fixed width, forces text to stay on one line) */}
+    <div className="w-24 shrink-0 text-center">
+      <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}>
         {playerStat ?? "N/A"}
       </span>
     </div>
-    <div className="w-[25%] text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+    
+    {/* Right Column: National Average (Fixed width) */}
+    <div className="w-16 shrink-0 text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
       {avgStat ?? "N/A"} <ChevronLeft size={10} className="rotate-180" />
     </div>
   </div>
