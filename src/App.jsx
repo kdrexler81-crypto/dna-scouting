@@ -763,20 +763,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     }
   };
 
-  const calculatedDNAScore = useMemo(() => {
-    const sprintScore = Math.max(0, 10 - (metrics.sprint - 4.5) * 2);
-    const shuttleScore = Math.max(0, 10 - (metrics.shuttle - 4.0) * 2);
-    const speedRating = (sprintScore + shuttleScore) / 2;
 
-    const skillRating = (
-      (Number(metrics.catchingPct) / 10) + 
-      Number(metrics.throwingScore) + 
-      (Number(metrics.flagPullingPct) / 10)
-    ) / 3;
-
-    const rawScore = (speedRating * 0.5) + (skillRating * 0.5);
-    return Math.min(10.0, Math.max(1.0, rawScore)).toFixed(1);
-  }, [metrics]);
 
   const handleDeleteHistoryEvent = async (indexToRemove) => {
     if (!window.confirm("Are you sure you want to delete this event from the athlete's history?")) return;
@@ -1037,10 +1024,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
                   <h2 className="text-xl font-bold text-slate-900 uppercase">Live iPad Combine Entry</h2>
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Coach Portal</p>
                 </div>
-                <div className="bg-white px-6 py-3 rounded-xl border border-slate-200 shadow-sm text-center">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Calculated DNA Grade</span>
-                  <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{calculatedDNAScore}</span>
-                </div>
+                
               </div>
 
               <form onSubmit={submitCombineData} className="space-y-6">
