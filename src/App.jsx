@@ -192,26 +192,35 @@ try {
     return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
   }
   
-  const num = parseFloat(String(val));
-  if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-
   const green = { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
   const yellow = { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
   const red = { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
 
+  // BROAD JUMP PARSER (e.g. "6'0\"")
+  if (label.includes('Broad')) {
+    const strVal = String(val);
+    const ftMatch = strVal.match(/(\d+)'/);
+    const inMatch = strVal.match(/(\d+)"/);
+    const totalInches = (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0);
+    if (totalInches === 0) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+    return totalInches >= 72 ? green : totalInches >= 66 ? yellow : red; // Green >= 6'0", Yellow >= 5'6"
+  }
+
+  const num = parseFloat(String(val).replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+
   // TIMED DRILLS (LOWER IS BETTER)
-  if (label.includes('Sprint')) return num <= 6.5 ? green : num <= 7.2 ? yellow : red;
-  if (label.includes('Shuttle')) return num <= 5.5 ? green : num <= 6.2 ? yellow : red;
-  if (label.includes('Drill')) return num <= 7.8 ? green : num <= 8.8 ? yellow : red;
+  if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red;
+  if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red;
+  if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red;
 
   // SPEED & DISTANCE (HIGHER IS BETTER)
   if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red;
-  if (label.includes('Vertical')) return num >= 10.0 ? green : num >= 7.0 ? yellow : red;
-  if (label.includes('Broad')) return num >= 6.0 ? green : num >= 5.0 ? yellow : red;
+  if (label.includes('Vertical')) return num >= 17.0 ? green : num >= 14.0 ? yellow : red;
 
   // PERCENTAGES (HIGHER IS BETTER)
   if (String(val).includes('%')) {
-    return num >= 75 ? green : num >= 60 ? yellow : red;
+    return num >= 75 ? green : num >= 50 ? yellow : red;
   }
 
   return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
@@ -715,14 +724,29 @@ try {
   const bestBroadStr = bestBroadTotalInches > 0 ? `${Math.floor(bestBroadTotalInches / 12)}'${bestBroadTotalInches % 12}"` : "";
 
   const eventResult = await calculateDNAScore({
-    token: secureToken, sprint: Number(metrics.sprint) || 0, shuttle: Number(metrics.shuttle) || 0,
-    lDrill: Number(metrics.lDrill) || 0, mph: Number(metrics.mph) || 0,
-    catchingPct: Number(metrics.catchingPct) || 0, throwingPct: Number(metrics.throwingPct) || 0, flagPullingPct: Number(metrics.flagPullingPct) || 0
+    token: secureToken, 
+    sprint: Number(metrics.sprint) || 0, 
+    shuttle: Number(metrics.shuttle) || 0,
+    lDrill: Number(metrics.lDrill) || 0, 
+    mph: Number(metrics.mph) || 0,
+    catchingPct: Number(metrics.catchingPct) || 0, 
+    throwingPct: Number(metrics.throwingPct) || 0, 
+    flagPullingPct: Number(metrics.flagPullingPct) || 0,
+    broadInches: currentBroadInches,
+    vertical: Number(metrics.verticalInches) || 0
   });
   
   const overallResult = await calculateDNAScore({
-    token: secureToken, sprint: bestSprint, shuttle: bestShuttle, lDrill: bestLDrill, mph: bestMph,
-    catchingPct: bestCatching, throwingPct: bestThrowing, flagPullingPct: bestFlag
+    token: secureToken, 
+    sprint: bestSprint, 
+    shuttle: bestShuttle, 
+    lDrill: bestLDrill, 
+    mph: bestMph,
+    catchingPct: bestCatching, 
+    throwingPct: bestThrowing, 
+    flagPullingPct: bestFlag,
+    broadInches: bestBroadTotalInches,
+    vertical: bestVertical
   });
 
   const secureDNAScore = overallResult.data.dnaScore;
