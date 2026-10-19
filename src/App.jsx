@@ -209,7 +209,7 @@ return (
       </div>
       <span className="text-xs font-bold text-slate-800 uppercase tracking-tight truncate">{label}</span>
     </div>
-    <div className="w-[35%] text-center">
+    <div className="w-[40%] text-center">
       <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm`}>
         {playerStat ?? "N/A"}
       </span>
