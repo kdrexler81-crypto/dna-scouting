@@ -684,13 +684,13 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
   const today = new Date().toISOString().split('T')[0];
 
   const defaultMetrics = {
-    name: '', pos: 'QB', gradYear: 2029, city: 'Randolph', state: 'NJ', 
-    heightFeet: 5, heightInches: 2, weight: 105,
-    sprint: 6.5, shuttle: 5.4, broadFeet: 6, broadInches: 0, verticalInches: 9.2,
-    catchingPct: 70, throwingScore: 6.5, flagPullingPct: 60, hudlLink: '',
-    passingYards: 0, flagPulls: 0, interceptions: 0,
-    combineLocation: '', combineDate: today
-  };
+name: '', pos: '', gradYear: '', city: '', state: '', 
+heightFeet: '', heightInches: '', weight: '',
+sprint: '', shuttle: '', broadFeet: '', broadInches: '', verticalInches: '',
+catchingPct: '', throwingScore: '', flagPullingPct: '', hudlLink: '',
+passingYards: '', flagPulls: '', interceptions: '',
+combineLocation: '', combineDate: today
+};
   const [metrics, setMetrics] = useState(defaultMetrics);
 
   const [savingNews, setSavingNews] = useState(false);
@@ -698,12 +698,42 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
   const [newsCategory, setNewsCategory] = useState("DNA Official");
 
   const handleSelectExisting = (playerId) => {
-    setSelectedExistingId(playerId);
-    if (!playerId) {
-      setMetrics(defaultMetrics);
-      setPhotoPreview(null);
-      return;
-    }
+setSelectedExistingId(playerId);
+if (!playerId) {
+  setMetrics(defaultMetrics);
+  setPhotoPreview(null);
+  return;
+}
+const p = players.find(player => player.id === playerId);
+if (p) {
+  const hFeet = p.height && p.height.includes("'") ? p.height.split("'")[0] : '';
+  const hInches = p.height && p.height.includes("'") ? p.height.split("'")[1].replace('"', '') : '';
+  
+  const bFeet = p.metrics?.broad && p.metrics.broad.includes("'") ? p.metrics.broad.split("'")[0] : '';
+  const bInches = p.metrics?.broad && p.metrics.broad.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '';
+  
+  setMetrics({
+    name: p.name || '', pos: p.pos || '', gradYear: p.gradYear || '', city: p.city || '', state: p.state || '',
+    heightFeet: hFeet, heightInches: hInches, weight: p.weight || '',
+    hudlLink: p.hudlLink || '',
+    passingYards: p.seasonStats?.passingYards || '',
+    flagPulls: p.seasonStats?.flagPulls || '',
+    interceptions: p.seasonStats?.interceptions || '',
+    combineLocation: p.combineEvent?.location || '', 
+    combineDate: p.combineEvent?.date || today,
+    
+    // Restore their actual physical metrics instead of overwriting!
+    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '',
+    shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '',
+    verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '',
+    broadFeet: bFeet, broadInches: bInches,
+    catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '',
+    throwingScore: p.metrics?.throwing || '',
+    flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
+  });
+  setPhotoPreview(p.avatar || null);
+}
+};
     const p = players.find(player => player.id === playerId);
     if (p) {
       const hFeet = p.height ? parseInt(p.height.split("'")[0]) : 5;
