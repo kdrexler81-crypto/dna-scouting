@@ -811,7 +811,7 @@ if (p) {
     }
   };
 
-  const submitCombineData = async (e) => {
+ const submitCombineData = async (e) => {
 e.preventDefault();
 setSavingAthlete(true);
 
@@ -860,7 +860,7 @@ try {
 
   const bestVertical = getBestScore('vertical', metrics.verticalInches);
 
-  // --- 2. CALCULATE EVENT & OVERALL SCORES ---
+  // --- 2. CALCULATE EVENT SCORE ---
   const eventResult = await calculateDNAScore({
     token: secureToken,
     sprint: Number(metrics.sprint) || 0,
@@ -870,6 +870,7 @@ try {
     flagPullingPct: Number(metrics.flagPullingPct) || 0
   });
   
+  // --- 3. CALCULATE OVERALL SUPER SCORE ---
   const overallResult = await calculateDNAScore({
     token: secureToken,
     sprint: bestSprint,
@@ -879,20 +880,10 @@ try {
     flagPullingPct: bestFlag
   });
 
-  const overallResult = await calculateDNAScore({
-  token: secureToken,
-  sprint: bestSprint,
-  shuttle: bestShuttle,
-  catchingPct: bestCatching,
-  throwingScore: bestThrowing,
-  flagPullingPct: bestFlag
-});
-
-const secureDNAScore = overallResult.data.dnaScore; // <-- ADD THIS LINE HERE
-
+  const secureDNAScore = overallResult.data.dnaScore;
   const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  // --- 3. SAVE SPECIFIC EVENT TO HISTORY ---
+  // --- 4. SAVE SPECIFIC EVENT TO HISTORY ---
   const newCombineRecord = {
     location: metrics.combineLocation || "DNA Regional Combine",
     date: metrics.combineDate,
@@ -911,12 +902,12 @@ const secureDNAScore = overallResult.data.dnaScore; // <-- ADD THIS LINE HERE
     }
   };
 
-  // --- 4. UPDATE LEADERBOARD PROFILE WITH SUPER SCORE ---
+  // --- 5. UPDATE LEADERBOARD PROFILE WITH SUPER SCORE ---
   const playerData = {
     name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear),
     city: metrics.city, state: metrics.state,
     height: newCombineRecord.height, weight: newCombineRecord.weight,
-    dnaScore: overallResult.data.dnaScore, 
+    dnaScore: secureDNAScore, 
     hudlLink: metrics.hudlLink,
     combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
     seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
