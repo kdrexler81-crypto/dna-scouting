@@ -879,6 +879,17 @@ try {
     flagPullingPct: bestFlag
   });
 
+  const overallResult = await calculateDNAScore({
+  token: secureToken,
+  sprint: bestSprint,
+  shuttle: bestShuttle,
+  catchingPct: bestCatching,
+  throwingScore: bestThrowing,
+  flagPullingPct: bestFlag
+});
+
+const secureDNAScore = overallResult.data.dnaScore; // <-- ADD THIS LINE HERE
+
   const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   // --- 3. SAVE SPECIFIC EVENT TO HISTORY ---
