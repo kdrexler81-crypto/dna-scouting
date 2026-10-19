@@ -814,29 +814,34 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
   };
 
   const submitCombineData = async (e) => {
-    e.preventDefault();
-    setSavingAthlete(true);
-    
-    try {
-      const auth = getAuth(app);
-      if (!auth.currentUser) {
-        alert("Firebase Error: No secure session found. Please refresh and log in again.");
-        setSavingAthlete(false);
-        return;
-      }
+  e.preventDefault();
+  setSavingAthlete(true);
+  
+  try {
+    const auth = getAuth(app);
+    if (!auth.currentUser) {
+      alert("Firebase Error: No secure session found. Please refresh and log in again.");
+      setSavingAthlete(false);
+      return;
+    }
 
-      const functions = getFunctions(app);
-      const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
-      
-      const result = await calculateDNAScore({
-        sprint: Number(metrics.sprint) || 0,
-        shuttle: Number(metrics.shuttle) || 0,
-        catchingPct: Number(metrics.catchingPct) || 0,
-        throwingScore: Number(metrics.throwingScore) || 0,
-        flagPullingPct: Number(metrics.flagPullingPct) || 0
-      });
-      
-      const secureDNAScore = result.data.dnaScore;
+    // 1. Force fetch a fresh, explicit ID token
+    const secureToken = await auth.currentUser.getIdToken(true);
+
+    const functions = getFunctions(app);
+    const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
+    
+    // 2. Pass the token directly inside the payload
+    const result = await calculateDNAScore({
+      token: secureToken,
+      sprint: Number(metrics.sprint) || 0,
+      shuttle: Number(metrics.shuttle) || 0,
+      catchingPct: Number(metrics.catchingPct) || 0,
+      throwingScore: Number(metrics.throwingScore) || 0,
+      flagPullingPct: Number(metrics.flagPullingPct) || 0
+    });
+    
+    const secureDNAScore = result.data.dnaScore;
       const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       const newCombineRecord = {
