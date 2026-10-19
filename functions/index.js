@@ -6,12 +6,9 @@ if (!admin.apps.length) {
 }
 
 exports.calculateDNAScore = functions.https.onCall(async (rawPayload, context) => {
-  // 1. Aggressively unwrap the payload to prevent SDK version mismatches
   const data = (rawPayload && rawPayload.data) ? rawPayload.data : (rawPayload || {});
 
-  // 2. Intercept and mathematically verify the token
   if (!data.token) {
-    // Echo back exactly what the backend received so we can diagnose the drop
     throw new functions.https.HttpsError("unauthenticated", `Token missing. Received payload: ${JSON.stringify(data)}`);
   }
 
@@ -22,21 +19,21 @@ exports.calculateDNAScore = functions.https.onCall(async (rawPayload, context) =
     throw new functions.https.HttpsError("unauthenticated", "Token verification failed.");
   }
 
-  // 3. VIP Bouncer Check
   const adminEmail = "admin@dnaflagfootball.com"; // <-- CHANGE THIS TO YOUR EXACT EMAIL
   
   if (decodedToken.email !== adminEmail) {
     throw new functions.https.HttpsError("permission-denied", `Unauthorized coach email: ${decodedToken.email}`);
   }
 
- // 4. Proprietary DNA Score Formula
+  // Math logic
   const sprintScore = (data.sprint > 0) ? Math.max(0, 10 - (data.sprint - 4.5) * 2) : 0;
   const shuttleScore = (data.shuttle > 0) ? Math.max(0, 10 - (data.shuttle - 4.0) * 2) : 0;
   const speedRating = (sprintScore + shuttleScore) / 2;
 
+  // Changed throwing to a percentage / 10 to match catching and flag pulling
   const skillRating = (
     ((data.catchingPct || 0) / 10) + 
-    (data.throwingScore || 0) + 
+    ((data.throwingPct || 0) / 10) + 
     ((data.flagPullingPct || 0) / 10)
   ) / 3;
 
