@@ -341,9 +341,9 @@ return (
           <div>
             <MetricRow icon={Ruler} label="Height" playerStat={player?.height} avgStat={NAT_AVG.height} />
             <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : null} avgStat={NAT_AVG.weight} />
-            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint} avgStat={NAT_AVG.sprint} />
-            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle} avgStat={NAT_AVG.shuttle} />
-            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill} avgStat={NAT_AVG.lDrill} />
+            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint ? `${parseFloat(metrics.sprint).toFixed(2)}s` : null} avgStat={NAT_AVG.sprint} />
+            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle ? `${parseFloat(metrics.shuttle).toFixed(2)}s` : null} avgStat={NAT_AVG.shuttle} />
+            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill ? `${parseFloat(metrics.lDrill).toFixed(2)}s` : null} avgStat={NAT_AVG.lDrill} />
             <MetricRow icon={Zap} label="Max Speed (MPH)" playerStat={metrics.mph} avgStat={NAT_AVG.mph} />
           </div>
           <div>
@@ -392,7 +392,7 @@ return (
                      </div>
                      <div className="text-right">
                        <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
-                       <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint || ""} 40-yd</span>
+                       <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint ? `${parseFloat(hist.metrics.sprint).toFixed(2)}s` : ""} 40-yd</span>
                        <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.vertical || ""} Vert</span>
                      </div>
                   </div>
@@ -761,12 +761,12 @@ const submitCombineData = async (e) => {
       location: metrics.combineLocation || "DNA Regional Combine", date: metrics.combineDate, timestamp: uploadTime,
       dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0,
       metrics: {
-        sprint: metrics.sprint ? `${metrics.sprint}s` : "", shuttle: metrics.shuttle ? `${metrics.shuttle}s` : "",
-        lDrill: metrics.lDrill ? `${metrics.lDrill}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "",
-        broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", 
-        vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
-        catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
-      }
+    sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "",
+    lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "",
+    broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", 
+    vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
+    catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
+  }
     };
 
     const playerData = {
@@ -775,11 +775,11 @@ const submitCombineData = async (e) => {
       combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
       seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
       metrics: {
-        sprint: bestSprint ? `${bestSprint}s` : "", shuttle: bestShuttle ? `${bestShuttle}s` : "",
-        lDrill: bestLDrill ? `${bestLDrill}s` : "", mph: bestMph ? `${bestMph} mph` : "",
-        broad: bestBroadStr, vertical: bestVertical ? `${bestVertical}"` : "",
-        catching: bestCatching ? `${bestCatching}%` : "", throwing: bestThrowing ? `${bestThrowing}%` : "", flag: bestFlag ? `${bestFlag}%` : ""
-      },
+    sprint: bestSprint ? `${bestSprint.toFixed(2)}s` : "", shuttle: bestShuttle ? `${bestShuttle.toFixed(2)}s` : "",
+    lDrill: bestLDrill ? `${bestLDrill.toFixed(2)}s` : "", mph: bestMph ? `${bestMph} mph` : "",
+    broad: bestBroadStr, vertical: bestVertical ? `${bestVertical}"` : "",
+    catching: bestCatching ? `${bestCatching}%` : "", throwing: bestThrowing ? `${bestThrowing}%` : "", flag: bestFlag ? `${bestFlag}%` : ""
+  },
       updatedAt: Date.now()
     };
 
