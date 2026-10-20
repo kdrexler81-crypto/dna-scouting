@@ -14,7 +14,7 @@ exports.calculateDNAScore = functions.https.onCall(async (rawPayload, context) =
   try { decodedToken = await admin.auth().verifyIdToken(data.token); } 
   catch (error) { throw new functions.https.HttpsError("unauthenticated", "Token failed."); }
 
-  const adminEmail = "YOUR_ACTUAL_EMAIL@EXAMPLE.COM"; // <-- CHANGE THIS
+  const adminEmail = "admin@dnaflagfootball.com"; // <-- CHANGE THIS
   if (decodedToken.email !== adminEmail) throw new functions.https.HttpsError("permission-denied", "Unauthorized.");
 
   // --- 1. SPEED RATING ---
