@@ -216,20 +216,28 @@ return <div className="absolute top-4 left-4 bg-slate-800 text-white text-[10px]
 
 return (
 <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
+  <style type="text/css" media="print">
+    {`
+      @page { size: letter portrait; margin: 0.4in; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    `}
+  </style>
   <div className="flex justify-between items-center mb-6 print:hidden">
     <button onClick={onBack} className="font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
     <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Generate Prospect Sheet</button>
   </div>
   
-  <div className="flex flex-col lg:flex-row gap-8 print:flex-col print:gap-4">
+  {/* UPDATE: Forced side-by-side layout for print using print:flex-row */}
+  <div className="flex flex-col lg:flex-row gap-8 print:flex-row print:gap-6 print:items-start">
     
-    {/* LEFT COLUMN */}
-    <div className="w-full lg:w-1/3 flex flex-col gap-6 print:w-full print:block">
+    {/* LEFT COLUMN - Locked to 35% width on print */}
+    <div className="w-full lg:w-1/3 flex flex-col gap-6 print:w-[35%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="bg-slate-900 p-4 pb-0 relative print:bg-slate-100">
            {renderBadge()}
            <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
-           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200 print:h-48" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
+           {/* UPDATE: object-top keeps the head from getting cropped, h-56 scales it properly */}
+           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200 print:h-56 print:object-top" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
         
         <div className="bg-slate-900 text-center pb-6 pt-4 print:bg-white print:text-slate-900">
@@ -270,8 +278,8 @@ return (
       )}
     </div>
 
-    {/* RIGHT COLUMN */}
-    <div className="w-full lg:w-2/3 flex flex-col gap-6 print:w-full print:block">
+    {/* RIGHT COLUMN - Locked to 65% width on print */}
+    <div className="w-full lg:w-2/3 flex flex-col gap-6 print:w-[65%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="flex justify-between items-end border-b border-slate-100 pb-4 mb-4">
           <div>
