@@ -920,3 +920,58 @@ return (
 </div>
 );
 }
+// --- 4. MASTER APP CONTROLLER ---
+export default function App() {
+const [view, setView] = useState('home'); 
+const [selectedPlayer, setSelectedPlayer] = useState(null);
+const [players, setPlayers] = useState(INITIAL_SEED.players);
+const [news, setNews] = useState(INITIAL_SEED.news);
+const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
+const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => sessionStorage.getItem('dna_admin_authenticated') === 'true');
+
+useEffect(() => {
+if (!isFirebaseActive || !db) return;
+setDbStatus("CONNECTING...");
+onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
+  const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); 
+});
+onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
+  const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
+  setNews(newsItems); setDbStatus("LIVE SYNC");
+});
+}, []);
+
+const handleAdminClick = () => { if (isAdminLoggedIn) { setView('admin'); window.scrollTo(0, 0); } else { setIsLoginModalOpen(true); } };
+const handleLoginSuccess = () => { setIsAdminLoggedIn(true); sessionStorage.setItem('dna_admin_authenticated', 'true'); setIsLoginModalOpen(false); setView('admin'); window.scrollTo(0, 0); };
+const handleLogout = async () => { if (auth) await signOut(auth); setIsAdminLoggedIn(false); sessionStorage.removeItem('dna_admin_authenticated'); setView('home'); window.scrollTo(0, 0); };
+
+const handlePlayerSelect = async (p) => {
+setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
+if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), { views: increment(1) }); } catch (err) { } }
+};
+
+return (
+<div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
+  <div>
+    <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm print:hidden">
+      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+        <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
+        <div className="flex gap-4 items-center">
+           <button onClick={() => { setView('about'); window.scrollTo(0,0); }} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><Info size={12}/> About</button>
+           <button onClick={handleAdminClick} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" style={{ color: isAdminLoggedIn ? '#059669' : '#d6336c', border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' }}><Lock size={12}/> {isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}</button>
+        </div>
+      </div>
+    </div>
+    <main className="min-h-[calc(100vh-260px)]">
+      {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
+      {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
+      {view === 'about' && <AboutPage onBack={() => setView('home')} />}
+      {view === 'admin' && isAdminLoggedIn && <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
+    </main>
+  </div>
+  <SanctionedFooter />
+  <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
+</div>
+);
+}
