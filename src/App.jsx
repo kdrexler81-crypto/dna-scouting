@@ -256,7 +256,7 @@ return (
          <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-slate-500 border-b border-slate-100 pb-2">Recruiting Contact</h3>
          <div className="space-y-3">
            {player?.twitter && (
-             <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><a size={16} className="text-[#1c7ed6]"/> {player.twitter}</a>
+             <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><AtSign size={16} className="text-[#1c7ed6]"/> {player.twitter}</a>
            )}
            <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><Mail size={16} className="text-[#d6336c]"/> Contact Parent/Guardian</a>
          </div>
@@ -336,6 +336,9 @@ const [yearFilter, setYearFilter] = useState('All');
 const [externalNews, setExternalNews] = useState([]);
 const [loadingNews, setLoadingNews] = useState(true);
 
+// NEW: State to track which column we are sorting by
+const [sortConfig, setSortConfig] = useState({ key: 'dnaScore', direction: 'desc' });
+
 useEffect(() => {
 const fetchLiveNews = async () => {
   try {
@@ -358,6 +361,23 @@ const fetchLiveNews = async () => {
 fetchLiveNews();
 }, []);
 
+const requestSort = (key) => {
+if (sortConfig.key === key) {
+  setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' });
+} else {
+  // For stopwatches and names, default to ascending (lowest time / A-Z)
+  const ascDefault = ['sprint', 'shuttle', 'lDrill', 'name'];
+  setSortConfig({ key, direction: ascDefault.includes(key) ? 'asc' : 'desc' });
+}
+};
+
+const parseBroad = (str) => {
+if (!str) return 0;
+const ftMatch = str.match(/(\d+)'/);
+const inMatch = str.match(/(\d+)"/);
+return (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0);
+};
+
 const uniquePositions = useMemo(() => {
 const posSet = new Set();
 players.forEach(p => { 
@@ -374,20 +394,61 @@ return ['All', ...Array.from(yearSet)].sort((a, b) => b - a);
 }, [players]);
 
 const filteredAndSortedPlayers = useMemo(() => {
-return players
-  .filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPos = posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter));
-    const matchesYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
-    return matchesSearch && matchesPos && matchesYear;
-  })
-  .sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore));
-}, [players, searchTerm, posFilter, yearFilter]);
+const filtered = players.filter(p => {
+  const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+  const matchesPos = posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter));
+  const matchesYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
+  return matchesSearch && matchesPos && matchesYear;
+});
+
+return filtered.sort((a, b) => {
+  let aVal, bVal;
+  
+  if (sortConfig.key === 'name') {
+     return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+  }
+
+  if (sortConfig.key === 'dnaScore') {
+    aVal = Number(a.dnaScore) || 0; 
+    bVal = Number(b.dnaScore) || 0;
+  } else if (['sprint', 'shuttle', 'lDrill'].includes(sortConfig.key)) {
+    // If sorting fastest-to-slowest (asc), make blanks 999 so they drop to the bottom.
+    const missingVal = sortConfig.direction === 'asc' ? 999 : -1;
+    aVal = a.metrics?.[sortConfig.key] ? parseFloat(a.metrics[sortConfig.key]) : missingVal;
+    bVal = b.metrics?.[sortConfig.key] ? parseFloat(b.metrics[sortConfig.key]) : missingVal;
+  } else if (['mph', 'catchingPct', 'throwingPct', 'flagPullingPct', 'vertical'].includes(sortConfig.key)) {
+    const mappedKey = sortConfig.key.replace('Pct', ''); 
+    const realKey = mappedKey === 'catching' || mappedKey === 'throwing' || mappedKey === 'flag' ? mappedKey : sortConfig.key;
+    aVal = parseFloat(a.metrics?.[realKey]) || 0;
+    bVal = parseFloat(b.metrics?.[realKey]) || 0;
+  } else if (sortConfig.key === 'broad') {
+    aVal = parseBroad(a.metrics?.broad);
+    bVal = parseBroad(b.metrics?.broad);
+  }
+
+  if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+  if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+  return 0;
+});
+}, [players, searchTerm, posFilter, yearFilter, sortConfig]);
 
 const sortedNews = useMemo(() => {
 const combined = [...localNews, ...externalNews];
 return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
 }, [localNews, externalNews]);
+
+// NEW: Helper component to render the clickable table headers with arrows
+const SortableHeader = ({ label, sortKey, align = 'center' }) => (
+<th className={`p-3 md:p-4 cursor-pointer hover:bg-slate-100 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
+  <div className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
+    {label}
+    <div className="flex flex-col -space-y-1">
+      <ChevronLeft size={10} className={`rotate-90 ${sortConfig.key === sortKey && sortConfig.direction === 'asc' ? 'text-[#1c7ed6] opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`} />
+      <ChevronLeft size={10} className={`-rotate-90 ${sortConfig.key === sortKey && sortConfig.direction === 'desc' ? 'text-[#1c7ed6] opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`} />
+    </div>
+  </div>
+</th>
+);
 
 return (
 <div className="max-w-7xl mx-auto px-4 py-8">
@@ -402,13 +463,14 @@ return (
     </a>
   </div>
 
-  <div className="grid md:grid-cols-3 gap-8">
-    <div className="md:col-span-1 order-2 md:order-1 space-y-6">
+  <div className="grid lg:grid-cols-4 gap-8">
+    {/* News Feed - Moved to 1/4 width on desktop to give the table more room */}
+    <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News Feed</h2>
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News</h2>
         <div className="space-y-4">
           {loadingNews && localNews.length === 0 ? (
-             <div className="flex items-center gap-2 text-slate-500 text-sm italic font-bold"><Loader2 size={14} className="animate-spin text-[#d6336c]" /> Fetching latest headlines...</div>
+             <div className="flex items-center gap-2 text-slate-500 text-sm italic font-bold"><Loader2 size={14} className="animate-spin text-[#d6336c]" /> Fetching latest...</div>
           ) : sortedNews.length === 0 ? (
              <p className="text-slate-500 text-sm italic">No recent updates.</p>
           ) : (
@@ -418,8 +480,7 @@ return (
                return (
                  <Wrapper key={item.id} href={item.link || undefined} target={isExternal ? "_blank" : undefined} rel={isExternal ? "noopener noreferrer" : undefined} className={`block pl-3 transition-transform ${isExternal ? 'hover:-translate-y-0.5 cursor-pointer group' : ''}`} style={{ borderLeft: `2px solid ${item.category === 'Global News' ? '#1c7ed6' : '#d6336c'}` }}>
                    <div className="flex items-center gap-1.5">
-                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: item.category === 'Global News' ? '#1c7ed6' : '#d6336c' }}>{item.category} • {item.date}</span>
-                     {isExternal && <ExternalLink size={10} className="text-slate-400 group-hover:text-[#1c7ed6] transition-colors" />}
+                     <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: item.category === 'Global News' ? '#1c7ed6' : '#d6336c' }}>{item.category}</span>
                    </div>
                    <p className={`text-sm font-bold text-slate-800 mt-1 transition-colors ${isExternal ? 'group-hover:text-[#1c7ed6]' : ''}`}>{item.title}</p>
                  </Wrapper>
@@ -430,12 +491,13 @@ return (
       </div>
     </div>
 
-    <div className="md:col-span-2 order-1 md:order-2">
+    {/* Master Data Table - Takes 3/4 width on desktop */}
+    <div className="lg:col-span-3 order-1 lg:order-2">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #d6336c' }}>
         <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2 uppercase"><Trophy style={{ color: '#d6336c' }} /> National Leaderboard</h2>
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Player Evaluation Hub</p>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Combine Results Tracker</p>
           </div>
           <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{filteredAndSortedPlayers.length} Athletes Found</div>
         </div>
@@ -459,27 +521,51 @@ return (
            </div>
         </div>
 
-        <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
-          {filteredAndSortedPlayers.length === 0 ? (
-             <div className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-sm">No athletes match your filters.</div>
-          ) : (
-             filteredAndSortedPlayers.map((p, i) => (
-               <div key={p.id} onClick={() => onSelect(p)} className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer group transition-colors">
-                 <div className="flex items-center gap-4">
-                   <div className="w-8 text-center text-slate-400 font-bold text-xl">#{i + 1}</div>
-                   <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-12 h-12 rounded-full border-2 border-slate-200 bg-slate-100 object-cover transition-colors group-hover:border-[#d6336c]" />
-                   <div>
-                     <p className="font-bold text-slate-900 text-lg uppercase flex items-center gap-2 transition-colors">{p.name} {p.hudlLink && <Video size={14} style={{ color: '#1c7ed6' }} />}</p>
-                     <p className="text-slate-500 text-xs font-bold tracking-widest uppercase">{p.primaryPos || p.pos} • {p.city}, {p.state}</p>
-                   </div>
-                 </div>
-                 <div className="text-center bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm transition-colors group-hover:border-slate-300">
-                   <span className="block text-[10px] text-slate-500 uppercase font-bold">DNA Score</span>
-                   <p className="font-black text-2xl" style={{ color: '#d6336c' }}>{p.dnaScore}</p>
-                 </div>
-               </div>
-             ))
-          )}
+        {/* NEW: Horizontal Scrolling Combine Table */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                <SortableHeader label="Athlete" sortKey="name" align="left" />
+                <SortableHeader label="DNA Score" sortKey="dnaScore" />
+                <SortableHeader label="40-Yd" sortKey="sprint" />
+                <SortableHeader label="5-10-5" sortKey="shuttle" />
+                <SortableHeader label="L-Drill" sortKey="lDrill" />
+                <SortableHeader label="MPH" sortKey="mph" />
+                <SortableHeader label="Broad" sortKey="broad" />
+                <SortableHeader label="Vert" sortKey="vertical" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAndSortedPlayers.length === 0 ? (
+                 <tr><td colSpan="8" className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-sm">No athletes match your filters.</td></tr>
+              ) : (
+                 filteredAndSortedPlayers.map((p, i) => (
+                   <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50 cursor-pointer transition-colors group border-b border-slate-100">
+                     <td className="p-3 md:p-4">
+                       <div className="flex items-center gap-4">
+                         <div className="w-6 text-center text-slate-400 font-bold text-sm">#{i + 1}</div>
+                         <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-10 h-10 rounded-full border border-slate-200 bg-slate-100 object-cover transition-colors group-hover:border-[#d6336c]" />
+                         <div>
+                           <p className="font-bold text-slate-900 text-sm uppercase flex items-center gap-1 transition-colors">{p.name} {p.hudlLink && <Video size={12} style={{ color: '#1c7ed6' }} />}</p>
+                           <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{p.primaryPos || p.pos} • {p.gradYear}</p>
+                         </div>
+                       </div>
+                     </td>
+                     <td className="p-3 md:p-4 text-center">
+                       <span className="font-black text-lg bg-white px-3 py-1 rounded shadow-sm border border-slate-200 group-hover:border-slate-300" style={{ color: '#d6336c' }}>{p.dnaScore}</span>
+                     </td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.sprint || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.shuttle || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.lDrill || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.mph || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.broad || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.vertical || '-'}</td>
+                   </tr>
+                 ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -831,62 +917,6 @@ return (
        </div>
     )}
   </div>
-</div>
-);
-};
-
-// --- 4. MASTER APP CONTROLLER ---
-export default function App() {
-const [view, setView] = useState('home'); 
-const [selectedPlayer, setSelectedPlayer] = useState(null);
-const [players, setPlayers] = useState(INITIAL_SEED.players);
-const [news, setNews] = useState(INITIAL_SEED.news);
-const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
-const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => sessionStorage.getItem('dna_admin_authenticated') === 'true');
-
-useEffect(() => {
-if (!isFirebaseActive || !db) return;
-setDbStatus("CONNECTING...");
-onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
-  const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); 
-});
-onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
-  const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
-  setNews(newsItems); setDbStatus("LIVE SYNC");
-});
-}, []);
-
-const handleAdminClick = () => { if (isAdminLoggedIn) { setView('admin'); window.scrollTo(0, 0); } else { setIsLoginModalOpen(true); } };
-const handleLoginSuccess = () => { setIsAdminLoggedIn(true); sessionStorage.setItem('dna_admin_authenticated', 'true'); setIsLoginModalOpen(false); setView('admin'); window.scrollTo(0, 0); };
-const handleLogout = async () => { if (auth) await signOut(auth); setIsAdminLoggedIn(false); sessionStorage.removeItem('dna_admin_authenticated'); setView('home'); window.scrollTo(0, 0); };
-
-const handlePlayerSelect = async (p) => {
-setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
-if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), { views: increment(1) }); } catch (err) { } }
-};
-
-return (
-<div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
-  <div>
-    <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm print:hidden">
-      <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-        <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
-        <div className="flex gap-4 items-center">
-           <button onClick={() => { setView('about'); window.scrollTo(0,0); }} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><Info size={12}/> About</button>
-           <button onClick={handleAdminClick} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" style={{ color: isAdminLoggedIn ? '#059669' : '#d6336c', border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' }}><Lock size={12}/> {isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}</button>
-        </div>
-      </div>
-    </div>
-    <main className="min-h-[calc(100vh-260px)]">
-      {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
-      {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
-      {view === 'about' && <AboutPage onBack={() => setView('home')} />}
-      {view === 'admin' && isAdminLoggedIn && <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
-    </main>
-  </div>
-  <SanctionedFooter />
-  <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
 </div>
 );
 }
