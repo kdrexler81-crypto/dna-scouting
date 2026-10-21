@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
 ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
-Activity, Database, Check, Loader2, Video, ExternalLink, Shield, Calendar, MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info
+Activity, Check, Loader2, Video, ExternalLink, Shield, Calendar, 
+MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info, 
+GraduationCap, Mail, Twitter, FileText, Award
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // --- FIREBASE INITIALIZATION ---
@@ -32,45 +34,33 @@ isFirebaseActive = true;
 console.error("Firebase offline", e);
 }
 
-// --- INITIAL SEED DATA ---
 const INITIAL_SEED = { players: [], news: [] };
 
 // --- BRAND COMPONENTS ---
 const DNALogo = () => (
 <div className="flex items-center gap-3">
 <img src="/DNA Logo.png" alt="DNA Football Logo" className="h-10 w-auto" onError={(e) => e.target.style.display='none'} />
-<span className="font-bold text-xl tracking-wide uppercase text-slate-900 hidden sm:block">DNA Football</span>
+<span className="font-bold text-xl tracking-wide uppercase text-slate-900 hidden sm:block print:block">DNA Football</span>
 </div>
 );
 
-// --- FOOTER COMPONENT ---
 const SanctionedFooter = () => (
-<footer className="bg-white border-t border-slate-200 py-12 mt-20 text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<footer className="bg-white border-t border-slate-200 py-12 mt-20 text-center shadow-sm print:hidden">
 <div className="max-w-7xl mx-auto px-4 flex flex-col items-center justify-center space-y-6">
   <div className="flex flex-col items-center space-y-2">
     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
     <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-center gap-6">
-      <img src="/usa-football-logo.jpg" alt="USA Football Sanctioned" className="h-10 w-auto object-contain transition-all duration-300" onError={(e) => { e.target.style.display = 'none'; }} />
+      <img src="/usa-football-logo.jpg" alt="USA Football Sanctioned" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
       <div className="h-8 w-px bg-slate-300"></div>
       <span className="text-xs font-display font-bold text-slate-800 uppercase tracking-wider">USA Football & NFL FLAG Partner</span>
     </div>
-  </div>
-  <div className="flex justify-center gap-8 pt-2">
-    <a href="https://instagram.com/dna_girlsflagfootball" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-[#d6336c] transition flex items-center gap-2">
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fillRule="evenodd" d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" clipRule="evenodd"/></svg>
-      <span className="text-xs font-semibold tracking-wide">@dna_girlsflagfootball</span>
-    </a>
-    <a href="https://x.com/DNA_girlsflag" target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-[#1c7ed6] transition flex items-center gap-2">
-      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-      <span className="text-xs font-semibold tracking-wide">@DNA_girlsflag</span>
-    </a>
   </div>
   <p className="text-slate-400 text-[10px] uppercase tracking-widest pt-4">&copy; {new Date().getFullYear()} DNA Football. All rights reserved.</p>
 </div>
 </footer>
 );
 
-// --- ADMIN LOGIN MODAL ---
+// --- MODALS & PAGES ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
 const [username, setUsername] = useState('');
 const [password, setPassword] = useState('');
@@ -121,135 +111,92 @@ return (
 );
 };
 
-// --- ABOUT PAGE ---
-const AboutPage = ({ onBack }) => {
-return (
+const AboutPage = ({ onBack }) => (
 <div className="max-w-4xl mx-auto px-4 py-8 animate-in slide-in-from-bottom-8">
-  <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6] hover:opacity-80 transition-opacity"><ChevronLeft size={16} /> Back to Hub</button>
-  <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8" style={{ borderTop: '4px solid #1c7ed6' }}>
-    <div className="p-8 md:p-12">
-      <div className="flex items-center gap-4 mb-6">
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm" style={{ color: '#d6336c' }}><Shield size={32} /></div>
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">About DNA Athletics</h1>
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elevating the Game</p>
-        </div>
+<button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6] hover:opacity-80 transition-opacity"><ChevronLeft size={16} /> Back to Hub</button>
+<div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8" style={{ borderTop: '4px solid #1c7ed6' }}>
+  <div className="p-8 md:p-12">
+    <div className="flex items-center gap-4 mb-6">
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm" style={{ color: '#d6336c' }}><Shield size={32} /></div>
+      <div>
+        <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">About DNA Athletics</h1>
+        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elevating the Game</p>
       </div>
-      <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
-        <p className="text-lg leading-relaxed"><strong>DNA Athletics</strong> is a premier girls' flag football organization, officially sanctioned by both <strong>USA Football</strong> and <strong>NFL FLAG</strong>. We are dedicated to providing a high-level, competitive platform for female athletes to develop, showcase their skills, and gain exposure at the regional and national levels.</p>
-        <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight mt-8 mb-4 border-b border-slate-100 pb-2">Why It Matters</h2>
-        <p className="leading-relaxed">Girls' flag football is one of the fastest-growing sports in the country, rapidly expanding across high school and collegiate levels. As the talent pool deepens and scouting becomes more competitive, athletes need a standardized, objective way to be evaluated. DNA Athletics bridges the gap between raw potential and verified performance, providing athletes with the concrete metrics that scouts and programs demand.</p>
-        <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Activity size={20} style={{ color: '#d6336c' }} /> The DNA Score</h2>
-        <p className="leading-relaxed">The <strong>DNA Score</strong> is our proprietary scouting metric, designed to give a comprehensive snapshot of an athlete's physical explosiveness and on-field positional skills.</p>
-        <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mt-4 shadow-sm">
-          <ul className="space-y-3 mb-0">
-            <li className="flex items-start gap-2"><Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" /><span><strong>Physical Measurables:</strong> We independently verify speed, agility, and explosiveness through standardized combine events, including the 40-yard dash, 5-10-5 shuttle, broad jump, and vertical leap.</span></li>
-            <li className="flex items-start gap-2"><Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" /><span><strong>Positional Skills:</strong> Athletes are tested on game-specific mechanics, such as throwing accuracy, catching consistency, and flag-pulling efficiency under pressure.</span></li>
-            <li className="flex items-start gap-2"><Target size={18} className="text-[#1c7ed6] mt-0.5 shrink-0" /><span><strong>The Formula:</strong> These weighted metrics are processed through our proprietary algorithm to generate a single composite DNA Score (scaled 1.0 to 10.0). This creates a completely objective, national benchmark, allowing athletes to see exactly where they stand and what they need to improve.</span></li>
-          </ul>
-        </div>
-        <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mt-6 text-center">Verify your physicals. Earn your score. Secure your ranking.</p>
-      </div>
+    </div>
+    <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
+      <p className="text-lg leading-relaxed"><strong>DNA Athletics</strong> is a premier girls' flag football organization, officially sanctioned by both <strong>USA Football</strong> and <strong>NFL FLAG</strong>.</p>
+      <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Activity size={20} style={{ color: '#d6336c' }} /> The DNA Score</h2>
+      <p className="leading-relaxed">The <strong>DNA Score</strong> is our proprietary scouting metric, designed to give a comprehensive snapshot of an athlete's physical explosiveness and on-field positional skills.</p>
     </div>
   </div>
 </div>
+</div>
 );
-};
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
 const NAT_AVG = { height: "5'3\"", weight: "110 lbs", sprint: "6.9s", shuttle: "5.8s", lDrill: "8.2s", mph: "14.5", broad: "5'6\"", vertical: "7.6\"", catching: "62%", throwing: "59%", flag: "52%" };
 
-if (!player) {
-return (
-  <div className="max-w-4xl mx-auto p-8 text-center">
-    <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6]"><ChevronLeft size={16} /> Back to Hub</button>
-    <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Error: Athlete profile data could not be loaded.</p>
-  </div>
+if (!player) return (
+<div className="max-w-4xl mx-auto p-8 text-center print:hidden">
+  <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6]"><ChevronLeft size={16} /> Back to Hub</button>
+  <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Error: Athlete profile data could not be loaded.</p>
+</div>
 );
-}
 
 const getEmbedUrl = (url) => {
 if (!url) return null;
 if (url.includes('youtube.com') || url.includes('youtu.be')) {
   let videoId = '';
-  if (url.includes('youtu.be')) {
-    videoId = url.split('/').pop().split('?')[0];
-  } else {
-    try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; }
-  }
+  if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0];
+  else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; }
   return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
 }
 return null;
 };
 
-const embedUrl = getEmbedUrl(player?.hudlLink);
-
-// Smart color-coding based on what type of drill it is
 const getMetricStyle = (val, label) => {
 try {
-  if (!val || val === "N/A" || label === 'Height' || label === 'Weight') {
-    return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-  }
-  
+  if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
   const green = { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
   const yellow = { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
   const red = { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
 
-  // BROAD JUMP PARSER (e.g. "6'0\"")
   if (label.includes('Broad')) {
-    const strVal = String(val);
-    const ftMatch = strVal.match(/(\d+)'/);
-    const inMatch = strVal.match(/(\d+)"/);
+    const strVal = String(val); const ftMatch = strVal.match(/(\d+)'/); const inMatch = strVal.match(/(\d+)"/);
     const totalInches = (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0);
     if (totalInches === 0) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-    return totalInches >= 72 ? green : totalInches >= 66 ? yellow : red; // Green >= 6'0", Yellow >= 5'6"
+    return totalInches >= 72 ? green : totalInches >= 66 ? yellow : red; 
   }
-
   const num = parseFloat(String(val).replace(/[^0-9.]/g, ''));
   if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
 
-  // TIMED DRILLS (LOWER IS BETTER)
   if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red;
   if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red;
   if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red;
-
-  // SPEED & DISTANCE (HIGHER IS BETTER)
   if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red;
   if (label.includes('Vertical')) return num >= 17.0 ? green : num >= 14.0 ? yellow : red;
-
-  // PERCENTAGES (HIGHER IS BETTER)
-  if (String(val).includes('%')) {
-    return num >= 75 ? green : num >= 50 ? yellow : red;
-  }
-
+  if (String(val).includes('%')) return num >= 75 ? green : num >= 50 ? yellow : red;
   return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-} catch (e) {
-  return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-}
+} catch (e) { return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' }; }
 };
 
 const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
-// Pass the label into the function so it knows which logic to use
 const statStyle = getMetricStyle(playerStat, label); 
 return (
-  <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2">
+  <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2 print:py-2">
     <div className="flex items-center gap-3 flex-1 min-w-0">
-      <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0">
+      <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0 print:hidden">
         {Icon && <Icon size={18} className="text-slate-700" />}
       </div>
-      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">
-        {label}
-      </span>
+      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">{label}</span>
     </div>
-    
     <div className="w-24 shrink-0 text-center">
-      <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}>
+      <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap print:border-2`}>
         {playerStat ?? "N/A"}
       </span>
     </div>
-    
-    <div className="w-16 shrink-0 text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+    <div className="w-16 shrink-0 text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase print:hidden">
       {avgStat ?? "N/A"} <ChevronLeft size={10} className="rotate-180" />
     </div>
   </div>
@@ -259,80 +206,81 @@ return (
 const metrics = player?.metrics || {};
 const seasonStats = player?.seasonStats || {};
 const combineEvent = player?.combineEvent || null;
-const combineHistory = Array.isArray(player?.combineHistory) ? player.combineHistory : [];
+const embedUrl = getEmbedUrl(player?.hudlLink);
+
+const renderBadge = () => {
+if (!player?.verificationLevel) return null;
+if (player.verificationLevel === 'Hardware Verified (Laser)') return <div className="absolute top-4 left-4 bg-amber-400 text-amber-900 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1 border border-amber-200"><Award size={12}/> Laser Verified</div>;
+return <div className="absolute top-4 left-4 bg-slate-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1 border border-slate-600"><Shield size={12}/> DNA Verified</div>;
+};
 
 return (
-<div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8">
-  <button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+<div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
+  <div className="flex justify-between items-center mb-6 print:hidden">
+    <button onClick={onBack} className="font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+    <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Generate Prospect Sheet</button>
+  </div>
   
-  <div className="flex flex-col lg:flex-row gap-8">
+  <div className="flex flex-col lg:flex-row gap-8 print:flex-col print:gap-4">
     
-    {/* LEFT COLUMN: HERO & IDENTIFICATION */}
-    <div className="w-full lg:w-1/3 flex flex-col gap-6">
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200">
-        <div className="bg-slate-900 p-4 pb-0 relative">
-           <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified</div>
-           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
+    {/* LEFT COLUMN */}
+    <div className="w-full lg:w-1/3 flex flex-col gap-6 print:w-full print:block">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 print:shadow-none print:border-2 print:break-inside-avoid">
+        <div className="bg-slate-900 p-4 pb-0 relative print:bg-slate-100">
+           {renderBadge()}
+           <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
+           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200 print:h-48" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
         
-        <div className="bg-slate-900 text-center pb-6">
-          <h1 className="text-3xl font-bold text-white uppercase">{player?.name || "Unknown Athlete"}</h1>
-          <p className="font-semibold text-xs uppercase tracking-widest" style={{ color: '#1c7ed6' }}>{player?.pos || "ATH"} • Class of {player?.gradYear || "2026"} • {player?.city || ""}, {player?.state || ""}</p>
+        <div className="bg-slate-900 text-center pb-6 pt-4 print:bg-white print:text-slate-900">
+          <h1 className="text-3xl font-black text-white uppercase print:text-black">{player?.name || "Unknown Athlete"}</h1>
+          <p className="font-black text-sm uppercase tracking-widest mt-1" style={{ color: '#1c7ed6' }}>
+            {player?.primaryPos || "ATH"}{player?.secondaryPos ? ` / ${player.secondaryPos}` : ''} • Class of {player?.gradYear || "2026"}
+          </p>
+          <p className="font-semibold text-xs text-slate-400 uppercase tracking-widest mt-1 print:text-slate-500">{player?.city || ""}, {player?.state || ""}</p>
         </div>
 
-        <div className="flex bg-slate-50 border-b border-slate-200">
-          <div className="w-1/3 p-4 text-center border-r border-slate-200">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Grade</span>
-            <span className="text-3xl font-black" style={{ color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
+        <div className="flex bg-slate-50 border-b border-slate-200 print:bg-white">
+          <div className="w-1/2 p-4 text-center border-r border-slate-200">
+            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Composite DNA Score</span>
+            <span className="text-4xl font-black" style={{ color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
           </div>
-          <div className="w-1/3 p-4 text-center border-r border-slate-200 flex flex-col justify-center items-center">
-            <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Average</span>
-            <span className="bg-slate-200 text-slate-700 font-bold text-lg px-3 py-0.5 rounded shadow-inner">7.0</span>
-          </div>
-          <div className="w-1/3 p-4 text-center flex flex-col justify-center items-center bg-white">
-            <span className="block text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-1 mb-1" style={{ color: '#1c7ed6' }}><Eye size={10}/> Views</span>
-            <span className="text-2xl font-bold text-slate-800 flex items-center gap-1">
-              {player?.views || 0} <TrendingUp size={16} className="text-emerald-500"/>
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6">
-          <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center justify-center gap-2" style={{ color: '#d6336c' }}>
-            <Shield size={16} /> Verified Regular Season Stats
-          </h3>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span>
-              <span className="text-xl font-black" style={{ color: '#1c7ed6' }}>{seasonStats.passingYards ?? 0}</span>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span>
-              <span className="text-xl font-black" style={{ color: '#d6336c' }}>{seasonStats.flagPulls ?? 0}</span>
-            </div>
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
-              <span className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Intercept</span>
-              <span className="text-xl font-black text-slate-800">{seasonStats.interceptions ?? 0}</span>
-            </div>
+          <div className="w-1/2 p-4 flex flex-col justify-center gap-2 bg-white">
+            <div className="flex items-center gap-2"><GraduationCap size={16} className="text-[#1c7ed6]"/> <span className="text-xs font-bold uppercase text-slate-500">GPA:</span> <span className="font-black text-slate-900">{player?.gpa || 'N/A'}</span></div>
+            <div className="flex items-center gap-2"><FileText size={16} className="text-[#1c7ed6]"/> <span className="text-xs font-bold uppercase text-slate-500">SAT:</span> <span className="font-black text-slate-900">{player?.sat || 'N/A'}</span></div>
           </div>
         </div>
       </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm print:break-inside-avoid">
+         <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-slate-500 border-b border-slate-100 pb-2">Recruiting Contact</h3>
+         <div className="space-y-3">
+           {player?.twitter && (
+             <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><Twitter size={16} className="text-[#1c7ed6]"/> {player.twitter}</a>
+           )}
+           <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><Mail size={16} className="text-[#d6336c]"/> Contact Parent/Guardian</a>
+         </div>
+      </div>
+
+      {player?.scoutNotes && (
+        <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-lg print:bg-white print:border-2 print:border-slate-200 print:break-inside-avoid">
+           <h3 className="text-xs font-black uppercase tracking-widest mb-2 text-white flex items-center gap-2 print:text-black"><Eye size={14} style={{ color: '#d6336c' }}/> Scout Evaluation Notes</h3>
+           <p className="text-sm text-slate-300 leading-relaxed font-medium italic print:text-slate-700">"{player.scoutNotes}"</p>
+        </div>
+      )}
     </div>
 
-    {/* RIGHT COLUMN: METRICS & TAPE */}
-    <div className="w-full lg:w-2/3 flex flex-col gap-6">
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 border-b border-slate-100 pb-4 mb-4">
+    {/* RIGHT COLUMN */}
+    <div className="w-full lg:w-2/3 flex flex-col gap-6 print:w-full print:block">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:break-inside-avoid">
+        <div className="flex justify-between items-end border-b border-slate-100 pb-4 mb-4">
           <div>
             <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Verified Athletic Metrics</h3>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Combine Results & Scoring</p>
           </div>
           {combineEvent && (
-            <div className="bg-slate-50 py-2 px-4 rounded-lg border border-slate-200 flex items-center gap-2 shadow-sm text-right">
-              <Calendar size={14} className="text-slate-500" />
-              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">
-                {combineEvent.location}<br/>{combineEvent.date}
-              </span>
+            <div className="bg-slate-50 py-2 px-4 rounded-lg border border-slate-200 text-right print:bg-white print:border-none">
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">{combineEvent.location}<br/>{combineEvent.date}</span>
             </div>
           )}
         </div>
@@ -355,52 +303,25 @@ return (
           </div>
         </div>
       </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {player?.hudlLink && (
-          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
-            <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}>
-              <Video size={16} /> Verified Film & Tape
-            </h3>
-            <div className="relative w-full flex-grow rounded-xl overflow-hidden bg-slate-200 border border-slate-300 shadow-inner min-h-[200px]">
-              {embedUrl ? (
-                <iframe src={embedUrl} title="Highlight Reel" className="absolute inset-0 w-full h-full" allowFullScreen></iframe>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-                  <p className="text-xs text-slate-500 mb-3 font-bold">Hudl / External Tape Link Connected</p>
-                  <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="hover:scale-105 transition-transform text-white text-xs font-bold px-5 py-2.5 rounded-lg uppercase tracking-wider flex items-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-                    Watch Film On Hudl <ExternalLink size={14} />
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {combineHistory.length > 1 && (
-          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-full">
-             <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-               <History size={16} /> Progression History
-             </h3>
-             <div className="space-y-3 flex-grow overflow-y-auto max-h-[250px] pr-2">
-               {[...combineHistory].reverse().map((hist, idx) => (
-                  <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                     <div>
-                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{hist.date}</p>
-                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{hist.location}</p>
-                       <p className="text-sm font-bold text-slate-800 mt-2">Score: <span className="text-lg font-black" style={{ color: '#d6336c' }}>{hist.dnaScore}</span></p>
-                     </div>
-                     <div className="text-right">
-                       <span className="text-[10px] text-slate-600 font-bold block uppercase">{hist.height} | {hist.weight} lbs</span>
-                       <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.sprint ? `${parseFloat(hist.metrics.sprint).toFixed(2)}s` : ""} 40-yd</span>
-                       <span className="text-[10px] font-bold block uppercase mt-0.5" style={{ color: '#1c7ed6' }}>{hist.metrics?.vertical || ""} Vert</span>
-                     </div>
-                  </div>
-               ))}
-             </div>
-          </div>
-        )}
+      
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:shadow-none print:border-2 print:break-inside-avoid print:mt-4">
+         <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Shield size={16} /> Verified Regular Season Stats</h3>
+         <div className="grid grid-cols-3 gap-4 text-center">
+           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span><span className="text-2xl font-black text-[#1c7ed6]">{seasonStats.passingYards ?? 0}</span></div>
+           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span><span className="text-2xl font-black text-[#d6336c]">{seasonStats.flagPulls ?? 0}</span></div>
+           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Interceptions</span><span className="text-2xl font-black text-slate-800">{seasonStats.interceptions ?? 0}</span></div>
+         </div>
       </div>
+      
+      {player?.hudlLink && (
+        <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-[300px] print:hidden">
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Video size={16} /> Verified Film & Tape</h3>
+          <div className="relative w-full flex-grow rounded-xl overflow-hidden bg-slate-200 border border-slate-300">
+            {embedUrl ? <iframe src={embedUrl} title="Highlight Reel" className="absolute inset-0 w-full h-full" allowFullScreen></iframe> : 
+            <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="absolute inset-0 flex items-center justify-center bg-slate-900 text-white font-bold uppercase tracking-wider text-sm hover:bg-slate-800">Watch Film On Hudl <ExternalLink size={14} className="ml-2"/></a>}
+          </div>
+        </div>
+      )}
     </div>
   </div>
 </div>
@@ -432,18 +353,17 @@ const fetchLiveNews = async () => {
       });
       setExternalNews(formattedNews);
     }
-  } catch (error) {
-    console.error("Failed to fetch live news feed", error);
-  } finally {
-    setLoadingNews(false);
-  }
+  } catch (error) { console.error("Failed to fetch live news feed", error); } finally { setLoadingNews(false); }
 };
 fetchLiveNews();
 }, []);
 
 const uniquePositions = useMemo(() => {
 const posSet = new Set();
-players.forEach(p => { if (p.pos) { p.pos.split('/').forEach(pos => posSet.add(pos.trim())); } });
+players.forEach(p => { 
+  if (p.primaryPos) posSet.add(p.primaryPos);
+  else if (p.pos) { p.pos.split('/').forEach(pos => posSet.add(pos.trim())); } 
+});
 return ['All', ...Array.from(posSet)].sort();
 }, [players]);
 
@@ -457,7 +377,7 @@ const filteredAndSortedPlayers = useMemo(() => {
 return players
   .filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesPos = posFilter === 'All' || (p.pos && p.pos.includes(posFilter));
+    const matchesPos = posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter));
     const matchesYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
     return matchesSearch && matchesPos && matchesYear;
   })
@@ -550,7 +470,7 @@ return (
                    <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-12 h-12 rounded-full border-2 border-slate-200 bg-slate-100 object-cover transition-colors group-hover:border-[#d6336c]" />
                    <div>
                      <p className="font-bold text-slate-900 text-lg uppercase flex items-center gap-2 transition-colors">{p.name} {p.hudlLink && <Video size={14} style={{ color: '#1c7ed6' }} />}</p>
-                     <p className="text-slate-500 text-xs font-bold tracking-widest uppercase">{p.pos} • {p.city}, {p.state}</p>
+                     <p className="text-slate-500 text-xs font-bold tracking-widest uppercase">{p.primaryPos || p.pos} • {p.city}, {p.state}</p>
                    </div>
                  </div>
                  <div className="text-center bg-white px-4 py-2 rounded-lg border border-slate-200 shadow-sm transition-colors group-hover:border-slate-300">
@@ -568,11 +488,10 @@ return (
 );
 };
 
-// --- CUSTOM INPUT COMPONENTS FOR ADMIN PANEL ---
+// --- 3. ADMIN PANEL ---
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>;
 const FormInput = (props) => <input {...props} className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`} />;
 
-// --- 3. ADMIN PANEL ---
 const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
 const [activeTab, setActiveTab] = useState('athlete');
 const [savingAthlete, setSavingAthlete] = useState(false);
@@ -582,7 +501,8 @@ const [athleteSearchTerm, setAthleteSearchTerm] = useState("");
 const today = new Date().toISOString().split('T')[0];
 
 const defaultMetrics = {
-name: '', pos: '', gradYear: '', city: '', state: '', 
+name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', 
+gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', verificationLevel: 'DNA Combine Verified (Stopwatch)',
 heightFeet: '', heightInches: '', weight: '',
 sprint: '', shuttle: '', lDrill: '', mph: '', broadFeet: '', broadInches: '', verticalInches: '',
 catchingPct: '', throwingPct: '', flagPullingPct: '', hudlLink: '',
@@ -596,18 +516,21 @@ const [newsTitle, setNewsTitle] = useState("");
 const [newsCategory, setNewsCategory] = useState("DNA Official");
 
 const filteredAdminPlayers = useMemo(() => {
-if (!athleteSearchTerm) return players;
-const term = athleteSearchTerm.toLowerCase();
-return players.filter(p => p.id === selectedExistingId || p.name.toLowerCase().includes(term));
+let list = players;
+if (athleteSearchTerm) {
+  const term = athleteSearchTerm.toLowerCase();
+  list = players.filter(p => p.id === selectedExistingId || p.name.toLowerCase().includes(term));
+}
+return list.sort((a, b) => {
+  const aLast = a.name.split(' ').slice(-1)[0].toLowerCase();
+  const bLast = b.name.split(' ').slice(-1)[0].toLowerCase();
+  return aLast.localeCompare(bLast);
+});
 }, [players, athleteSearchTerm, selectedExistingId]);
 
 const handleSelectExisting = (playerId) => {
 setSelectedExistingId(playerId);
-if (!playerId) {
-  setMetrics(defaultMetrics);
-  setPhotoPreview(null);
-  return;
-}
+if (!playerId) { setMetrics(defaultMetrics); setPhotoPreview(null); return; }
 const p = players.find(player => player.id === playerId);
 if (p) {
   const hFeet = p.height && p.height.includes("'") ? p.height.split("'")[0] : '';
@@ -616,20 +539,17 @@ if (p) {
   const bInches = p.metrics?.broad && p.metrics.broad.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '';
   
   setMetrics({
-    name: p.name || '', pos: p.pos || '', gradYear: p.gradYear || '', city: p.city || '', state: p.state || '',
-    heightFeet: hFeet, heightInches: hInches, weight: p.weight || '',
-    hudlLink: p.hudlLink || '',
+    name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', 
+    gradYear: p.gradYear || '', city: p.city || '', state: p.state || '',
+    gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
+    scoutNotes: p.scoutNotes || '', verificationLevel: p.verificationLevel || 'DNA Combine Verified (Stopwatch)',
+    heightFeet: hFeet, heightInches: hInches, weight: p.weight || '', hudlLink: p.hudlLink || '',
     passingYards: p.seasonStats?.passingYards || '', flagPulls: p.seasonStats?.flagPulls || '', interceptions: p.seasonStats?.interceptions || '',
     combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
-    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '',
-    shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '',
-    lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '',
-    mph: p.metrics?.mph ? p.metrics.mph.replace(' mph', '') : '',
-    verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '',
-    broadFeet: bFeet, broadInches: bInches,
-    catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '',
-    throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '',
-    flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
+    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '',
+    lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', mph: p.metrics?.mph ? p.metrics.mph.replace(' mph', '') : '',
+    verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '', broadFeet: bFeet, broadInches: bInches,
+    catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '', throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '', flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
   });
   setPhotoPreview(p.avatar || null);
 }
@@ -675,132 +595,66 @@ if (updatedHistory.length > 0) {
 } else {
   updatedProfileData.dnaScore = "0.0"; updatedProfileData.metrics = {}; updatedProfileData.combineEvent = null;
 }
-try {
-  await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), updatedProfileData);
-} catch (err) { alert("Error deleting event: " + err.message); }
+try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), updatedProfileData); } 
+catch (err) { alert("Error deleting event: " + err.message); }
 };
 
 const submitCombineData = async (e) => {
-  e.preventDefault();
-  setSavingAthlete(true);
+e.preventDefault(); setSavingAthlete(true);
+try {
+  const auth = getAuth(app);
+  if (!auth.currentUser) { alert("Firebase Error: No secure session."); setSavingAthlete(false); return; }
 
-  try {
-    const auth = getAuth(app);
-    if (!auth.currentUser) { alert("Firebase Error: No secure session found."); setSavingAthlete(false); return; }
+  const secureToken = await auth.currentUser.getIdToken(true);
+  const functions = getFunctions(app);
+  const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
 
-    const secureToken = await auth.currentUser.getIdToken(true);
-    const functions = getFunctions(app);
-    const calculateDNAScore = httpsCallable(functions, 'calculateDNAScore');
+  const existingPlayer = selectedExistingId ? players.find(p => p.id === selectedExistingId) : null;
+  let historyPool = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+  if (historyPool.length > 0 && historyPool[historyPool.length - 1].date === metrics.combineDate) historyPool.pop();
 
-    const existingPlayer = selectedExistingId ? players.find(p => p.id === selectedExistingId) : null;
-    
-    // FIX: Strip out the "Ghost Typo" from today's history before running the Super Score math
-    let historyPool = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
-    if (historyPool.length > 0 && historyPool[historyPool.length - 1].date === metrics.combineDate) {
-       historyPool.pop();
+  const parseNum = (val) => Number(String(val).replace(/[^0-9.]/g, '')) || 0;
+  const getBestTime = (field, currentVal) => { const vals = [...historyPool.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0); return vals.length ? Math.min(...vals) : 0; };
+  const getBestScore = (field, currentVal) => { const vals = [...historyPool.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0); return vals.length ? Math.max(...vals) : 0; };
+
+  const bestSprint = getBestTime('sprint', metrics.sprint); const bestShuttle = getBestTime('shuttle', metrics.shuttle);
+  const bestLDrill = getBestTime('lDrill', metrics.lDrill); const bestMph = getBestScore('mph', metrics.mph);
+  const bestCatching = getBestScore('catching', metrics.catchingPct); const bestThrowing = getBestScore('throwing', metrics.throwingPct);
+  const bestFlag = getBestScore('flag', metrics.flagPullingPct); const bestVertical = getBestScore('vertical', metrics.verticalInches);
+
+  const parseBroad = (val) => { if (!val) return 0; const parts = String(val).split("'"); return parts.length === 2 ? (Number(parts[0]) * 12) + Number(parts[1].replace('"', '')) : 0; };
+  const currentBroadInches = (Number(metrics.broadFeet) || 0) * 12 + (Number(metrics.broadInches) || 0);
+  const bestBroadTotalInches = Math.max(...historyPool.map(e => parseBroad(e.metrics?.broad)), currentBroadInches);
+  const bestBroadStr = bestBroadTotalInches > 0 ? `${Math.floor(bestBroadTotalInches / 12)}'${bestBroadTotalInches % 12}"` : "";
+
+  const eventResult = await calculateDNAScore({ token: secureToken, sprint: Number(metrics.sprint) || 0, shuttle: Number(metrics.shuttle) || 0, lDrill: Number(metrics.lDrill) || 0, mph: Number(metrics.mph) || 0, catchingPct: Number(metrics.catchingPct) || 0, throwingPct: Number(metrics.throwingPct) || 0, flagPullingPct: Number(metrics.flagPullingPct) || 0, broadInches: currentBroadInches, vertical: Number(metrics.verticalInches) || 0 });
+  const overallResult = await calculateDNAScore({ token: secureToken, sprint: bestSprint, shuttle: bestShuttle, lDrill: bestLDrill, mph: bestMph, catchingPct: bestCatching, throwingPct: bestThrowing, flagPullingPct: bestFlag, broadInches: bestBroadTotalInches, vertical: bestVertical });
+  
+  const secureDNAScore = overallResult.data.dnaScore;
+  const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
+
+  const playerData = {
+    name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state,
+    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, verificationLevel: metrics.verificationLevel,
+    height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: secureDNAScore, hudlLink: metrics.hudlLink, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp }, seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
+    metrics: { sprint: bestSprint ? `${bestSprint.toFixed(2)}s` : "", shuttle: bestShuttle ? `${bestShuttle.toFixed(2)}s` : "", lDrill: bestLDrill ? `${bestLDrill.toFixed(2)}s` : "", mph: bestMph ? `${bestMph} mph` : "", broad: bestBroadStr, vertical: bestVertical ? `${bestVertical}"` : "", catching: bestCatching ? `${bestCatching}%` : "", throwing: bestThrowing ? `${bestThrowing}%` : "", flag: bestFlag ? `${bestFlag}%` : "" },
+    updatedAt: Date.now()
+  };
+
+  if (dbConfigured && db) {
+    if (selectedExistingId) {
+      let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+      if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) updatedHistory[updatedHistory.length - 1] = newCombineRecord;
+      else updatedHistory.push(newCombineRecord);
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { ...playerData, combineHistory: updatedHistory, avatar: photoPreview || existingPlayer?.avatar || "" });
+    } else {
+      playerData.avatar = photoPreview || ""; playerData.views = 0; playerData.createdAt = Date.now(); playerData.combineHistory = [newCombineRecord];
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
     }
-
-    const parseNum = (val) => Number(String(val).replace(/[^0-9.]/g, '')) || 0;
-    const getBestTime = (field, currentVal) => {
-      const vals = [...historyPool.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0);
-      return vals.length ? Math.min(...vals) : 0;
-    };
-    const getBestScore = (field, currentVal) => {
-      const vals = [...historyPool.map(e => parseNum(e.metrics?.[field])), parseNum(currentVal)].filter(v => v > 0);
-      return vals.length ? Math.max(...vals) : 0;
-    };
-
-    const bestSprint = getBestTime('sprint', metrics.sprint);
-    const bestShuttle = getBestTime('shuttle', metrics.shuttle);
-    const bestLDrill = getBestTime('lDrill', metrics.lDrill);
-    const bestMph = getBestScore('mph', metrics.mph);
-    const bestCatching = getBestScore('catching', metrics.catchingPct);
-    const bestThrowing = getBestScore('throwing', metrics.throwingPct);
-    const bestFlag = getBestScore('flag', metrics.flagPullingPct);
-    const bestVertical = getBestScore('vertical', metrics.verticalInches);
-
-    const parseBroad = (val) => {
-       if (!val) return 0;
-       const parts = String(val).split("'");
-       return parts.length === 2 ? (Number(parts[0]) * 12) + Number(parts[1].replace('"', '')) : 0;
-    };
-    const currentBroadInches = (Number(metrics.broadFeet) || 0) * 12 + (Number(metrics.broadInches) || 0);
-    const bestBroadTotalInches = Math.max(...historyPool.map(e => parseBroad(e.metrics?.broad)), currentBroadInches);
-    const bestBroadStr = bestBroadTotalInches > 0 ? `${Math.floor(bestBroadTotalInches / 12)}'${bestBroadTotalInches % 12}"` : "";
-
-    const eventResult = await calculateDNAScore({
-      token: secureToken, 
-      sprint: Number(metrics.sprint) || 0, 
-      shuttle: Number(metrics.shuttle) || 0,
-      lDrill: Number(metrics.lDrill) || 0, 
-      mph: Number(metrics.mph) || 0,
-      catchingPct: Number(metrics.catchingPct) || 0, 
-      throwingPct: Number(metrics.throwingPct) || 0, 
-      flagPullingPct: Number(metrics.flagPullingPct) || 0,
-      broadInches: currentBroadInches,
-      vertical: Number(metrics.verticalInches) || 0
-    });
-    
-    const overallResult = await calculateDNAScore({
-      token: secureToken, 
-      sprint: bestSprint, 
-      shuttle: bestShuttle, 
-      lDrill: bestLDrill, 
-      mph: bestMph,
-      catchingPct: bestCatching, 
-      throwingPct: bestThrowing, 
-      flagPullingPct: bestFlag,
-      broadInches: bestBroadTotalInches,
-      vertical: bestVertical
-    });
-
-    const secureDNAScore = overallResult.data.dnaScore;
-    const uploadTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const newCombineRecord = {
-      location: metrics.combineLocation || "DNA Regional Combine", date: metrics.combineDate, timestamp: uploadTime,
-      dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0,
-      metrics: {
-    sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "",
-    lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "",
-    broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", 
-    vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "",
-    catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : ""
   }
-    };
-
-    const playerData = {
-      name: metrics.name, pos: metrics.pos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state,
-      height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: secureDNAScore, hudlLink: metrics.hudlLink,
-      combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp },
-      seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
-      metrics: {
-    sprint: bestSprint ? `${bestSprint.toFixed(2)}s` : "", shuttle: bestShuttle ? `${bestShuttle.toFixed(2)}s` : "",
-    lDrill: bestLDrill ? `${bestLDrill.toFixed(2)}s` : "", mph: bestMph ? `${bestMph} mph` : "",
-    broad: bestBroadStr, vertical: bestVertical ? `${bestVertical}"` : "",
-    catching: bestCatching ? `${bestCatching}%` : "", throwing: bestThrowing ? `${bestThrowing}%` : "", flag: bestFlag ? `${bestFlag}%` : ""
-  },
-      updatedAt: Date.now()
-    };
-
-    if (dbConfigured && db) {
-      if (selectedExistingId) {
-        const existingPlayer = players.find(p => p.id === selectedExistingId);
-        let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
-        if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) {
-           updatedHistory[updatedHistory.length - 1] = newCombineRecord;
-        } else { updatedHistory.push(newCombineRecord); }
-
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { ...playerData, combineHistory: updatedHistory, avatar: photoPreview || existingPlayer?.avatar || "" });
-      } else {
-        playerData.avatar = photoPreview || ""; playerData.views = 0; playerData.createdAt = Date.now(); playerData.combineHistory = [newCombineRecord];
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
-      }
-    }
-    alert(`Athlete saved! Verified DNA Score: ${secureDNAScore}`);
-    setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
-  } catch (err) { alert("Error saving athlete: " + err.message); }
-  setSavingAthlete(false);
+  alert(`Athlete Profile Upgraded & Saved! Score: ${secureDNAScore}`); setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
+} catch (err) { alert("Error saving: " + err.message); }
+setSavingAthlete(false);
 };
 
 const deleteAthlete = async () => {
@@ -808,14 +662,12 @@ if (!selectedExistingId) return;
 if (!window.confirm(`Are you sure you want to completely remove ${metrics.name}? This cannot be undone.`)) return;
 try {
   if (dbConfigured && db) { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId)); }
-  alert("Athlete deleted successfully.");
-  setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
+  alert("Athlete deleted successfully."); setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
 } catch (err) { alert("Error deleting athlete: " + err.message); }
 };
 
 const submitNews = async (e) => {
-e.preventDefault();
-setSavingNews(true);
+e.preventDefault(); setSavingNews(true);
 const newArticle = { title: newsTitle, category: newsCategory, date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }), createdAt: Date.now() };
 try {
   if (dbConfigured && db) { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), newArticle); }
@@ -823,6 +675,8 @@ try {
 } catch (err) { alert("Error posting news: " + err.message); }
 setSavingNews(false);
 };
+
+const posOptions = ["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"];
 
 return (
 <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
@@ -860,98 +714,100 @@ return (
     {activeTab === 'athlete' && (
        <div className="animate-in fade-in slide-in-from-left-4">
           <div className="bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200 shadow-sm">
-            <label className="text-xs font-bold uppercase tracking-widest block mb-3" style={{ color: '#d6336c' }}>Select Existing Athlete (Or Create New)</label>
-            <div className="relative mb-3">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-              <input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6]" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} />
-            </div>
-            <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold cursor-pointer focus:outline-none focus:border-[#d6336c]" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}>
+            <label className="text-xs font-bold uppercase tracking-widest block mb-3 text-[#d6336c]">Select Existing Athlete (Or Create New)</label>
+            <div className="relative mb-3"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-900" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
+            <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold cursor-pointer" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}>
               <option value="">+ Create Brand New Athlete</option>
               {filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>Update Existing: {p.name} ({p.gradYear}) - {p.city}, {p.state}</option>)}
             </select>
           </div>
 
-          <div className="mb-6 pb-4 border-b border-slate-100">
-              <h2 className="text-xl font-bold text-slate-900 uppercase">Live iPad Combine Entry</h2>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Coach Portal</p>
-          </div>
-
           <form onSubmit={submitCombineData} className="space-y-6">
             <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0 group transition-colors hover:border-[#d6336c]">
-                {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /><span className="text-[10px] text-slate-500 font-bold block uppercase tracking-widest">Take Photo</span></div>}
-                <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
+                 {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /></div>}
+                 <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
               </div>
               <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
                  <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
-                 <div><InputLabel>Position</InputLabel><FormInput required value={metrics.pos} onChange={e => setMetrics({...metrics, pos: e.target.value})} /></div>
+                 <div>
+                    <InputLabel>Primary Position</InputLabel>
+                    <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>
+                       {posOptions.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                    </select>
+                 </div>
+                 <div>
+                    <InputLabel>Secondary Position (Optional)</InputLabel>
+                    <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}>
+                       <option value="">None</option>{posOptions.map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                    </select>
+                 </div>
                  <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
-                 <div><InputLabel>City</InputLabel><FormInput required value={metrics.city} onChange={e => setMetrics({...metrics, city: e.target.value})} /></div>
                  <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
               </div>
             </div>
 
+            {/* NEW RECRUITING FIELDS */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting Profile</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div><InputLabel>Unweighted GPA</InputLabel><FormInput type="number" step="0.1" placeholder="e.g. 3.8" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
+                <div><InputLabel>SAT / ACT Score</InputLabel><FormInput type="text" placeholder="e.g. 1250 / 26" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
+                <div><InputLabel>X (Twitter) Handle</InputLabel><FormInput type="text" placeholder="@" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
+                <div><InputLabel>Guardian Email (For College Outreach)</InputLabel><FormInput type="email" placeholder="parent@email.com" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
+              </div>
+              <div>
+                <InputLabel>Qualitative Scouting Notes</InputLabel>
+                <textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm focus:border-[#1c7ed6] min-h-[80px]" placeholder="e.g., Elite hip fluidity. High football IQ in zone coverage..." value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} />
+              </div>
+            </div>
+
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><MapPin size={14} /> 1. Combine Verification Details</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div><InputLabel>Combine Location / Camp</InputLabel><FormInput required type="text" placeholder="e.g. Tampa Regional" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Verification Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div><InputLabel>Combine Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div>
                 <div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Zap size={14} /> 2. Speed, Agility & Skills</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="md:col-span-1"><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /></div>
-                <div className="md:col-span-1"><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /></div>
-                <div className="md:col-span-1"><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /></div>
-                <div className="md:col-span-1"><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /></div>
-                
-                <div className="md:col-span-1"><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
-                <div className="md:col-span-1"><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
-                <div className="md:col-span-1"><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Ruler size={14} /> 3. Height & Explosiveness</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <InputLabel>Height</InputLabel>
-                  <div className="flex gap-2">
-                    <FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} />
-                    <FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} />
-                  </div>
+                   <InputLabel>Verification Level</InputLabel>
+                   <select className="w-full bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2.5 text-sm font-bold" value={metrics.verificationLevel} onChange={e => setMetrics({...metrics, verificationLevel: e.target.value})}>
+                      <option value="DNA Combine Verified (Stopwatch)">DNA Combine (Stopwatch)</option>
+                      <option value="Hardware Verified (Laser)">Hardware Verified (Laser)</option>
+                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed, Agility & Skills</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /></div>
+                <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /></div>
+                <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /></div>
+                <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /></div>
+                <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
+                <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
+                <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Height & Explosiveness</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><InputLabel>Height</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} /></div></div>
                 <div><InputLabel>Weight (lbs)</InputLabel><FormInput type="number" value={metrics.weight} onChange={e => setMetrics({...metrics, weight: e.target.value})} /></div>
-                <div>
-                  <InputLabel>Broad Jump</InputLabel>
-                  <div className="flex gap-2">
-                    <FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} />
-                    <FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} />
-                  </div>
-                </div>
+                <div><InputLabel>Broad Jump</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} /></div></div>
                 <div><InputLabel>Vertical (Inches)</InputLabel><FormInput type="number" step="0.1" value={metrics.verticalInches} onChange={e => setMetrics({...metrics, verticalInches: e.target.value})} /></div>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Video size={14} /> 4. Tape & Video Highlight Link</h3>
-              <FormInput type="url" placeholder="https://www.hudl.com/profile/... OR https://www.youtube.com/watch?v=..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
-            </div>
-
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#d6336c' }}><Shield size={14} /> 5. Regular Season On-Field Stats</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <div><InputLabel>Passing Yards</InputLabel><FormInput type="number" value={metrics.passingYards} onChange={e => setMetrics({...metrics, passingYards: e.target.value})} /></div>
-                <div><InputLabel>Flag Pulls</InputLabel><FormInput type="number" value={metrics.flagPulls} onChange={e => setMetrics({...metrics, flagPulls: e.target.value})} /></div>
-                <div><InputLabel>Interceptions</InputLabel><FormInput type="number" value={metrics.interceptions} onChange={e => setMetrics({...metrics, interceptions: e.target.value})} /></div>
-              </div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Video size={14} /> Tape Highlight Link</h3>
+              <FormInput type="url" placeholder="https://www.hudl.com/profile/..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
               <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider flex items-center justify-center gap-2 shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-                {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete to Cloud Database
+                {savingAthlete ? <Loader2 className="animate-spin" /> : <Check size={20} />} Save Athlete Profile
               </button>
               {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] transition-transform text-white font-bold py-4 rounded-xl uppercase tracking-wider shadow-md bg-rose-600 hover:bg-rose-700 flex items-center justify-center gap-2"><X size={20} /> Delete</button>}
             </div>
@@ -1013,7 +869,7 @@ if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { try { await up
 return (
 <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
   <div>
-    <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm print:hidden">
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
         <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
         <div className="flex gap-4 items-center">
