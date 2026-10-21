@@ -3,7 +3,7 @@ import {
 ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
 Activity, Check, Loader2, Video, ExternalLink, Shield, Calendar, 
 MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info, 
-GraduationCap, Mail, Twitter, FileText, Award
+GraduationCap, Mail, AtSign, FileText, Award
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -256,7 +256,7 @@ return (
          <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-slate-500 border-b border-slate-100 pb-2">Recruiting Contact</h3>
          <div className="space-y-3">
            {player?.twitter && (
-             <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><Twitter size={16} className="text-[#1c7ed6]"/> {player.twitter}</a>
+             <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><a size={16} className="text-[#1c7ed6]"/> {player.twitter}</a>
            )}
            <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><Mail size={16} className="text-[#d6336c]"/> Contact Parent/Guardian</a>
          </div>
