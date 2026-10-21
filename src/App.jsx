@@ -186,18 +186,18 @@ const statStyle = getMetricStyle(playerStat, label);
 const hasData = playerStat && playerStat !== "N/A" && playerStat !== "";
 
 return (
-  <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2 print:py-2">
+  <div className="flex items-center justify-between py-3 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2 print:py-1.5">
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0 print:hidden">
-        {Icon && <Icon size={18} className="text-slate-700" />}
+        {Icon && <Icon size={16} className="text-slate-700" />}
       </div>
-      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal flex items-center gap-1.5">
-        {label}
-        {/* Micro-Badges conditionally render only if data exists */}
-        {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="bg-amber-400 text-amber-900 text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:border print:border-amber-500"><Award size={10}/> LASER</span>}
-        {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="bg-slate-200 text-slate-600 text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:border print:border-slate-400"><Activity size={10}/> MANUAL</span>}
-        {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:text-black print:border print:border-slate-800 print:bg-white"><Shield size={10}/> DNA VERIFIED</span>}
-      </span>
+      {/* FIX: Changed from row to flex-col so the badge drops below the text and prevents overlap */}
+      <div className="flex flex-col justify-center gap-0.5">
+        <span className="text-[11px] font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">{label}</span>
+        {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-400 text-amber-900 text-[8px] px-1.5 py-0.5 rounded shadow-sm print:border print:border-amber-500 font-black tracking-widest flex items-center gap-1"><Award size={8}/> LASER</span>}
+        {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-200 text-slate-600 text-[8px] px-1.5 py-0.5 rounded shadow-sm print:border print:border-slate-400 font-black tracking-widest flex items-center gap-1"><Activity size={8}/> MANUAL</span>}
+        {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded shadow-sm print:text-black print:border print:border-slate-800 print:bg-white font-black tracking-widest flex items-center gap-1"><Shield size={8}/> DNA VERIFIED</span>}
+      </div>
     </div>
     <div className="w-24 shrink-0 text-center">
       <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap print:border-2`}>
@@ -216,8 +216,11 @@ const seasonStats = player?.seasonStats || {};
 const combineEvent = player?.combineEvent || null;
 const embedUrl = getEmbedUrl(player?.hudlLink);
 
-// Determine if the speed metrics get the Gold Laser or Silver Manual badge
-const speedVerification = player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch';
+// Backward compatibility fallback for older profiles
+const getVerify = (metricKey) => {
+if (player?.speedVerifications) return player.speedVerifications[metricKey] || 'stopwatch';
+return player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch';
+};
 
 return (
 <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
@@ -299,10 +302,10 @@ return (
           <div>
             <MetricRow icon={Ruler} label="Height" playerStat={player?.height} avgStat={NAT_AVG.height} verifyStatus="none" />
             <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : null} avgStat={NAT_AVG.weight} verifyStatus="none" />
-            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint ? `${parseFloat(metrics.sprint).toFixed(2)}s` : null} avgStat={NAT_AVG.sprint} verifyStatus={speedVerification} />
-            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle ? `${parseFloat(metrics.shuttle).toFixed(2)}s` : null} avgStat={NAT_AVG.shuttle} verifyStatus={speedVerification} />
-            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill ? `${parseFloat(metrics.lDrill).toFixed(2)}s` : null} avgStat={NAT_AVG.lDrill} verifyStatus={speedVerification} />
-            <MetricRow icon={Zap} label="Max Speed (MPH)" playerStat={metrics.mph} avgStat={NAT_AVG.mph} verifyStatus={speedVerification} />
+            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint ? `${parseFloat(metrics.sprint).toFixed(2)}s` : null} avgStat={NAT_AVG.sprint} verifyStatus={getVerify('sprint')} />
+            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle ? `${parseFloat(metrics.shuttle).toFixed(2)}s` : null} avgStat={NAT_AVG.shuttle} verifyStatus={getVerify('shuttle')} />
+            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill ? `${parseFloat(metrics.lDrill).toFixed(2)}s` : null} avgStat={NAT_AVG.lDrill} verifyStatus={getVerify('lDrill')} />
+            <MetricRow icon={Zap} label="Max Speed (MPH)" playerStat={metrics.mph} avgStat={NAT_AVG.mph} verifyStatus={getVerify('mph')} />
           </div>
           <div>
             <MetricRow icon={Target} label="Broad Jump" playerStat={metrics.broad} avgStat={NAT_AVG.broad} verifyStatus="standard" />
@@ -346,7 +349,6 @@ const [yearFilter, setYearFilter] = useState('All');
 const [externalNews, setExternalNews] = useState([]);
 const [loadingNews, setLoadingNews] = useState(true);
 
-// NEW: State to track which column we are sorting by
 const [sortConfig, setSortConfig] = useState({ key: 'dnaScore', direction: 'desc' });
 
 useEffect(() => {
@@ -375,7 +377,6 @@ const requestSort = (key) => {
 if (sortConfig.key === key) {
   setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' });
 } else {
-  // For stopwatches and names, default to ascending (lowest time / A-Z)
   const ascDefault = ['sprint', 'shuttle', 'lDrill', 'name'];
   setSortConfig({ key, direction: ascDefault.includes(key) ? 'asc' : 'desc' });
 }
@@ -413,16 +414,13 @@ const filtered = players.filter(p => {
 
 return filtered.sort((a, b) => {
   let aVal, bVal;
-  
   if (sortConfig.key === 'name') {
      return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
   }
-
   if (sortConfig.key === 'dnaScore') {
     aVal = Number(a.dnaScore) || 0; 
     bVal = Number(b.dnaScore) || 0;
   } else if (['sprint', 'shuttle', 'lDrill'].includes(sortConfig.key)) {
-    // If sorting fastest-to-slowest (asc), make blanks 999 so they drop to the bottom.
     const missingVal = sortConfig.direction === 'asc' ? 999 : -1;
     aVal = a.metrics?.[sortConfig.key] ? parseFloat(a.metrics[sortConfig.key]) : missingVal;
     bVal = b.metrics?.[sortConfig.key] ? parseFloat(b.metrics[sortConfig.key]) : missingVal;
@@ -435,7 +433,6 @@ return filtered.sort((a, b) => {
     aVal = parseBroad(a.metrics?.broad);
     bVal = parseBroad(b.metrics?.broad);
   }
-
   if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
   if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
   return 0;
@@ -447,7 +444,6 @@ const combined = [...localNews, ...externalNews];
 return combined.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 10);
 }, [localNews, externalNews]);
 
-// NEW: Helper component to render the clickable table headers with arrows
 const SortableHeader = ({ label, sortKey, align = 'center' }) => (
 <th className={`p-3 md:p-4 cursor-pointer hover:bg-slate-100 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
   <div className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
@@ -474,7 +470,6 @@ return (
   </div>
 
   <div className="grid lg:grid-cols-4 gap-8">
-    {/* News Feed - Moved to 1/4 width on desktop to give the table more room */}
     <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
         <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News</h2>
@@ -501,7 +496,6 @@ return (
       </div>
     </div>
 
-    {/* Master Data Table - Takes 3/4 width on desktop */}
     <div className="lg:col-span-3 order-1 lg:order-2">
       <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #d6336c' }}>
         <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -531,7 +525,6 @@ return (
            </div>
         </div>
 
-        {/* NEW: Horizontal Scrolling Combine Table */}
         <div className="overflow-x-auto w-full">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
@@ -598,9 +591,10 @@ const today = new Date().toISOString().split('T')[0];
 
 const defaultMetrics = {
 name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', 
-gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', verificationLevel: 'DNA Combine Verified (Stopwatch)',
+gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '',
 heightFeet: '', heightInches: '', weight: '',
-sprint: '', shuttle: '', lDrill: '', mph: '', broadFeet: '', broadInches: '', verticalInches: '',
+sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
+broadFeet: '', broadInches: '', verticalInches: '',
 catchingPct: '', throwingPct: '', flagPullingPct: '', hudlLink: '',
 passingYards: '', flagPulls: '', interceptions: '',
 combineLocation: '', combineDate: today
@@ -638,12 +632,14 @@ if (p) {
     name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', 
     gradYear: p.gradYear || '', city: p.city || '', state: p.state || '',
     gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
-    scoutNotes: p.scoutNotes || '', verificationLevel: p.verificationLevel || 'DNA Combine Verified (Stopwatch)',
+    scoutNotes: p.scoutNotes || '',
     heightFeet: hFeet, heightInches: hInches, weight: p.weight || '', hudlLink: p.hudlLink || '',
     passingYards: p.seasonStats?.passingYards || '', flagPulls: p.seasonStats?.flagPulls || '', interceptions: p.seasonStats?.interceptions || '',
     combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
-    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '',
-    lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', mph: p.metrics?.mph ? p.metrics.mph.replace(' mph', '') : '',
+    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', sprintVerify: p.speedVerifications?.sprint || 'laser',
+    shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '', shuttleVerify: p.speedVerifications?.shuttle || 'stopwatch',
+    lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', lDrillVerify: p.speedVerifications?.lDrill || 'stopwatch',
+    mph: p.metrics?.mph ? p.metrics.mph.replace(' mph', '') : '', mphVerify: p.speedVerifications?.mph || 'laser',
     verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '', broadFeet: bFeet, broadInches: bInches,
     catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '', throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '', flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
   });
@@ -687,9 +683,10 @@ if (updatedHistory.length > 0) {
   updatedProfileData.dnaScore = latestEvent.dnaScore;
   updatedProfileData.height = latestEvent.height; updatedProfileData.weight = latestEvent.weight;
   updatedProfileData.metrics = latestEvent.metrics;
+  updatedProfileData.speedVerifications = latestEvent.speedVerifications;
   updatedProfileData.combineEvent = { location: latestEvent.location, date: latestEvent.date, timestamp: latestEvent.timestamp };
 } else {
-  updatedProfileData.dnaScore = "0.0"; updatedProfileData.metrics = {}; updatedProfileData.combineEvent = null;
+  updatedProfileData.dnaScore = "0.0"; updatedProfileData.metrics = {}; updatedProfileData.speedVerifications = {}; updatedProfileData.combineEvent = null;
 }
 try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), updatedProfileData); } 
 catch (err) { alert("Error deleting event: " + err.message); }
@@ -727,12 +724,18 @@ try {
   const overallResult = await calculateDNAScore({ token: secureToken, sprint: bestSprint, shuttle: bestShuttle, lDrill: bestLDrill, mph: bestMph, catchingPct: bestCatching, throwingPct: bestThrowing, flagPullingPct: bestFlag, broadInches: bestBroadTotalInches, vertical: bestVertical });
   
   const secureDNAScore = overallResult.data.dnaScore;
-  const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
+  
+  const speedVerifs = {
+    sprint: metrics.sprintVerify, shuttle: metrics.shuttleVerify, lDrill: metrics.lDrillVerify, mph: metrics.mphVerify
+  };
+
+  const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, speedVerifications: speedVerifs, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
 
   const playerData = {
     name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state,
-    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, verificationLevel: metrics.verificationLevel,
+    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes,
     height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: secureDNAScore, hudlLink: metrics.hudlLink, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp }, seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
+    speedVerifications: speedVerifs,
     metrics: { sprint: bestSprint ? `${bestSprint.toFixed(2)}s` : "", shuttle: bestShuttle ? `${bestShuttle.toFixed(2)}s` : "", lDrill: bestLDrill ? `${bestLDrill.toFixed(2)}s` : "", mph: bestMph ? `${bestMph} mph` : "", broad: bestBroadStr, vertical: bestVertical ? `${bestVertical}"` : "", catching: bestCatching ? `${bestCatching}%` : "", throwing: bestThrowing ? `${bestThrowing}%` : "", flag: bestFlag ? `${bestFlag}%` : "" },
     updatedAt: Date.now()
   };
@@ -859,36 +862,54 @@ return (
             </div>
 
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Verification Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Event Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><InputLabel>Combine Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div>
                 <div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed & Agility (Granular Verification)</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                   <InputLabel>Verification Level</InputLabel>
-                   <select className="w-full bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2.5 text-sm font-bold" value={metrics.verificationLevel} onChange={e => setMetrics({...metrics, verificationLevel: e.target.value})}>
-                      <option value="DNA Combine Verified (Stopwatch)">DNA Combine (Stopwatch)</option>
-                      <option value="Hardware Verified (Laser)">Hardware Verified (Laser)</option>
+                   <InputLabel>40-Yd (Sec)</InputLabel>
+                   <FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} />
+                   <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 rounded p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}>
+                      <option value="laser">🎯 Laser-Timed</option><option value="stopwatch">⏱️ Hand-Timed</option>
+                   </select>
+                </div>
+                <div>
+                   <InputLabel>5-10-5 (Sec)</InputLabel>
+                   <FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} />
+                   <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 rounded p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}>
+                      <option value="stopwatch">⏱️ Hand-Timed</option><option value="laser">🎯 Laser-Timed</option>
+                   </select>
+                </div>
+                <div>
+                   <InputLabel>L Drill (Sec)</InputLabel>
+                   <FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} />
+                   <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 rounded p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}>
+                      <option value="stopwatch">⏱️ Hand-Timed</option><option value="laser">🎯 Laser-Timed</option>
+                   </select>
+                </div>
+                <div>
+                   <InputLabel>Max Speed (MPH)</InputLabel>
+                   <FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} />
+                   <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold text-slate-500 rounded p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}>
+                      <option value="laser">🎯 Laser-Timed</option><option value="stopwatch">⏱️ Hand-Timed</option>
                    </select>
                 </div>
               </div>
             </div>
 
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed, Agility & Skills</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Skills & Explosiveness</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /></div>
-                <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /></div>
-                <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /></div>
-                <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /></div>
                 <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
                 <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
                 <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Height & Explosiveness</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="hidden md:block"></div>
                 <div><InputLabel>Height</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} /></div></div>
                 <div><InputLabel>Weight (lbs)</InputLabel><FormInput type="number" value={metrics.weight} onChange={e => setMetrics({...metrics, weight: e.target.value})} /></div>
                 <div><InputLabel>Broad Jump</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} /></div></div>
@@ -929,7 +950,8 @@ return (
   </div>
 </div>
 );
-}
+};
+
 // --- 4. MASTER APP CONTROLLER ---
 export default function App() {
 const [view, setView] = useState('home'); 
