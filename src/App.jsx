@@ -181,19 +181,27 @@ try {
 } catch (e) { return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' }; }
 };
 
-const MetricRow = ({ icon: Icon, label, playerStat, avgStat }) => {
+const MetricRow = ({ icon: Icon, label, playerStat, avgStat, verifyStatus }) => {
 const statStyle = getMetricStyle(playerStat, label); 
+const hasData = playerStat && playerStat !== "N/A" && playerStat !== "";
+
 return (
   <div className="flex items-center justify-between py-4 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2 print:py-2">
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0 print:hidden">
         {Icon && <Icon size={18} className="text-slate-700" />}
       </div>
-      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">{label}</span>
+      <span className="text-[11px] sm:text-xs font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal flex items-center gap-1.5">
+        {label}
+        {/* Micro-Badges conditionally render only if data exists */}
+        {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="bg-amber-400 text-amber-900 text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:border print:border-amber-500"><Award size={10}/> LASER</span>}
+        {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="bg-slate-200 text-slate-600 text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:border print:border-slate-400"><Activity size={10}/> MANUAL</span>}
+        {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="bg-slate-800 text-white text-[9px] px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm print:text-black print:border print:border-slate-800 print:bg-white"><Shield size={10}/> DNA VERIFIED</span>}
+      </span>
     </div>
     <div className="w-24 shrink-0 text-center">
       <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap print:border-2`}>
-        {playerStat ?? "N/A"}
+        {playerStat || "N/A"}
       </span>
     </div>
     <div className="w-16 shrink-0 text-right flex justify-end items-center gap-1 text-[10px] font-bold text-slate-400 uppercase print:hidden">
@@ -208,11 +216,8 @@ const seasonStats = player?.seasonStats || {};
 const combineEvent = player?.combineEvent || null;
 const embedUrl = getEmbedUrl(player?.hudlLink);
 
-const renderBadge = () => {
-if (!player?.verificationLevel) return null;
-if (player.verificationLevel === 'Hardware Verified (Laser)') return <div className="absolute top-4 left-4 bg-amber-400 text-amber-900 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1 border border-amber-200"><Award size={12}/> Laser Verified</div>;
-return <div className="absolute top-4 left-4 bg-slate-800 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1 border border-slate-600"><Shield size={12}/> DNA Verified</div>;
-};
+// Determine if the speed metrics get the Gold Laser or Silver Manual badge
+const speedVerification = player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch';
 
 return (
 <div className="max-w-6xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
@@ -227,16 +232,13 @@ return (
     <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Generate Prospect Sheet</button>
   </div>
   
-  {/* UPDATE: Forced side-by-side layout for print using print:flex-row */}
   <div className="flex flex-col lg:flex-row gap-8 print:flex-row print:gap-6 print:items-start">
     
-    {/* LEFT COLUMN - Locked to 35% width on print */}
+    {/* LEFT COLUMN */}
     <div className="w-full lg:w-1/3 flex flex-col gap-6 print:w-[35%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="bg-slate-900 p-4 pb-0 relative print:bg-slate-100">
-           {renderBadge()}
            <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
-           {/* UPDATE: object-top keeps the head from getting cropped, h-56 scales it properly */}
            <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-64 object-cover mt-12 bg-slate-100 rounded-t-xl border-t border-x border-slate-200 print:h-56 print:object-top" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
         
@@ -278,7 +280,7 @@ return (
       )}
     </div>
 
-    {/* RIGHT COLUMN - Locked to 65% width on print */}
+    {/* RIGHT COLUMN */}
     <div className="w-full lg:w-2/3 flex flex-col gap-6 print:w-[65%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="flex justify-between items-end border-b border-slate-100 pb-4 mb-4">
@@ -295,19 +297,19 @@ return (
         
         <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
           <div>
-            <MetricRow icon={Ruler} label="Height" playerStat={player?.height} avgStat={NAT_AVG.height} />
-            <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : null} avgStat={NAT_AVG.weight} />
-            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint ? `${parseFloat(metrics.sprint).toFixed(2)}s` : null} avgStat={NAT_AVG.sprint} />
-            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle ? `${parseFloat(metrics.shuttle).toFixed(2)}s` : null} avgStat={NAT_AVG.shuttle} />
-            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill ? `${parseFloat(metrics.lDrill).toFixed(2)}s` : null} avgStat={NAT_AVG.lDrill} />
-            <MetricRow icon={Zap} label="Max Speed (MPH)" playerStat={metrics.mph} avgStat={NAT_AVG.mph} />
+            <MetricRow icon={Ruler} label="Height" playerStat={player?.height} avgStat={NAT_AVG.height} verifyStatus="none" />
+            <MetricRow icon={Activity} label="Weight" playerStat={player?.weight ? `${player.weight} lbs` : null} avgStat={NAT_AVG.weight} verifyStatus="none" />
+            <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={metrics.sprint ? `${parseFloat(metrics.sprint).toFixed(2)}s` : null} avgStat={NAT_AVG.sprint} verifyStatus={speedVerification} />
+            <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={metrics.shuttle ? `${parseFloat(metrics.shuttle).toFixed(2)}s` : null} avgStat={NAT_AVG.shuttle} verifyStatus={speedVerification} />
+            <MetricRow icon={Activity} label="L Drill" playerStat={metrics.lDrill ? `${parseFloat(metrics.lDrill).toFixed(2)}s` : null} avgStat={NAT_AVG.lDrill} verifyStatus={speedVerification} />
+            <MetricRow icon={Zap} label="Max Speed (MPH)" playerStat={metrics.mph} avgStat={NAT_AVG.mph} verifyStatus={speedVerification} />
           </div>
           <div>
-            <MetricRow icon={Target} label="Broad Jump" playerStat={metrics.broad} avgStat={NAT_AVG.broad} />
-            <MetricRow icon={Target} label="Vertical Jump" playerStat={metrics.vertical} avgStat={NAT_AVG.vertical} />
-            <MetricRow icon={Target} label="Catching Chal." playerStat={metrics.catching} avgStat={NAT_AVG.catching} />
-            <MetricRow icon={Target} label="Throwing Acc." playerStat={metrics.throwing} avgStat={NAT_AVG.throwing} />
-            <MetricRow icon={Target} label="Flag Pull Chal." playerStat={metrics.flag} avgStat={NAT_AVG.flag} />
+            <MetricRow icon={Target} label="Broad Jump" playerStat={metrics.broad} avgStat={NAT_AVG.broad} verifyStatus="standard" />
+            <MetricRow icon={Target} label="Vertical Jump" playerStat={metrics.vertical} avgStat={NAT_AVG.vertical} verifyStatus="standard" />
+            <MetricRow icon={Target} label="Catching Chal." playerStat={metrics.catching} avgStat={NAT_AVG.catching} verifyStatus="standard" />
+            <MetricRow icon={Target} label="Throwing Acc." playerStat={metrics.throwing} avgStat={NAT_AVG.throwing} verifyStatus="standard" />
+            <MetricRow icon={Target} label="Flag Pull Chal." playerStat={metrics.flag} avgStat={NAT_AVG.flag} verifyStatus="standard" />
           </div>
         </div>
       </div>
