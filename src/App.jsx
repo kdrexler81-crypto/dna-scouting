@@ -740,7 +740,7 @@ return (
 
 // --- PHASE 2: THE RECRUITER PORTAL ---
 const DraggableCard = ({ player, onClick }) => {
-const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id });
+const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `board-${player.id}` });
 const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 } : undefined;
 
 return (
@@ -756,6 +756,32 @@ return (
      <span className="text-xs font-black text-[#d6336c]">{player.dnaScore}</span>
    </div>
 </div>
+);
+};
+
+const DraggableTableRow = ({ player, onSelect }) => {
+const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `db-${player.id}` });
+// Table rows don't drag visually well without complex CSS, so we just use the handle to initiate the drag data
+const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: 0.8 } : undefined;
+
+return (
+<tr ref={setNodeRef} style={style} className="hover:bg-slate-50 border-b border-slate-100 transition-colors group relative">
+  <td className="p-3">
+     <div className="flex items-center gap-3">
+       <div {...listeners} {...attributes} className="p-1.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-[#1c7ed6] transition-colors touch-none"><GripVertical size={16} /></div>
+       <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-8 h-8 rounded-full border border-slate-200 object-cover cursor-pointer" onClick={() => onSelect(player)} />
+       <div onClick={() => onSelect(player)} className="cursor-pointer">
+         <p className="font-bold text-slate-900 text-sm hover:text-[#1c7ed6] transition-colors">{player.name}</p>
+         <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{player.city}, {player.state}</p>
+       </div>
+     </div>
+  </td>
+  <td className="p-3 text-center"><span className="font-black text-base text-[#d6336c] bg-white px-2 py-0.5 rounded border border-slate-200">{player.dnaScore}</span></td>
+  <td className="p-3 text-center text-xs font-bold text-slate-700">{player.primaryPos} / {player.gradYear}</td>
+  <td className="p-3 text-center text-xs font-bold text-slate-700">{player.metrics?.sprint || '-'}</td>
+  <td className="p-3 text-center text-xs font-bold text-slate-700">{player.gpa || '-'}</td>
+  <td className="p-3 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-slate-900 px-2 py-1 rounded hover:bg-[#1c7ed6] transition-colors uppercase"><Video size={12}/> Film</a> : '-'}</td>
+</tr>
 );
 };
 
@@ -822,7 +848,9 @@ link.click(); link.remove();
 const handleDragEnd = async (event) => {
 const { active, over } = event;
 if (!over) return;
-const playerId = active.id;
+
+// Strip the prefixes to extract the raw Firebase player ID
+const playerId = String(active.id).replace('db-', '').replace('board-', '');
 const destCol = over.id; 
 
 const newBoard = {
@@ -834,31 +862,6 @@ newBoard[destCol].push(playerId);
 setBoardData(newBoard);
 try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
 catch (err) { console.error("Error saving board", err); }
-};
-
-const renderDraggableDbRow = (p) => {
-const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: p.id });
-const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: 0.8 } : undefined;
-
-return (
-  <tr ref={setNodeRef} style={style} className="hover:bg-slate-50 border-b border-slate-100 transition-colors group relative">
-    <td className="p-3">
-       <div className="flex items-center gap-3">
-         <div {...listeners} {...attributes} className="p-1.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-[#1c7ed6] transition-colors touch-none"><GripVertical size={16} /></div>
-         <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-8 h-8 rounded-full border border-slate-200 object-cover cursor-pointer" onClick={() => onSelect(p)} />
-         <div onClick={() => onSelect(p)} className="cursor-pointer">
-           <p className="font-bold text-slate-900 text-sm hover:text-[#1c7ed6] transition-colors">{p.name}</p>
-           <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{p.city}, {p.state}</p>
-         </div>
-       </div>
-    </td>
-    <td className="p-3 text-center"><span className="font-black text-base text-[#d6336c] bg-white px-2 py-0.5 rounded border border-slate-200">{p.dnaScore}</span></td>
-    <td className="p-3 text-center text-xs font-bold text-slate-700">{p.primaryPos} / {p.gradYear}</td>
-    <td className="p-3 text-center text-xs font-bold text-slate-700">{p.metrics?.sprint || '-'}</td>
-    <td className="p-3 text-center text-xs font-bold text-slate-700">{p.gpa || '-'}</td>
-    <td className="p-3 text-center">{p.hudlLink ? <a href={p.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-slate-900 px-2 py-1 rounded hover:bg-[#1c7ed6] transition-colors uppercase"><Video size={12}/> Film</a> : '-'}</td>
-  </tr>
-);
 };
 
 return (
@@ -914,7 +917,13 @@ return (
             <div className="overflow-x-auto">
                <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[250px]">Athlete (Drag to Board)</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Tape</th></tr></thead>
-                  <tbody>{filteredPlayers.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr> : filteredPlayers.map(p => renderDraggableDbRow(p))}</tbody>
+                  <tbody>
+                    {filteredPlayers.length === 0 ? (
+                      <tr><td colSpan="6" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
+                    ) : (
+                      filteredPlayers.map(p => <DraggableTableRow key={p.id} player={p} onSelect={onSelect} />)
+                    )}
+                  </tbody>
                </table>
             </div>
          </div>
@@ -937,7 +946,6 @@ return (
 </DndContext>
 );
 };
-
 // --- PHASE 2: TEAM ROSTERS & QR BROCHURES ---
 const RosterPage = ({ players, onSelect, onBack }) => {
 const rosteredPlayers = players.filter(p => p.dnaTeam && p.dnaTeam !== 'None');
