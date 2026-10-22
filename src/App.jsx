@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
 ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
-Activity, Check, Loader2, Video, ExternalLink, Shield, Calendar, 
-MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info, 
-GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, Download, 
-LayoutDashboard, Star, GripVertical, Building
+Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
+X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
+Download, LayoutDashboard, Star, GripVertical, Building
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -193,12 +192,10 @@ const AboutPage = ({ onBack }) => (
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
-const NAT_AVG = { height: "5'3\"", weight: "110 lbs", sprint: "6.9s", shuttle: "5.8s", lDrill: "8.2s", mph: "14.5", broad: "5'6\"", vertical: "7.6\"", catching: "62%", throwing: "59%", flag: "52%" };
-
 if (!player) return null;
 
 const getEmbedUrl = (url) => {
-if (!url) return null;
+if (!url || typeof url !== 'string') return null;
 if (url.includes('youtube.com') || url.includes('youtu.be')) {
   let videoId = '';
   if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0];
@@ -224,7 +221,7 @@ try {
 } catch (e) { return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' }; }
 };
 
-const MetricRow = ({ icon: Icon, label, playerStat, avgStat, verifyStatus }) => {
+const MetricRow = ({ icon: Icon, label, playerStat, verifyStatus }) => {
 const statStyle = getMetricStyle(playerStat, label); 
 const hasData = playerStat && playerStat !== "N/A" && playerStat !== "";
 return (
@@ -294,7 +291,7 @@ return (
          </div>
       </div>
       
-      {player?.recentViews && player.recentViews.length > 0 && (
+      {player?.recentViews && Array.isArray(player.recentViews) && player.recentViews.length > 0 && (
         <div className="bg-white rounded-2xl border border-[#1c7ed6]/30 p-4 shadow-sm print:hidden">
            <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[#1c7ed6] border-b border-slate-100 pb-2 flex items-center gap-2"><Eye size={14}/> Recent Scout Views</h3>
            <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
@@ -337,14 +334,14 @@ return (
           </div>
         </div>
       </div>
-      
+
       {player?.seasonStats && (
         <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2">
           <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={16} /> In-Season Stats & Performance</h3>
           <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm font-semibold">{player.seasonStats}</p>
         </div>
       )}
-
+      
       {player?.hudlLink && (
         <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-[300px] print:hidden">
           <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Video size={16} /> Highlight Film</h3>
@@ -359,7 +356,8 @@ return (
 </div>
 );
 };
-// --- PUBLIC HUB (RESTORED) ---
+
+// --- PUBLIC HUB ---
 const PublicHub = ({ players, news: localNews, onSelect }) => {
 const [searchTerm, setSearchTerm] = useState('');
 const [posFilter, setPosFilter] = useState('All');
@@ -527,12 +525,11 @@ return (
 );
 };
 
-// --- ADMIN PANEL (RESTORED) ---
+// --- ADMIN PANEL ---
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>;
 const FormInput = (props) => <input {...props} className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`} />;
 
 const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
-const [activeTab, setActiveTab] = useState('athlete');
 const [savingAthlete, setSavingAthlete] = useState(false);
 const [photoPreview, setPhotoPreview] = useState(null);
 const [selectedExistingId, setSelectedExistingId] = useState("");
@@ -543,14 +540,10 @@ const defaultMetrics = {
 name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None',
 gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
 sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
-broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', hudlLink: '',
-combineLocation: '', combineDate: today
+broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
+hudlLink: '', seasonStats: '', combineLocation: '', combineDate: today
 };
 const [metrics, setMetrics] = useState(defaultMetrics);
-
-const [savingNews, setSavingNews] = useState(false);
-const [newsTitle, setNewsTitle] = useState("");
-const [newsCategory, setNewsCategory] = useState("DNA Official");
 
 const filteredAdminPlayers = useMemo(() => {
 let list = players;
@@ -566,7 +559,7 @@ if (p) {
   setMetrics({
     name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None',
     gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
-    scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
+    scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', seasonStats: p.seasonStats || '', combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
     sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', sprintVerify: p.speedVerifications?.sprint || 'laser',
     shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '', shuttleVerify: p.speedVerifications?.shuttle || 'stopwatch',
     lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', lDrillVerify: p.speedVerifications?.lDrill || 'stopwatch',
@@ -624,7 +617,7 @@ try {
 
   const playerData = {
     name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam,
-    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink,
+    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, seasonStats: metrics.seasonStats,
     height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
     speedVerifications: newCombineRecord.speedVerifications, metrics: newCombineRecord.metrics, updatedAt: Date.now()
   };
@@ -658,87 +651,95 @@ return (
     <button onClick={onLogout} className="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 px-4 py-2 rounded-lg">Sign Out Admin</button>
   </div>
 
-  <div className="flex gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
-     <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={16} /> Athlete Entry</button>
-     <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={16} /> Post News</button>
-  </div>
+  <div className="bg-white border border-slate-200 rounded-2xl shadow-xl p-6 sm:p-8">
+    <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
+       <Activity className="text-[#1c7ed6]" size={20} />
+       <h2 className="text-lg font-black uppercase tracking-tight text-slate-800">Athlete Database Entry</h2>
+    </div>
 
-  <div className="bg-white border border-slate-200 rounded-b-2xl rounded-tr-2xl shadow-xl p-6 sm:p-8">
-    {activeTab === 'athlete' && (
-       <div className="animate-in fade-in slide-in-from-left-4">
-          <div className="bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200 shadow-sm">
-            <label className="text-xs font-bold uppercase tracking-widest block mb-3 text-[#d6336c]">Select Existing Athlete (Or Create New)</label>
-            <div className="relative mb-3"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
-            <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
-          </div>
+    <div className="bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200 shadow-sm">
+      <label className="text-xs font-bold uppercase tracking-widest block mb-3 text-[#d6336c]">Select Existing Athlete (Or Create New)</label>
+      <div className="relative mb-3"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
+      <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
+    </div>
 
-          <form onSubmit={submitCombineData} className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
-                 {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /></div>}
-                 <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
-              </div>
-              <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
-                 <div><InputLabel>Primary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
-                 <div><InputLabel>Secondary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}><option value="">None</option>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
-                 <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
-                 <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
-              </div>
-            </div>
+    <form onSubmit={submitCombineData} className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
+        <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
+           {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /></div>}
+           <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
+        </div>
+        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+           <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
+           <div><InputLabel>Primary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+           <div><InputLabel>Secondary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}><option value="">None</option>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+           <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
+           <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
+        </div>
+      </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
-              <div><InputLabel>Active Roster</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}><option value="None">Not Assigned (Combine Only)</option><option value="DNA 18U Elite">DNA 18U Elite</option><option value="DNA 18U Select">DNA 18U Select</option><option value="DNA 15U Elite">DNA 15U Elite</option><option value="DNA 15U Select">DNA 15U Select</option><option value="DNA 12U">DNA 12U</option></select></div>
-            </div>
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
+        <div><InputLabel>Active Roster</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}><option value="None">Not Assigned (Combine Only)</option><option value="DNA 18U Elite">DNA 18U Elite</option><option value="DNA 18U Select">DNA 18U Select</option><option value="DNA 15U Elite">DNA 15U Elite</option><option value="DNA 15U Select">DNA 15U Select</option><option value="DNA 12U">DNA 12U</option></select></div>
+      </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting</h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div><InputLabel>GPA</InputLabel><FormInput type="number" step="0.1" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
-                <div><InputLabel>SAT/ACT</InputLabel><FormInput type="text" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
-                <div><InputLabel>Twitter</InputLabel><FormInput type="text" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
-                <div><InputLabel>Guardian Email</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
-              </div>
-              <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
-            </div>
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting</h3>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div><InputLabel>GPA</InputLabel><FormInput type="number" step="0.1" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
+          <div><InputLabel>SAT/ACT</InputLabel><FormInput type="text" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
+          <div><InputLabel>Twitter</InputLabel><FormInput type="text" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
+          <div><InputLabel>Guardian Email</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
+        </div>
+        <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
+      </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Details</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><InputLabel>Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div><div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div></div>
-            </div>
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={14} /> Media & Performance</h3>
+        <div className="mb-4">
+          <InputLabel>Highlight Tape URL (Hudl / YouTube)</InputLabel>
+          <FormInput type="url" placeholder="https://..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
+        </div>
+        <div>
+          <InputLabel>In-Season Stats</InputLabel>
+          <textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm h-24" placeholder="e.g. 1,500 Passing Yds, 22 TDs..." value={metrics.seasonStats} onChange={e => setMetrics({...metrics, seasonStats: e.target.value})} />
+        </div>
+      </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed Verifications</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
-                <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
-                <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
-                <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
-              </div>
-            </div>
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Details</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><InputLabel>Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div><div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div></div>
+      </div>
 
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Skills & Explosiveness</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
-                <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
-                <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
-                <div className="hidden md:block"></div>
-                <div><InputLabel>Height</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} /></div></div>
-                <div><InputLabel>Weight (lbs)</InputLabel><FormInput type="number" value={metrics.weight} onChange={e => setMetrics({...metrics, weight: e.target.value})} /></div>
-                <div><InputLabel>Broad Jump</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} /></div></div>
-                <div><InputLabel>Vertical (Inches)</InputLabel><FormInput type="number" step="0.1" value={metrics.verticalInches} onChange={e => setMetrics({...metrics, verticalInches: e.target.value})} /></div>
-              </div>
-            </div>
-            
-            <div className="flex gap-4">
-              <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] text-white font-bold py-4 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Save Profile</button>
-              {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] text-white font-bold rounded-xl shadow-md bg-rose-600 hover:bg-rose-700">Delete</button>}
-            </div>
-          </form>
-       </div>
-    )}
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed Verifications</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
+          <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
+          <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
+          <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Skills & Explosiveness</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
+          <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
+          <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
+          <div className="hidden md:block"></div>
+          <div><InputLabel>Height</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} /></div></div>
+          <div><InputLabel>Weight (lbs)</InputLabel><FormInput type="number" value={metrics.weight} onChange={e => setMetrics({...metrics, weight: e.target.value})} /></div>
+          <div><InputLabel>Broad Jump</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} /></div></div>
+          <div><InputLabel>Vertical (Inches)</InputLabel><FormInput type="number" step="0.1" value={metrics.verticalInches} onChange={e => setMetrics({...metrics, verticalInches: e.target.value})} /></div>
+        </div>
+      </div>
+      
+      <div className="flex gap-4">
+        <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] text-white font-bold py-4 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Save Profile</button>
+        {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] text-white font-bold rounded-xl shadow-md bg-rose-600 hover:bg-rose-700">Delete</button>}
+      </div>
+    </form>
   </div>
 </div>
 );
@@ -976,6 +977,7 @@ return (
 </DndContext>
 );
 };
+
 // --- PHASE 2: TEAM ROSTERS & QR BROCHURES ---
 const RosterPage = ({ players, onSelect, onBack }) => {
 const rosteredPlayers = players.filter(p => p.dnaTeam && p.dnaTeam !== 'None');
@@ -1015,16 +1017,14 @@ return (
 );
 };
 
-// --- 4. MASTER APP CONTROLLER ---
+// --- MASTER APP CONTROLLER ---
 export default function App() {
 const [view, setView] = useState('home'); 
 const [selectedPlayer, setSelectedPlayer] = useState(null);
 const [players, setPlayers] = useState(INITIAL_SEED.players);
 const [news, setNews] = useState(INITIAL_SEED.news);
 const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
-
 const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-
 const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
 const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
 
