@@ -65,7 +65,7 @@ const SanctionedFooter = () => (
 
 // --- MODALS & PAGES ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
-const [mode, setMode] = useState('admin'); // 'admin', 'recruiter_login', 'recruiter_signup'
+const [mode, setMode] = useState('admin');
 const [username, setUsername] = useState('');
 const [password, setPassword] = useState('');
 const [coachName, setCoachName] = useState('');
@@ -95,7 +95,6 @@ try {
         await signOut(auth); throw new Error("Not authorized as a recruiter.");
       }
     } else {
-       // Admin Login
        onLoginSuccess('admin', null);
     }
   }
@@ -295,7 +294,6 @@ return (
          </div>
       </div>
       
-      {/* PHASE 2: REAL-TIME PROFILE VIEWS */}
       {player?.recentViews && player.recentViews.length > 0 && (
         <div className="bg-white rounded-2xl border border-[#1c7ed6]/30 p-4 shadow-sm print:hidden">
            <h3 className="text-xs font-bold uppercase tracking-widest mb-3 text-[#1c7ed6] border-b border-slate-100 pb-2 flex items-center gap-2"><Eye size={14}/> Recent Scout Views</h3>
@@ -355,6 +353,391 @@ return (
 );
 };
 
+// --- PUBLIC HUB (RESTORED) ---
+const PublicHub = ({ players, news: localNews, onSelect }) => {
+const [searchTerm, setSearchTerm] = useState('');
+const [posFilter, setPosFilter] = useState('All');
+const [yearFilter, setYearFilter] = useState('All');
+const [sortConfig, setSortConfig] = useState({ key: 'dnaScore', direction: 'desc' });
+
+const requestSort = (key) => {
+if (sortConfig.key === key) { setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }); } 
+else { const ascDefault = ['sprint', 'shuttle', 'lDrill', 'name']; setSortConfig({ key, direction: ascDefault.includes(key) ? 'asc' : 'desc' }); }
+};
+
+const parseBroad = (str) => { if (!str) return 0; const ftMatch = str.match(/(\d+)'/); const inMatch = str.match(/(\d+)"/); return (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0); };
+
+const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
+const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);
+
+const filteredAndSortedPlayers = useMemo(() => {
+return players.filter(p => {
+  const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+  const matchesPos = posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter));
+  const matchesYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
+  return matchesSearch && matchesPos && matchesYear;
+}).sort((a, b) => {
+  let aVal, bVal;
+  if (sortConfig.key === 'name') return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
+  if (sortConfig.key === 'dnaScore') { aVal = Number(a.dnaScore) || 0; bVal = Number(b.dnaScore) || 0; } 
+  else if (['sprint', 'shuttle', 'lDrill'].includes(sortConfig.key)) {
+    const missingVal = sortConfig.direction === 'asc' ? 999 : -1;
+    aVal = a.metrics?.[sortConfig.key] ? parseFloat(a.metrics[sortConfig.key]) : missingVal;
+    bVal = b.metrics?.[sortConfig.key] ? parseFloat(b.metrics[sortConfig.key]) : missingVal;
+  } else if (sortConfig.key === 'broad') { aVal = parseBroad(a.metrics?.broad); bVal = parseBroad(b.metrics?.broad); }
+  else { aVal = parseFloat(a.metrics?.[sortConfig.key]) || 0; bVal = parseFloat(b.metrics?.[sortConfig.key]) || 0; }
+  if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+  if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+  return 0;
+});
+}, [players, searchTerm, posFilter, yearFilter, sortConfig]);
+
+const SortableHeader = ({ label, sortKey, align = 'center' }) => (
+<th className={`p-3 md:p-4 cursor-pointer hover:bg-slate-100 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
+  <div className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
+    {label}
+    <div className="flex flex-col -space-y-1">
+      <ChevronLeft size={10} className={`rotate-90 ${sortConfig.key === sortKey && sortConfig.direction === 'asc' ? 'text-[#1c7ed6] opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`} />
+      <ChevronLeft size={10} className={`-rotate-90 ${sortConfig.key === sortKey && sortConfig.direction === 'desc' ? 'text-[#1c7ed6] opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`} />
+    </div>
+  </div>
+</th>
+);
+
+return (
+<div className="max-w-7xl mx-auto px-4 py-8">
+  <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden" style={{ borderTop: '4px solid #1c7ed6' }}>
+    <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[rgba(214,51,108,0.05)] to-transparent rounded-bl-full pointer-events-none"></div>
+    <div className="relative z-10 text-center md:text-left">
+      <h2 className="text-2xl md:text-3xl font-bold text-slate-900 uppercase tracking-tight mb-2">Want to get on the <span style={{ color: '#d6336c' }}>Leaderboard?</span></h2>
+      <p className="text-slate-600 text-sm font-semibold max-w-2xl">Evaluation spots are strictly limited. Register for our next official combine to get your verified physicals, earn your DNA Score, and secure your national ranking.</p>
+    </div>
+    <a href="https://form.jotform.com/261971178556065" target="_blank" rel="noopener noreferrer" className="relative z-10 shrink-0 hover:scale-105 transition-transform text-white font-bold px-8 py-4 rounded-xl uppercase tracking-wider shadow-md text-sm flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
+      Register For Combine <ExternalLink size={16} />
+    </a>
+  </div>
+
+  <div className="grid lg:grid-cols-4 gap-8">
+    <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
+        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Newspaper style={{ color: '#1c7ed6' }} /> Live News</h2>
+        <div className="space-y-4">
+          {localNews.length === 0 ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
+             localNews.map(item => (
+               <div key={item.id} className="block pl-3 transition-transform" style={{ borderLeft: '2px solid #d6336c' }}>
+                 <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#d6336c' }}>{item.category}</span></div>
+                 <p className="text-sm font-bold text-slate-800 mt-1">{item.title}</p>
+               </div>
+             ))
+          )}
+        </div>
+      </div>
+    </div>
+
+    <div className="lg:col-span-3 order-1 lg:order-2">
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #d6336c' }}>
+        <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2 uppercase"><Trophy style={{ color: '#d6336c' }} /> National Leaderboard</h2>
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Combine Results Tracker</p>
+          </div>
+          <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{filteredAndSortedPlayers.length} Athletes Found</div>
+        </div>
+
+        <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3">
+           <div className="relative flex-1">
+             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+             <input type="text" placeholder="Search by athlete name..." className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none transition-colors focus:border-[#1c7ed6]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+           </div>
+           <div className="flex gap-3 sm:w-auto w-full">
+              <div className="flex-1 md:w-36">
+                 <select className="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none cursor-pointer focus:border-[#1c7ed6]" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
+                   {uniquePositions.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}
+                 </select>
+              </div>
+              <div className="flex-1 md:w-40">
+                 <select className="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none cursor-pointer focus:border-[#1c7ed6]" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                   {uniqueYears.map(year => <option key={year} value={year}>{year === 'All' ? 'All Classes' : `Class of ${year}`}</option>)}
+                 </select>
+              </div>
+           </div>
+        </div>
+
+        <div className="md:hidden flex items-center justify-start gap-2 px-4 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner w-full overflow-hidden">
+          <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6] shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 truncate">Swipe table to view all metrics</span>
+          <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6] shrink-0" />
+        </div>
+
+        <div className="overflow-x-auto w-full relative">
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                <SortableHeader label="Athlete" sortKey="name" align="left" />
+                <SortableHeader label="DNA Score" sortKey="dnaScore" />
+                <SortableHeader label="40-Yd" sortKey="sprint" />
+                <SortableHeader label="5-10-5" sortKey="shuttle" />
+                <SortableHeader label="L-Drill" sortKey="lDrill" />
+                <SortableHeader label="MPH" sortKey="mph" />
+                <SortableHeader label="Broad" sortKey="broad" />
+                <SortableHeader label="Vert" sortKey="vertical" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredAndSortedPlayers.length === 0 ? (
+                 <tr><td colSpan="8" className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-sm">No athletes match your filters.</td></tr>
+              ) : (
+                 filteredAndSortedPlayers.map((p, i) => (
+                   <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50 cursor-pointer transition-colors group border-b border-slate-100">
+                     <td className="p-3 md:p-4">
+                       <div className="flex items-center gap-4">
+                         <div className="w-6 text-center text-slate-400 font-bold text-sm">#{i + 1}</div>
+                         <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-10 h-10 rounded-full border border-slate-200 bg-slate-100 object-cover transition-colors group-hover:border-[#d6336c]" />
+                         <div>
+                           <p className="font-bold text-slate-900 text-sm uppercase flex items-center gap-1 transition-colors">{p.name} {p.hudlLink && <Video size={12} style={{ color: '#1c7ed6' }} />}</p>
+                           <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{p.primaryPos || p.pos} • {p.gradYear}</p>
+                         </div>
+                       </div>
+                     </td>
+                     <td className="p-3 md:p-4 text-center">
+                       <span className="font-black text-lg bg-white px-3 py-1 rounded shadow-sm border border-slate-200 group-hover:border-slate-300" style={{ color: '#d6336c' }}>{p.dnaScore}</span>
+                     </td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.sprint || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.shuttle || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.lDrill || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.mph || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.broad || '-'}</td>
+                     <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.vertical || '-'}</td>
+                   </tr>
+                 ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+);
+};
+
+// --- ADMIN PANEL (RESTORED) ---
+const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>;
+const FormInput = (props) => <input {...props} className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`} />;
+
+const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
+const [activeTab, setActiveTab] = useState('athlete');
+const [savingAthlete, setSavingAthlete] = useState(false);
+const [photoPreview, setPhotoPreview] = useState(null);
+const [selectedExistingId, setSelectedExistingId] = useState("");
+const [athleteSearchTerm, setAthleteSearchTerm] = useState("");
+const today = new Date().toISOString().split('T')[0];
+
+const defaultMetrics = {
+name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None',
+gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
+sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
+broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', hudlLink: '',
+combineLocation: '', combineDate: today
+};
+const [metrics, setMetrics] = useState(defaultMetrics);
+
+const [savingNews, setSavingNews] = useState(false);
+const [newsTitle, setNewsTitle] = useState("");
+const [newsCategory, setNewsCategory] = useState("DNA Official");
+
+const filteredAdminPlayers = useMemo(() => {
+let list = players;
+if (athleteSearchTerm) list = players.filter(p => p.id === selectedExistingId || p.name.toLowerCase().includes(athleteSearchTerm.toLowerCase()));
+return list.sort((a, b) => a.name.split(' ').slice(-1)[0].localeCompare(b.name.split(' ').slice(-1)[0]));
+}, [players, athleteSearchTerm, selectedExistingId]);
+
+const handleSelectExisting = (playerId) => {
+setSelectedExistingId(playerId);
+if (!playerId) { setMetrics(defaultMetrics); setPhotoPreview(null); return; }
+const p = players.find(player => player.id === playerId);
+if (p) {
+  setMetrics({
+    name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None',
+    gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
+    scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
+    sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', sprintVerify: p.speedVerifications?.sprint || 'laser',
+    shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '', shuttleVerify: p.speedVerifications?.shuttle || 'stopwatch',
+    lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', lDrillVerify: p.speedVerifications?.lDrill || 'stopwatch',
+    mph: p.metrics?.mph ? p.metrics.mph.replace(' mph', '') : '', mphVerify: p.speedVerifications?.mph || 'laser',
+    verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '',
+    heightFeet: p.height?.includes("'") ? p.height.split("'")[0] : '', heightInches: p.height?.includes("'") ? p.height.split("'")[1].replace('"', '') : '',
+    broadFeet: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[0] : '', broadInches: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '',
+    catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '', throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '', flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
+  });
+  setPhotoPreview(p.avatar || null);
+}
+};
+
+const handlePhotoCapture = (e) => {
+const file = e.target.files[0];
+if (file) {
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width, height = img.height;
+      if (width > height) { if (width > 400) { height *= 400 / width; width = 400; } } else { if (height > 400) { width *= 400 / height; height = 400; } }
+      canvas.width = width; canvas.height = height; canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      setPhotoPreview(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+};
+
+const submitCombineData = async (e) => {
+e.preventDefault(); setSavingAthlete(true);
+try {
+  const auth = getAuth(app);
+  if (!auth.currentUser) { alert("Firebase Error: No secure session."); setSavingAthlete(false); return; }
+  const secureToken = await auth.currentUser.getIdToken(true);
+  const calculateDNAScore = httpsCallable(getFunctions(app), 'calculateDNAScore');
+
+  const existingPlayer = selectedExistingId ? players.find(p => p.id === selectedExistingId) : null;
+  let historyPool = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+  if (historyPool.length > 0 && historyPool[historyPool.length - 1].date === metrics.combineDate) historyPool.pop();
+
+  const parseNum = (val) => Number(String(val).replace(/[^0-9.]/g, '')) || 0;
+  const bestSprint = Math.min(...[...historyPool.map(e => parseNum(e.metrics?.sprint)), parseNum(metrics.sprint)].filter(v => v > 0)) || 0;
+  const bestShuttle = Math.min(...[...historyPool.map(e => parseNum(e.metrics?.shuttle)), parseNum(metrics.shuttle)].filter(v => v > 0)) || 0;
+  const bestLDrill = Math.min(...[...historyPool.map(e => parseNum(e.metrics?.lDrill)), parseNum(metrics.lDrill)].filter(v => v > 0)) || 0;
+  const bestMph = Math.max(...[...historyPool.map(e => parseNum(e.metrics?.mph)), parseNum(metrics.mph)].filter(v => v > 0)) || 0;
+  const currentBroadInches = (Number(metrics.broadFeet) || 0) * 12 + (Number(metrics.broadInches) || 0);
+
+  const overallResult = await calculateDNAScore({ token: secureToken, sprint: bestSprint, shuttle: bestShuttle, lDrill: bestLDrill, mph: bestMph, catchingPct: Number(metrics.catchingPct) || 0, throwingPct: Number(metrics.throwingPct) || 0, flagPullingPct: Number(metrics.flagPullingPct) || 0, broadInches: currentBroadInches, vertical: Number(metrics.verticalInches) || 0 });
+  
+  const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: overallResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, speedVerifications: { sprint: metrics.sprintVerify, shuttle: metrics.shuttleVerify, lDrill: metrics.lDrillVerify, mph: metrics.mphVerify }, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
+
+  const playerData = {
+    name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam,
+    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink,
+    height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
+    speedVerifications: newCombineRecord.speedVerifications, metrics: newCombineRecord.metrics, updatedAt: Date.now()
+  };
+
+  if (dbConfigured && db) {
+    if (selectedExistingId) {
+      let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
+      if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) updatedHistory[updatedHistory.length - 1] = newCombineRecord; else updatedHistory.push(newCombineRecord);
+      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { ...playerData, combineHistory: updatedHistory, avatar: photoPreview || existingPlayer?.avatar || "" });
+    } else {
+      playerData.avatar = photoPreview || ""; playerData.views = 0; playerData.createdAt = Date.now(); playerData.combineHistory = [newCombineRecord];
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
+    }
+  }
+  alert(`Saved! Score: ${overallResult.data.dnaScore}`); setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
+} catch (err) { alert("Error saving: " + err.message); }
+setSavingAthlete(false);
+};
+
+const deleteAthlete = async () => {
+if (!selectedExistingId) return;
+if (!window.confirm(`Delete ${metrics.name}?`)) return;
+if (dbConfigured && db) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId));
+setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
+};
+
+return (
+<div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
+  <div className="flex justify-between items-center mb-6">
+    <button onClick={onBack} className="font-bold flex items-center gap-1 text-sm text-[#1c7ed6]"><ChevronLeft size={16} /> Return to Hub</button>
+    <button onClick={onLogout} className="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 px-4 py-2 rounded-lg">Sign Out Admin</button>
+  </div>
+
+  <div className="flex gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
+     <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={16} /> Athlete Entry</button>
+     <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={16} /> Post News</button>
+  </div>
+
+  <div className="bg-white border border-slate-200 rounded-b-2xl rounded-tr-2xl shadow-xl p-6 sm:p-8">
+    {activeTab === 'athlete' && (
+       <div className="animate-in fade-in slide-in-from-left-4">
+          <div className="bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200 shadow-sm">
+            <label className="text-xs font-bold uppercase tracking-widest block mb-3 text-[#d6336c]">Select Existing Athlete (Or Create New)</label>
+            <div className="relative mb-3"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
+            <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
+          </div>
+
+          <form onSubmit={submitCombineData} className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
+              <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
+                 {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /></div>}
+                 <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
+              </div>
+              <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
+                 <div><InputLabel>Primary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+                 <div><InputLabel>Secondary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}><option value="">None</option>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+                 <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
+                 <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
+              <div><InputLabel>Active Roster</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}><option value="None">Not Assigned (Combine Only)</option><option value="DNA 18U Elite">DNA 18U Elite</option><option value="DNA 18U Select">DNA 18U Select</option><option value="DNA 15U Elite">DNA 15U Elite</option><option value="DNA 15U Select">DNA 15U Select</option><option value="DNA 12U">DNA 12U</option></select></div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div><InputLabel>GPA</InputLabel><FormInput type="number" step="0.1" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
+                <div><InputLabel>SAT/ACT</InputLabel><FormInput type="text" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
+                <div><InputLabel>Twitter</InputLabel><FormInput type="text" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
+                <div><InputLabel>Guardian Email</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
+              </div>
+              <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Details</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><InputLabel>Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div><div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div></div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed Verifications</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
+                <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
+                <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
+                <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Skills & Explosiveness</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
+                <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
+                <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
+                <div className="hidden md:block"></div>
+                <div><InputLabel>Height</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.heightFeet} onChange={e => setMetrics({...metrics, heightFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.heightInches} onChange={e => setMetrics({...metrics, heightInches: e.target.value})} /></div></div>
+                <div><InputLabel>Weight (lbs)</InputLabel><FormInput type="number" value={metrics.weight} onChange={e => setMetrics({...metrics, weight: e.target.value})} /></div>
+                <div><InputLabel>Broad Jump</InputLabel><div className="flex gap-2"><FormInput type="number" placeholder="Ft" className="w-1/2" value={metrics.broadFeet} onChange={e => setMetrics({...metrics, broadFeet: e.target.value})} /><FormInput type="number" placeholder="In" className="w-1/2" value={metrics.broadInches} onChange={e => setMetrics({...metrics, broadInches: e.target.value})} /></div></div>
+                <div><InputLabel>Vertical (Inches)</InputLabel><FormInput type="number" step="0.1" value={metrics.verticalInches} onChange={e => setMetrics({...metrics, verticalInches: e.target.value})} /></div>
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] text-white font-bold py-4 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Save Profile</button>
+              {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] text-white font-bold rounded-xl shadow-md bg-rose-600 hover:bg-rose-700">Delete</button>}
+            </div>
+          </form>
+       </div>
+    )}
+  </div>
+</div>
+);
+};
+
 // --- PHASE 2: THE RECRUITER PORTAL ---
 const DraggableCard = ({ player, onClick }) => {
 const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id });
@@ -395,7 +778,6 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
 const [activeTab, setActiveTab] = useState('database');
 const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
 
-// Advanced Filter State
 const [minDna, setMinDna] = useState(0);
 const [maxSprint, setMaxSprint] = useState(10);
 const [minGpa, setMinGpa] = useState(0);
@@ -441,23 +823,20 @@ const handleDragEnd = async (event) => {
 const { active, over } = event;
 if (!over) return;
 const playerId = active.id;
-const destCol = over.id; // 'priority', 'interested', 'pass'
+const destCol = over.id; 
 
-// Remove from all cols first
 const newBoard = {
   priority: boardData.priority.filter(id => id !== playerId),
   interested: boardData.interested.filter(id => id !== playerId),
   pass: boardData.pass.filter(id => id !== playerId),
 };
 newBoard[destCol].push(playerId);
-
 setBoardData(newBoard);
 try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'recruiters', recruiterData.uid), { board: newBoard }); } 
 catch (err) { console.error("Error saving board", err); }
 };
 
 const renderDraggableDbRow = (p) => {
-// Standard row that acts as a draggable source for the Kanban board
 const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: p.id });
 const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: 0.8 } : undefined;
 
@@ -531,23 +910,11 @@ return (
                </div>
             </div>
          </div>
-         
          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
                <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
-                      <th className="p-4 w-[250px]">Athlete (Drag to Board)</th>
-                      <th className="p-4 text-center">DNA Score</th>
-                      <th className="p-4 text-center">Pos / Yr</th>
-                      <th className="p-4 text-center">40-Yd</th>
-                      <th className="p-4 text-center">GPA</th>
-                      <th className="p-4 text-center">Tape</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPlayers.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr> : filteredPlayers.map(p => renderDraggableDbRow(p))}
-                  </tbody>
+                  <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[250px]">Athlete (Drag to Board)</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Tape</th></tr></thead>
+                  <tbody>{filteredPlayers.length === 0 ? <tr><td colSpan="6" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr> : filteredPlayers.map(p => renderDraggableDbRow(p))}</tbody>
                </table>
             </div>
          </div>
@@ -557,13 +924,7 @@ return (
     {activeTab === 'board' && (
       <div className="animate-in fade-in slide-in-from-right-4">
          <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3">
-              <Star className="text-amber-500" size={20} />
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3>
-                <p className="text-[10px] font-semibold text-slate-500 uppercase">Drag athletes here from the database tab.</p>
-              </div>
-            </div>
+            <div className="flex items-center gap-3"><Star className="text-amber-500" size={20} /><div><h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3><p className="text-[10px] font-semibold text-slate-500 uppercase">Drag athletes here from the database tab.</p></div></div>
          </div>
          <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4">
             <DroppableColumn id="priority" title="High Priority" players={boardData.priority.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
@@ -576,7 +937,6 @@ return (
 </DndContext>
 );
 };
-
 
 // --- PHASE 2: TEAM ROSTERS & QR BROCHURES ---
 const RosterPage = ({ players, onSelect, onBack }) => {
@@ -617,7 +977,6 @@ return (
 );
 };
 
-
 // --- 4. MASTER APP CONTROLLER ---
 export default function App() {
 const [view, setView] = useState('home'); 
@@ -628,8 +987,7 @@ const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
 
 const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-// Unified Auth State
-const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null); // 'admin' or 'recruiter'
+const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
 const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
 
 useEffect(() => {
@@ -643,6 +1001,19 @@ onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapsh
   setNews(newsItems); setDbStatus("LIVE SYNC");
 });
 }, []);
+
+useEffect(() => {
+const params = new URLSearchParams(window.location.search);
+const targetPlayerId = params.get('p');
+if (targetPlayerId && players.length > 0) {
+  const p = players.find(p => p.id === targetPlayerId);
+  if (p) {
+    setSelectedPlayer(p);
+    setView('profile');
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+}
+}, [players]);
 
 const handleLoginSuccess = (role, data) => { 
 setAuthRole(role); sessionStorage.setItem('dna_auth_role', role);
@@ -664,7 +1035,6 @@ setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
 if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { 
   try { 
     const updates = { views: increment(1) };
-    // PHASE 2: View Analytics Interception
     if (authRole === 'recruiter' && recruiterData) {
       updates.recentViews = arrayUnion({ coach: recruiterData.name, school: recruiterData.school, time: Date.now() });
     }
@@ -693,11 +1063,7 @@ return (
       {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => { if(authRole==='recruiter'){setView('recruiter')} else {setView('home')} }} />}
       {view === 'rosters' && <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => setView('home')} />}
       {view === 'about' && <AboutPage onBack={() => setView('home')} />}
-      {view === 'admin' && authRole === 'admin' && <div className="text-center p-8 mt-12 bg-white max-w-lg mx-auto rounded-xl shadow border border-slate-200">
-         <h2 className="text-xl font-bold uppercase tracking-widest text-[#d6336c] mb-2">Admin Dashboard</h2>
-         <p className="text-sm font-semibold text-slate-500 mb-6">Database management is currently disabled in this view to showcase Recruiter Portal features.</p>
-         <button onClick={handleLogout} className="text-xs font-bold bg-slate-900 text-white px-6 py-3 rounded-lg uppercase hover:bg-slate-800">Logout Admin</button>
-      </div>}
+      {view === 'admin' && authRole === 'admin' && <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
       {view === 'recruiter' && authRole === 'recruiter' && <RecruiterPortal players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} />}
     </main>
   </div>
