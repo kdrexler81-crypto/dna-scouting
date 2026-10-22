@@ -740,8 +740,8 @@ return (
 
 // --- PHASE 2: THE RECRUITER PORTAL ---
 const DraggableCard = ({ player, onClick }) => {
-const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `board-${player.id}` });
-const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 } : undefined;
+const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id });
+const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, position: 'relative' } : undefined;
 
 return (
 <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-[#1c7ed6] transition-colors flex items-center gap-3 relative group touch-none">
@@ -759,16 +759,31 @@ return (
 );
 };
 
-const DraggableTableRow = ({ player, onSelect }) => {
-const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `db-${player.id}` });
-// Table rows don't drag visually well without complex CSS, so we just use the handle to initiate the drag data
-const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50, opacity: 0.8 } : undefined;
+const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
+const { isOver, setNodeRef } = useDroppable({ id });
+return (
+<div className="flex flex-col bg-slate-50 rounded-2xl border border-slate-200 h-[600px] flex-1 min-w-[280px]">
+   <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center rounded-t-2xl">
+     <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">{title}</h3>
+     <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{players.length}</span>
+   </div>
+   <div ref={setNodeRef} className={`flex-1 p-3 overflow-y-auto space-y-3 transition-colors rounded-b-2xl ${isOver ? 'bg-slate-100 ring-2 ring-inset ring-[#1c7ed6]/30' : ''}`}>
+     {players.map(p => <DraggableCard key={p.id} player={p} onClick={onPlayerClick} />)}
+   </div>
+</div>
+);
+};
+
+const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
+let currentStatus = '';
+if (boardData.priority.includes(player.id)) currentStatus = 'priority';
+else if (boardData.interested.includes(player.id)) currentStatus = 'interested';
+else if (boardData.pass.includes(player.id)) currentStatus = 'pass';
 
 return (
-<tr ref={setNodeRef} style={style} className="hover:bg-slate-50 border-b border-slate-100 transition-colors group relative">
+<tr className="hover:bg-slate-50 border-b border-slate-100 transition-colors group">
   <td className="p-3">
      <div className="flex items-center gap-3">
-       <div {...listeners} {...attributes} className="p-1.5 cursor-grab active:cursor-grabbing text-slate-300 hover:text-[#1c7ed6] transition-colors touch-none"><GripVertical size={16} /></div>
        <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-8 h-8 rounded-full border border-slate-200 object-cover cursor-pointer" onClick={() => onSelect(player)} />
        <div onClick={() => onSelect(player)} className="cursor-pointer">
          <p className="font-bold text-slate-900 text-sm hover:text-[#1c7ed6] transition-colors">{player.name}</p>
@@ -780,23 +795,20 @@ return (
   <td className="p-3 text-center text-xs font-bold text-slate-700">{player.primaryPos} / {player.gradYear}</td>
   <td className="p-3 text-center text-xs font-bold text-slate-700">{player.metrics?.sprint || '-'}</td>
   <td className="p-3 text-center text-xs font-bold text-slate-700">{player.gpa || '-'}</td>
+  <td className="p-3 text-center">
+     <select 
+       className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1.5 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-sm' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
+       value={currentStatus}
+       onChange={(e) => onMoveToBoard(player.id, e.target.value)}
+     >
+        <option value="">+ Add to Board</option>
+        <option value="priority">⭐ Priority</option>
+        <option value="interested">👀 Interested</option>
+        <option value="pass">🚫 Pass</option>
+     </select>
+  </td>
   <td className="p-3 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-slate-900 px-2 py-1 rounded hover:bg-[#1c7ed6] transition-colors uppercase"><Video size={12}/> Film</a> : '-'}</td>
 </tr>
-);
-};
-
-const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
-const { isOver, setNodeRef } = useDroppable({ id });
-return (
-<div className="flex flex-col bg-slate-50 rounded-2xl border border-slate-200 h-[600px] overflow-hidden flex-1 min-w-[280px]">
-   <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center">
-     <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">{title}</h3>
-     <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{players.length}</span>
-   </div>
-   <div ref={setNodeRef} className={`flex-1 p-3 overflow-y-auto space-y-3 transition-colors ${isOver ? 'bg-slate-100 ring-2 ring-inset ring-[#1c7ed6]/30' : ''}`}>
-     {players.map(p => <DraggableCard key={p.id} player={p} onClick={onPlayerClick} />)}
-   </div>
-</div>
 );
 };
 
@@ -845,12 +857,23 @@ document.body.appendChild(link);
 link.click(); link.remove();
 };
 
+const handleMoveToBoard = async (playerId, destCol) => {
+const newBoard = {
+  priority: boardData.priority.filter(id => id !== playerId),
+  interested: boardData.interested.filter(id => id !== playerId),
+  pass: boardData.pass.filter(id => id !== playerId),
+};
+if (destCol) newBoard[destCol].push(playerId);
+
+setBoardData(newBoard);
+try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
+catch (err) { console.error("Error saving board", err); }
+};
+
 const handleDragEnd = async (event) => {
 const { active, over } = event;
 if (!over) return;
-
-// Strip the prefixes to extract the raw Firebase player ID
-const playerId = String(active.id).replace('db-', '').replace('board-', '');
+const playerId = String(active.id);
 const destCol = over.id; 
 
 const newBoard = {
@@ -859,6 +882,7 @@ const newBoard = {
   pass: boardData.pass.filter(id => id !== playerId),
 };
 newBoard[destCol].push(playerId);
+
 setBoardData(newBoard);
 try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
 catch (err) { console.error("Error saving board", err); }
@@ -916,12 +940,12 @@ return (
          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="overflow-x-auto">
                <table className="w-full text-left border-collapse min-w-[700px]">
-                  <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[250px]">Athlete (Drag to Board)</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Tape</th></tr></thead>
+                  <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[250px]">Athlete</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Board Status</th><th className="p-4 text-center">Tape</th></tr></thead>
                   <tbody>
                     {filteredPlayers.length === 0 ? (
-                      <tr><td colSpan="6" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
+                      <tr><td colSpan="7" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
                     ) : (
-                      filteredPlayers.map(p => <DraggableTableRow key={p.id} player={p} onSelect={onSelect} />)
+                      filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} />)
                     )}
                   </tbody>
                </table>
@@ -933,7 +957,7 @@ return (
     {activeTab === 'board' && (
       <div className="animate-in fade-in slide-in-from-right-4">
          <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
-            <div className="flex items-center gap-3"><Star className="text-amber-500" size={20} /><div><h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3><p className="text-[10px] font-semibold text-slate-500 uppercase">Drag athletes here from the database tab.</p></div></div>
+            <div className="flex items-center gap-3"><Star className="text-amber-500" size={20} /><div><h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3><p className="text-[10px] font-semibold text-slate-500 uppercase">Use the database tab to save prospects here.</p></div></div>
          </div>
          <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4">
             <DroppableColumn id="priority" title="High Priority" players={boardData.priority.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
