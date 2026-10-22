@@ -3,12 +3,13 @@ import {
 ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
 Activity, Check, Loader2, Video, ExternalLink, Shield, Calendar, 
 MapPin, Eye, TrendingUp, History, Search, Megaphone, X, User, Info, 
-GraduationCap, Mail, AtSign, FileText, Award
+GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId;
@@ -132,6 +133,67 @@ const AboutPage = ({ onBack }) => (
 </div>
 </div>
 );
+
+// --- PHASE 2: TEAM ROSTERS & QR BROCHURES ---
+const RosterPage = ({ players, onSelect, onBack }) => {
+const rosteredPlayers = players.filter(p => p.dnaTeam && p.dnaTeam !== 'None');
+const teams = [...new Set(rosteredPlayers.map(p => p.dnaTeam))].sort();
+
+return (
+<div className="max-w-7xl mx-auto px-4 py-8 animate-in slide-in-from-bottom-8">
+   <style type="text/css" media="print">
+    {`
+      @page { size: letter portrait; margin: 0.4in; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    `}
+  </style>
+   <div className="flex justify-between items-center mb-8 print:hidden">
+      <button onClick={onBack} className="font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
+      <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Print QR Brochures</button>
+   </div>
+
+   {teams.length === 0 && (
+     <div className="text-center p-12 bg-white rounded-2xl shadow-sm border border-slate-200 print:hidden">
+        <Users className="w-12 h-12 mx-auto text-slate-300 mb-4" />
+        <p className="text-slate-600 font-bold uppercase tracking-widest">No athletes have been assigned to a club team yet.</p>
+        <p className="text-xs text-slate-400 mt-2 font-semibold">Assign athletes to active rosters in the Admin Panel to automatically generate printable brochures.</p>
+     </div>
+   )}
+
+   {teams.map((team, index) => (
+     <div key={team} className={`mb-16 print:m-0 ${index !== teams.length - 1 ? 'print:page-break-after-always' : ''}`}>
+        <div className="mb-6 pb-2 border-b-2 border-slate-900 flex justify-between items-end">
+          <div>
+             <h2 className="text-3xl font-black uppercase tracking-tight text-slate-900">{team}</h2>
+             <p className="text-sm font-bold text-[#d6336c] uppercase tracking-widest mt-1">Official Tournament Roster & Scouting QR</p>
+          </div>
+          <img src="/DNA Logo.png" className="h-10 sm:h-12 w-auto object-contain" alt="DNA Logo" onError={(e) => e.target.style.display='none'} />
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 print:grid-cols-4 print:gap-4">
+           {rosteredPlayers.filter(p => p.dnaTeam === team).sort((a,b) => a.name.localeCompare(b.name)).map(p => (
+              <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center shadow-sm print:shadow-none print:border-2 print:break-inside-avoid relative hover:border-[#1c7ed6] transition-colors cursor-pointer group" onClick={() => onSelect(p)}>
+                 <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover mb-3 border-2 border-slate-100 group-hover:border-[#1c7ed6] transition-colors" alt={p.name} />
+                 <h4 className="font-black text-sm sm:text-base uppercase leading-tight line-clamp-1 w-full" title={p.name}>{p.name}</h4>
+                 <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mt-1">{p.primaryPos}{p.secondaryPos ? `/${p.secondaryPos}` : ''} • Class of {p.gradYear}</p>
+                 
+                 <div className="my-4 p-2 bg-white rounded-xl border border-slate-100 inline-block print:border-none print:p-0">
+                    {/* URL dynamically built from the production domain */}
+                    <QRCodeSVG value={`https://www.dnaflagratings.com/?p=${p.id}`} size={90} className="sm:w-[100px] sm:h-[100px]" />
+                 </div>
+                 
+                 <div className="w-full bg-slate-50 p-2 sm:p-2.5 rounded-lg flex justify-between items-center mt-auto border border-slate-100 print:bg-white print:border-slate-200">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest">DNA Score</span>
+                    <span className="font-black text-sm sm:text-base text-[#d6336c]">{p.dnaScore || "N/A"}</span>
+                 </div>
+              </div>
+           ))}
+        </div>
+     </div>
+   ))}
+</div>
+);
+};
 
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
@@ -520,7 +582,6 @@ return (
            </div>
         </div>
 
-        {/* MOBILE SCROLL HINT */}
         <div className="md:hidden flex items-center justify-start gap-2 px-4 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner w-full overflow-hidden">
           <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6] shrink-0" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 truncate">Swipe table to view all metrics</span>
@@ -592,7 +653,7 @@ const [athleteSearchTerm, setAthleteSearchTerm] = useState("");
 const today = new Date().toISOString().split('T')[0];
 
 const defaultMetrics = {
-name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', 
+name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None',
 gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '',
 heightFeet: '', heightInches: '', weight: '',
 sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
@@ -631,7 +692,7 @@ if (p) {
   const bInches = p.metrics?.broad && p.metrics.broad.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '';
   
   setMetrics({
-    name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', 
+    name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None',
     gradYear: p.gradYear || '', city: p.city || '', state: p.state || '',
     gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
     scoutNotes: p.scoutNotes || '',
@@ -734,7 +795,7 @@ try {
   const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: eventResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, speedVerifications: speedVerifs, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
 
   const playerData = {
-    name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state,
+    name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam,
     gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes,
     height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: secureDNAScore, hudlLink: metrics.hudlLink, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date, timestamp: newCombineRecord.timestamp }, seasonStats: { passingYards: Number(metrics.passingYards) || 0, flagPulls: Number(metrics.flagPulls) || 0, interceptions: Number(metrics.interceptions) || 0 },
     speedVerifications: speedVerifs,
@@ -845,6 +906,24 @@ return (
                  </div>
                  <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
                  <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
+              </div>
+            </div>
+
+            {/* PHASE 2: TEAM ASSIGNMENT UI */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <InputLabel>Active Roster</InputLabel>
+                  <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}>
+                    <option value="None">Not Assigned (Combine Only)</option>
+                    <option value="DNA 18U Elite">DNA 18U Elite</option>
+                    <option value="DNA 18U Select">DNA 18U Select</option>
+                    <option value="DNA 15U Elite">DNA 15U Elite</option>
+                    <option value="DNA 15U Select">DNA 15U Select</option>
+                    <option value="DNA 12U">DNA 12U</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -975,6 +1054,23 @@ onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapsh
 });
 }, []);
 
+// --- PHASE 2: URL ROUTING LISTENER ---
+useEffect(() => {
+// If a coach scans a QR code, it loads: www.dnaflagratings.com/?p=PLAYER_ID
+const params = new URLSearchParams(window.location.search);
+const targetPlayerId = params.get('p');
+
+if (targetPlayerId && players.length > 0) {
+  const p = players.find(p => p.id === targetPlayerId);
+  if (p) {
+    setSelectedPlayer(p);
+    setView('profile');
+    // Clean the URL so if the coach clicks 'Back to Hub', it doesn't get stuck
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+}
+}, [players]);
+
 const handleAdminClick = () => { if (isAdminLoggedIn) { setView('admin'); window.scrollTo(0, 0); } else { setIsLoginModalOpen(true); } };
 const handleLoginSuccess = () => { setIsAdminLoggedIn(true); sessionStorage.setItem('dna_admin_authenticated', 'true'); setIsLoginModalOpen(false); setView('admin'); window.scrollTo(0, 0); };
 const handleLogout = async () => { if (auth) await signOut(auth); setIsAdminLoggedIn(false); sessionStorage.removeItem('dna_admin_authenticated'); setView('home'); window.scrollTo(0, 0); };
@@ -990,15 +1086,17 @@ return (
     <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm print:hidden">
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
         <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
-        <div className="flex gap-4 items-center">
-           <button onClick={() => { setView('about'); window.scrollTo(0,0); }} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><Info size={12}/> About</button>
-           <button onClick={handleAdminClick} className="text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2 rounded-full shadow-sm" style={{ color: isAdminLoggedIn ? '#059669' : '#d6336c', border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' }}><Lock size={12}/> {isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}</button>
+        <div className="flex gap-2 sm:gap-4 items-center">
+           <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><QrCode size={12}/> Rosters</button>
+           <button onClick={() => { setView('about'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><Info size={12}/> About</button>
+           <button onClick={handleAdminClick} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm" style={{ color: isAdminLoggedIn ? '#059669' : '#d6336c', border: `1px solid ${isAdminLoggedIn ? 'rgba(5, 150, 105, 0.3)' : 'rgba(214, 51, 108, 0.3)'}`, backgroundColor: isAdminLoggedIn ? 'rgba(5, 150, 105, 0.1)' : 'rgba(214, 51, 108, 0.05)' }}><Lock size={12}/> <span className="hidden sm:inline">{isAdminLoggedIn ? 'Admin Active' : 'Admin Login'}</span><span className="sm:hidden">Admin</span></button>
         </div>
       </div>
     </div>
     <main className="min-h-[calc(100vh-260px)]">
       {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
       {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => setView('home')} />}
+      {view === 'rosters' && <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => setView('home')} />}
       {view === 'about' && <AboutPage onBack={() => setView('home')} />}
       {view === 'admin' && isAdminLoggedIn && <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
     </main>
