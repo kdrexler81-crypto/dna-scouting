@@ -521,10 +521,10 @@ return (
         </div>
 
         {/* MOBILE SCROLL HINT */}
-        <div className="md:hidden flex items-center justify-center gap-3 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner">
-          <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6]" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Swipe table to view all metrics</span>
-          <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6]" />
+        <div className="md:hidden flex items-center justify-start gap-2 px-4 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner w-full overflow-hidden">
+          <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6] shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 truncate">Swipe table to view all metrics</span>
+          <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6] shrink-0" />
         </div>
 
         <div className="overflow-x-auto w-full relative">
