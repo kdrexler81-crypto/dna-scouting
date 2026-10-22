@@ -170,26 +170,6 @@ return (
 );
 };
 
-const AboutPage = ({ onBack }) => (
-<div className="max-w-4xl mx-auto px-4 py-8 animate-in slide-in-from-bottom-8">
-<button onClick={onBack} className="mb-6 font-bold flex items-center gap-1 uppercase tracking-wider text-sm text-[#1c7ed6] hover:opacity-80 transition-opacity"><ChevronLeft size={16} /> Back to Hub</button>
-<div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8" style={{ borderTop: '4px solid #1c7ed6' }}>
-  <div className="p-8 md:p-12">
-    <div className="flex items-center gap-4 mb-6">
-      <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-sm" style={{ color: '#d6336c' }}><Shield size={32} /></div>
-      <div>
-        <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">About DNA Athletics</h1>
-        <p className="text-sm font-bold text-slate-500 uppercase tracking-widest mt-1">Elevating the Game</p>
-      </div>
-    </div>
-    <div className="prose prose-slate max-w-none space-y-6 text-slate-700">
-      <p className="text-lg leading-relaxed"><strong>DNA Athletics</strong> is a premier girls' flag football organization, officially sanctioned by both <strong>USA Football</strong> and <strong>NFL FLAG</strong>.</p>
-    </div>
-  </div>
-</div>
-</div>
-);
-
 // --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
 if (!player) return null;
@@ -335,10 +315,23 @@ return (
         </div>
       </div>
 
-      {player?.seasonStats && (
+      {(player?.seasonStats?.stat1Label || player?.seasonStats?.stat2Label || player?.seasonStats?.stat3Label) && (
         <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2">
-          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={16} /> In-Season Stats & Performance</h3>
-          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm font-semibold">{player.seasonStats}</p>
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={16} /> In-Season Performance Stats</h3>
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat1Label || 'Touchdowns'}</span>
+              <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat1Value || '0'}</span>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat2Label || 'Interceptions'}</span>
+              <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat2Value || '0'}</span>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
+              <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat3Value || '0'}</span>
+            </div>
+          </div>
         </div>
       )}
       
@@ -439,7 +432,7 @@ return (
     </div>
 
     <div className="lg:col-span-3 order-1 lg:order-2">
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #d6336c' }}>
+      <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #1c7ed6' }}>
         <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2 uppercase"><Trophy style={{ color: '#d6336c' }} /> National Leaderboard</h2>
@@ -541,7 +534,8 @@ name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '',
 gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
 sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
 broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
-hudlLink: '', seasonStats: '', combineLocation: '', combineDate: today
+hudlLink: '', stat1Label: 'Touchdowns', stat1Value: '', stat2Label: 'Interceptions', stat2Value: '', stat3Label: 'Yards / Rec', stat3Value: '',
+combineLocation: '', combineDate: today
 };
 const [metrics, setMetrics] = useState(defaultMetrics);
 
@@ -559,7 +553,11 @@ if (p) {
   setMetrics({
     name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None',
     gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
-    scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', seasonStats: p.seasonStats || '', combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
+    scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', 
+    stat1Label: p.seasonStats?.stat1Label || 'Touchdowns', stat1Value: p.seasonStats?.stat1Value || '',
+    stat2Label: p.seasonStats?.stat2Label || 'Interceptions', stat2Value: p.seasonStats?.stat2Value || '',
+    stat3Label: p.seasonStats?.stat3Label || 'Yards / Rec', stat3Value: p.seasonStats?.stat3Value || '',
+    combineLocation: p.combineEvent?.location || '', combineDate: p.combineEvent?.date || today,
     sprint: p.metrics?.sprint ? p.metrics.sprint.replace('s', '') : '', sprintVerify: p.speedVerifications?.sprint || 'laser',
     shuttle: p.metrics?.shuttle ? p.metrics.shuttle.replace('s', '') : '', shuttleVerify: p.speedVerifications?.shuttle || 'stopwatch',
     lDrill: p.metrics?.lDrill ? p.metrics.lDrill.replace('s', '') : '', lDrillVerify: p.speedVerifications?.lDrill || 'stopwatch',
@@ -617,7 +615,8 @@ try {
 
   const playerData = {
     name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam,
-    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, seasonStats: metrics.seasonStats,
+    gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, 
+    seasonStats: { stat1Label: metrics.stat1Label, stat1Value: metrics.stat1Value, stat2Label: metrics.stat2Label, stat2Value: metrics.stat2Value, stat3Label: metrics.stat3Label, stat3Value: metrics.stat3Value },
     height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
     speedVerifications: newCombineRecord.speedVerifications, metrics: newCombineRecord.metrics, updatedAt: Date.now()
   };
@@ -694,15 +693,35 @@ return (
         <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
       </div>
 
+      {/* RESTORED 3-BOX STATS & MEDIA TIER */}
       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
-        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={14} /> Media & Performance</h3>
+        <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={14} /> Media & In-Season Stats</h3>
         <div className="mb-4">
           <InputLabel>Highlight Tape URL (Hudl / YouTube)</InputLabel>
           <FormInput type="url" placeholder="https://..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
         </div>
-        <div>
-          <InputLabel>In-Season Stats</InputLabel>
-          <textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm h-24" placeholder="e.g. 1,500 Passing Yds, 22 TDs..." value={metrics.seasonStats} onChange={e => setMetrics({...metrics, seasonStats: e.target.value})} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <InputLabel>Stat 1 Label & Value</InputLabel>
+            <div className="flex gap-2">
+              <FormInput type="text" placeholder="TDs" className="w-1/2" value={metrics.stat1Label} onChange={e => setMetrics({...metrics, stat1Label: e.target.value})} />
+              <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat1Value} onChange={e => setMetrics({...metrics, stat1Value: e.target.value})} />
+            </div>
+          </div>
+          <div>
+            <InputLabel>Stat 2 Label & Value</InputLabel>
+            <div className="flex gap-2">
+              <FormInput type="text" placeholder="INTs" className="w-1/2" value={metrics.stat2Label} onChange={e => setMetrics({...metrics, stat2Label: e.target.value})} />
+              <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat2Value} onChange={e => setMetrics({...metrics, stat2Value: e.target.value})} />
+            </div>
+          </div>
+          <div>
+            <InputLabel>Stat 3 Label & Value</InputLabel>
+            <div className="flex gap-2">
+              <FormInput type="text" placeholder="Yds" className="w-1/2" value={metrics.stat3Label} onChange={e => setMetrics({...metrics, stat3Label: e.target.value})} />
+              <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat3Value} onChange={e => setMetrics({...metrics, stat3Value: e.target.value})} />
+            </div>
+          </div>
         </div>
       </div>
 
