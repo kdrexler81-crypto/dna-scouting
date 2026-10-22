@@ -338,6 +338,13 @@ return (
         </div>
       </div>
       
+      {player?.seasonStats && (
+        <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2">
+          <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={16} /> In-Season Stats & Performance</h3>
+          <p className="text-slate-700 whitespace-pre-wrap leading-relaxed text-sm font-semibold">{player.seasonStats}</p>
+        </div>
+      )}
+
       {player?.hudlLink && (
         <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-[300px] print:hidden">
           <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Video size={16} /> Highlight Film</h3>
@@ -352,7 +359,6 @@ return (
 </div>
 );
 };
-
 // --- PUBLIC HUB (RESTORED) ---
 const PublicHub = ({ players, news: localNews, onSelect }) => {
 const [searchTerm, setSearchTerm] = useState('');
