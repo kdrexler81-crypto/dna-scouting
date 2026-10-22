@@ -81,14 +81,14 @@ setLoading(true); setError('');
 try {
   if (mode === 'recruiter_signup') {
     const userCred = await createUserWithEmailAndPassword(auth, username, password);
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'recruiters', userCred.user.uid), {
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid), {
       name: coachName, school: schoolName, email: username, role: 'recruiter', board: { priority: [], interested: [], pass: [] }, createdAt: Date.now()
     });
     onLoginSuccess('recruiter', { name: coachName, school: schoolName, uid: userCred.user.uid });
   } else {
     const userCred = await signInWithEmailAndPassword(auth, username, password);
     if (mode === 'recruiter_login') {
-      const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'recruiters', userCred.user.uid));
+      const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid));
       if (docSnap.exists() && docSnap.data().role === 'recruiter') {
         onLoginSuccess('recruiter', { ...docSnap.data(), uid: userCred.user.uid });
       } else {
@@ -786,7 +786,7 @@ const [yearFilter, setYearFilter] = useState('All');
 
 useEffect(() => {
 if (!recruiterData?.uid || !isFirebaseActive) return;
-const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'recruiters', recruiterData.uid), (docSnap) => {
+const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), (docSnap) => {
   if (docSnap.exists() && docSnap.data().board) setBoardData(docSnap.data().board);
 });
 return () => unsub();
@@ -832,7 +832,7 @@ const newBoard = {
 };
 newBoard[destCol].push(playerId);
 setBoardData(newBoard);
-try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'recruiters', recruiterData.uid), { board: newBoard }); } 
+try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
 catch (err) { console.error("Error saving board", err); }
 };
 
