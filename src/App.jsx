@@ -191,7 +191,6 @@ return (
       <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0 print:hidden">
         {Icon && <Icon size={16} className="text-slate-700" />}
       </div>
-      {/* FIX: Changed from row to flex-col so the badge drops below the text and prevents overlap */}
       <div className="flex flex-col justify-center gap-0.5">
         <span className="text-[11px] font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">{label}</span>
         {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-400 text-amber-900 text-[8px] px-1.5 py-0.5 rounded shadow-sm print:border print:border-amber-500 font-black tracking-widest flex items-center gap-1"><Award size={8}/> LASER</span>}
@@ -216,7 +215,6 @@ const seasonStats = player?.seasonStats || {};
 const combineEvent = player?.combineEvent || null;
 const embedUrl = getEmbedUrl(player?.hudlLink);
 
-// Backward compatibility fallback for older profiles
 const getVerify = (metricKey) => {
 if (player?.speedVerifications) return player.speedVerifications[metricKey] || 'stopwatch';
 return player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch';
@@ -236,8 +234,6 @@ return (
   </div>
   
   <div className="flex flex-col lg:flex-row gap-8 print:flex-row print:gap-6 print:items-start">
-    
-    {/* LEFT COLUMN */}
     <div className="w-full lg:w-1/3 flex flex-col gap-6 print:w-[35%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="bg-slate-900 p-4 pb-0 relative print:bg-slate-100">
@@ -283,7 +279,6 @@ return (
       )}
     </div>
 
-    {/* RIGHT COLUMN */}
     <div className="w-full lg:w-2/3 flex flex-col gap-6 print:w-[65%] print:block">
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:break-inside-avoid">
         <div className="flex justify-between items-end border-b border-slate-100 pb-4 mb-4">
@@ -317,12 +312,12 @@ return (
         </div>
       </div>
       
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:shadow-none print:border-2 print:break-inside-avoid print:mt-4">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-4 sm:p-6 print:shadow-none print:border-2 print:break-inside-avoid print:mt-4">
          <h3 className="text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2" style={{ color: '#1c7ed6' }}><Shield size={16} /> Verified Regular Season Stats</h3>
-         <div className="grid grid-cols-3 gap-4 text-center">
-           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Passing Yds</span><span className="text-2xl font-black text-[#1c7ed6]">{seasonStats.passingYards ?? 0}</span></div>
-           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Flag Pulls</span><span className="text-2xl font-black text-[#d6336c]">{seasonStats.flagPulls ?? 0}</span></div>
-           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 print:bg-white"><span className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Interceptions</span><span className="text-2xl font-black text-slate-800">{seasonStats.interceptions ?? 0}</span></div>
+         <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+           <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 print:bg-white flex flex-col justify-center"><span className="block text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mb-1 truncate">Pass Yds</span><span className="text-xl sm:text-2xl font-black text-[#1c7ed6]">{seasonStats.passingYards ?? 0}</span></div>
+           <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 print:bg-white flex flex-col justify-center"><span className="block text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mb-1 truncate">Flag Pulls</span><span className="text-xl sm:text-2xl font-black text-[#d6336c]">{seasonStats.flagPulls ?? 0}</span></div>
+           <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 print:bg-white flex flex-col justify-center"><span className="block text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase mb-1 truncate">INTs</span><span className="text-xl sm:text-2xl font-black text-slate-800">{seasonStats.interceptions ?? 0}</span></div>
          </div>
       </div>
       
@@ -525,7 +520,14 @@ return (
            </div>
         </div>
 
-        <div className="overflow-x-auto w-full">
+        {/* MOBILE SCROLL HINT */}
+        <div className="md:hidden flex items-center justify-center gap-3 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner">
+          <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6]" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600">Swipe table to view all metrics</span>
+          <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6]" />
+        </div>
+
+        <div className="overflow-x-auto w-full relative">
           <table className="w-full text-left border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
@@ -846,7 +848,6 @@ return (
               </div>
             </div>
 
-            {/* NEW RECRUITING FIELDS */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
               <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting Profile</h3>
               <div className="grid grid-cols-2 gap-4 mb-4">
