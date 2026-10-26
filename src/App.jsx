@@ -170,7 +170,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
   );
 };
 
-// --- 1. PROFILE PAGE (REDESIGNED) ---
+// --- 1. PROFILE PAGE (REDESIGNED + PRINT FIXED + MOBILE FIXED) ---
 const ProfilePage = ({ player, onBack }) => {
   if (!player) return null;
 
@@ -238,39 +238,39 @@ const ProfilePage = ({ player, onBack }) => {
         <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Print Sheet</button>
       </div>
       
-      {/* 1. TOP HERO SECTION */}
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8 flex flex-col md:flex-row print:shadow-none print:border-2">
-        <div className="md:w-1/3 bg-slate-900 relative">
+      {/* 1. TOP HERO SECTION (Explicit print flex rules added) */}
+      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8 flex flex-col md:flex-row print:flex-row print:shadow-none print:border-2 print:mb-6">
+        <div className="w-full md:w-1/3 print:w-1/3 bg-slate-900 relative shrink-0">
            <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
-           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-full object-cover min-h-[250px] print:h-56 print:object-top" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
+           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-[280px] sm:h-full object-cover print:h-[220px]" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
         
-        <div className="md:w-2/3 flex flex-col">
-          <div className="bg-slate-900 text-left p-6 md:p-8 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900">
+        <div className="w-full md:w-2/3 print:w-2/3 flex flex-col">
+          <div className="bg-slate-900 text-left p-6 md:p-8 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900 print:p-4">
             <h1 className="text-3xl md:text-5xl font-black text-white uppercase print:text-black">{player?.name}</h1>
             <p className="font-black text-sm md:text-lg uppercase tracking-widest mt-2" style={{ color: '#1c7ed6' }}>{player?.primaryPos} • Class of {player?.gradYear} {player?.dnaTeam && player.dnaTeam !== 'None' ? `• ${player.dnaTeam}` : ''}</p>
           </div>
 
           <div className="flex bg-slate-50 border-t border-slate-200 divide-x divide-slate-200 print:bg-white">
-            <div className="flex-1 p-4 md:p-6 text-center bg-slate-100 print:bg-white">
+            <div className="flex-1 p-4 md:p-6 text-center bg-slate-100 print:bg-white print:p-3">
               <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Score</span>
               <span className="text-4xl md:text-5xl font-black" style={{ color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
             </div>
-            <div className="flex-1 p-4 md:p-6 flex flex-col justify-center gap-2 md:gap-4 bg-white">
-              <div className="flex items-center gap-3"><GraduationCap size={20} className="text-[#1c7ed6]"/> <span className="text-sm font-bold uppercase text-slate-500">GPA:</span> <span className="text-lg font-black text-slate-900">{player?.gpa || 'N/A'}</span></div>
-              <div className="flex items-center gap-3"><FileText size={20} className="text-[#1c7ed6]"/> <span className="text-sm font-bold uppercase text-slate-500">SAT:</span> <span className="text-lg font-black text-slate-900">{player?.sat || 'N/A'}</span></div>
+            <div className="flex-1 p-4 md:p-6 flex flex-col justify-center gap-2 md:gap-4 bg-white print:p-3">
+              <div className="flex items-center gap-3 print:gap-2"><GraduationCap size={20} className="text-[#1c7ed6]"/> <span className="text-sm print:text-xs font-bold uppercase text-slate-500">GPA:</span> <span className="text-lg print:text-sm font-black text-slate-900">{player?.gpa || 'N/A'}</span></div>
+              <div className="flex items-center gap-3 print:gap-2"><FileText size={20} className="text-[#1c7ed6]"/> <span className="text-sm print:text-xs font-bold uppercase text-slate-500">SAT:</span> <span className="text-lg print:text-sm font-black text-slate-900">{player?.sat || 'N/A'}</span></div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. SPREAD OUT GRID (Metrics, Stats, Contact, Video) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      {/* 2. SPREAD OUT GRID (Explicit print grid rules added) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start print:grid-cols-3 print:gap-4">
         
-        {/* Left/Center Column (2/3 width) */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2">
-            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight mb-6">Verified Combine Metrics</h3>
+        {/* Left/Center Column */}
+        <div className="lg:col-span-2 print:col-span-2 flex flex-col gap-6 print:gap-4">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:p-4">
+            <h3 className="text-2xl print:text-lg font-black text-slate-900 uppercase tracking-tight mb-6 print:mb-3">Verified Combine Metrics</h3>
             <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
               <div>
                 <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player.metrics?.sprint} verifyStatus={getVerify('sprint')} />
@@ -288,20 +288,22 @@ const ProfilePage = ({ player, onBack }) => {
           </div>
 
           {(player?.seasonStats?.stat1Label || player?.seasonStats?.stat2Label || player?.seasonStats?.stat3Label) && (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2">
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={16} /> In-Season Performance Stats</h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat1Label || 'Touchdowns'}</span>
-                  <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat1Value || '0'}</span>
+            <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2 print:shadow-none print:p-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500 print:mb-2"><Trophy size={16} /> In-Season Performance Stats</h3>
+              
+              {/* MOBILE TEXT OVERFLOW FIX: Adjusted padding, font sizing, gaps, and added truncate */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
+                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat1Label || 'Touchdowns'}>{player.seasonStats.stat1Label || 'Touchdowns'}</span>
+                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat1Value || '0'}</span>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat2Label || 'Interceptions'}</span>
-                  <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat2Value || '0'}</span>
+                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
+                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat2Label || 'Interceptions'}>{player.seasonStats.stat2Label || 'Interceptions'}</span>
+                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat2Value || '0'}</span>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
-                  <span className="text-2xl font-black text-slate-900">{player.seasonStats.stat3Value || '0'}</span>
+                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
+                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat3Label || 'Yards / Rec'}>{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
+                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat3Value || '0'}</span>
                 </div>
               </div>
             </div>
@@ -318,20 +320,20 @@ const ProfilePage = ({ player, onBack }) => {
           )}
         </div>
 
-        {/* Right Column (1/3 width - Notes & Contact) */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl">
-             <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-slate-500 border-b border-slate-100 pb-3">Recruiting Contact</h3>
-             <div className="space-y-4">
-               {player?.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><div className="p-2 bg-slate-100 rounded-lg"><AtSign size={16} className="text-[#1c7ed6]"/></div> {player.twitter}</a>}
-               <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-3 text-sm font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><div className="p-2 bg-slate-100 rounded-lg"><Mail size={16} className="text-[#d6336c]"/></div> Contact Parent/Guardian</a>
+        {/* Right Column */}
+        <div className="lg:col-span-1 print:col-span-1 flex flex-col gap-6 print:gap-4">
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl print:shadow-none print:p-4 print:border-2">
+             <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-slate-500 border-b border-slate-100 pb-3 print:mb-2">Recruiting Contact</h3>
+             <div className="space-y-4 print:space-y-2">
+               {player?.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm print:text-xs font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><div className="p-2 bg-slate-100 rounded-lg print:hidden"><AtSign size={16} className="text-[#1c7ed6]"/></div> {player.twitter}</a>}
+               <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-3 text-sm print:text-xs font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><div className="p-2 bg-slate-100 rounded-lg print:hidden"><Mail size={16} className="text-[#d6336c]"/></div> Contact Parent/Guardian</a>
              </div>
           </div>
 
           {player?.scoutNotes && (
-            <div className="bg-slate-900 rounded-3xl p-6 shadow-xl print:bg-white print:border-2 print:border-slate-200">
-               <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-white flex items-center gap-2 print:text-black"><Eye size={14} style={{ color: '#d6336c' }}/> Scout Notes</h3>
-               <p className="text-sm text-slate-300 italic print:text-slate-700 leading-relaxed">"{player.scoutNotes}"</p>
+            <div className="bg-slate-900 rounded-3xl p-6 shadow-xl print:bg-white print:border-2 print:border-slate-200 print:p-4 print:shadow-none">
+               <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-white flex items-center gap-2 print:text-black print:mb-1"><Eye size={14} style={{ color: '#d6336c' }}/> Scout Notes</h3>
+               <p className="text-sm print:text-xs text-slate-300 italic print:text-slate-700 leading-relaxed">"{player.scoutNotes}"</p>
             </div>
           )}
 
