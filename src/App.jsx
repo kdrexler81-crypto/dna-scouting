@@ -170,7 +170,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
   );
 };
 
-// --- 1. PROFILE PAGE (REDESIGNED + PRINT FIXED + MOBILE FIXED) ---
+// --- 1. PROFILE PAGE ---
 const ProfilePage = ({ player, onBack }) => {
   if (!player) return null;
 
@@ -238,7 +238,7 @@ const ProfilePage = ({ player, onBack }) => {
         <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Print Sheet</button>
       </div>
       
-      {/* 1. TOP HERO SECTION (Explicit print flex rules added) */}
+      {/* 1. TOP HERO SECTION */}
       <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8 flex flex-col md:flex-row print:flex-row print:shadow-none print:border-2 print:mb-6">
         <div className="w-full md:w-1/3 print:w-1/3 bg-slate-900 relative shrink-0">
            <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
@@ -248,7 +248,10 @@ const ProfilePage = ({ player, onBack }) => {
         <div className="w-full md:w-2/3 print:w-2/3 flex flex-col">
           <div className="bg-slate-900 text-left p-6 md:p-8 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900 print:p-4">
             <h1 className="text-3xl md:text-5xl font-black text-white uppercase print:text-black">{player?.name}</h1>
-            <p className="font-black text-sm md:text-lg uppercase tracking-widest mt-2" style={{ color: '#1c7ed6' }}>{player?.primaryPos} • Class of {player?.gradYear} {player?.dnaTeam && player.dnaTeam !== 'None' ? `• ${player.dnaTeam}` : ''}</p>
+            <p className="font-black text-sm md:text-lg uppercase tracking-widest mt-2" style={{ color: '#1c7ed6' }}>
+              {player?.primaryPos} • Class of {player?.gradYear} 
+              {player?.dnaTeam && player.dnaTeam !== 'None' ? ` • ${player.dnaTeam}` : (player?.externalClub ? ` • ${player.externalClub}` : '')}
+            </p>
           </div>
 
           <div className="flex bg-slate-50 border-t border-slate-200 divide-x divide-slate-200 print:bg-white">
@@ -264,7 +267,7 @@ const ProfilePage = ({ player, onBack }) => {
         </div>
       </div>
 
-      {/* 2. SPREAD OUT GRID (Explicit print grid rules added) */}
+      {/* 2. SPREAD OUT GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start print:grid-cols-3 print:gap-4">
         
         {/* Left/Center Column */}
@@ -290,8 +293,6 @@ const ProfilePage = ({ player, onBack }) => {
           {(player?.seasonStats?.stat1Label || player?.seasonStats?.stat2Label || player?.seasonStats?.stat3Label) && (
             <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2 print:shadow-none print:p-4">
               <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500 print:mb-2"><Trophy size={16} /> In-Season Performance Stats</h3>
-              
-              {/* MOBILE TEXT OVERFLOW FIX: Adjusted padding, font sizing, gaps, and added truncate */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
                 <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
                   <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat1Label || 'Touchdowns'}>{player.seasonStats.stat1Label || 'Touchdowns'}</span>
@@ -428,8 +429,8 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Megaphone style={{ color: '#1c7ed6' }} /> Live News</h2>
             <div className="space-y-4">
-              {localNews.length === 0 ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
-                 [...localNews].sort((a,b) => b.timestamp - a.timestamp).map(item => (
+              {(!localNews || localNews.length === 0) ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
+                 [...localNews].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0)).map(item => (
                    <div key={item.id} className="block pl-3 transition-transform" style={{ borderLeft: '2px solid #d6336c' }}>
                      <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#d6336c' }}>{item.category}</span></div>
                      <p className="text-sm font-bold text-slate-800 mt-1">{item.title}</p>
@@ -545,7 +546,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
   const today = new Date().toISOString().split('T')[0];
 
   const defaultMetrics = {
-    name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None',
+    name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None', externalClub: '',
     gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
     sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
     broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
@@ -566,7 +567,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     const p = players.find(player => player.id === playerId);
     if (p) {
       setMetrics({
-        name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None',
+        name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None', externalClub: p.externalClub || '',
         gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
         scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', 
         stat1Label: p.seasonStats?.stat1Label || 'Touchdowns', stat1Value: p.seasonStats?.stat1Value || '',
@@ -629,7 +630,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
       const newCombineRecord = { location: metrics.combineLocation, date: metrics.combineDate, timestamp: new Date().toLocaleTimeString(), dnaScore: overallResult.data.dnaScore, height: `${metrics.heightFeet || 0}'${metrics.heightInches || 0}"`, weight: Number(metrics.weight) || 0, speedVerifications: { sprint: metrics.sprintVerify, shuttle: metrics.shuttleVerify, lDrill: metrics.lDrillVerify, mph: metrics.mphVerify }, metrics: { sprint: metrics.sprint ? `${Number(metrics.sprint).toFixed(2)}s` : "", shuttle: metrics.shuttle ? `${Number(metrics.shuttle).toFixed(2)}s` : "", lDrill: metrics.lDrill ? `${Number(metrics.lDrill).toFixed(2)}s` : "", mph: metrics.mph ? `${metrics.mph} mph` : "", broad: (metrics.broadFeet || metrics.broadInches) ? `${metrics.broadFeet || 0}'${metrics.broadInches || 0}"` : "", vertical: metrics.verticalInches ? `${metrics.verticalInches}"` : "", catching: metrics.catchingPct ? `${metrics.catchingPct}%` : "", throwing: metrics.throwingPct ? `${metrics.throwingPct}%` : "", flag: metrics.flagPullingPct ? `${metrics.flagPullingPct}%` : "" } };
 
       const playerData = {
-        name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam,
+        name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam, externalClub: metrics.externalClub,
         gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, 
         seasonStats: { stat1Label: metrics.stat1Label, stat1Value: metrics.stat1Value, stat2Label: metrics.stat2Label, stat2Value: metrics.stat2Value, stat3Label: metrics.stat3Label, stat3Value: metrics.stat3Value },
         height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
@@ -662,9 +663,11 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     e.preventDefault();
     if (!newsTitle) return;
     try {
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
-        title: newsTitle, category: newsCategory, timestamp: Date.now()
-      });
+      if (dbConfigured && db) {
+         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
+           title: newsTitle, category: newsCategory, timestamp: Date.now()
+         });
+      }
       setNewsTitle('');
       alert('News update posted successfully!');
     } catch (err) {
@@ -710,7 +713,23 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
 
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
                   <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
-                  <div><InputLabel>Active Roster</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}><option value="None">Not Assigned (Combine Only)</option><option value="DNA 18U Elite">DNA 18U Elite</option><option value="DNA 18U Select">DNA 18U Select</option><option value="DNA 15U Elite">DNA 15U Elite</option><option value="DNA 15U Select">DNA 15U Select</option><option value="DNA 12U">DNA 12U</option></select></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <InputLabel>DNA Roster (Tournament Teams)</InputLabel>
+                      <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold focus:outline-none focus:border-[#d6336c]" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}>
+                        <option value="None">Not Assigned</option>
+                        <option value="DNA 18U Elite">DNA 18U Elite</option>
+                        <option value="DNA 18U Select">DNA 18U Select</option>
+                        <option value="DNA 15U Elite">DNA 15U Elite</option>
+                        <option value="DNA 15U Select">DNA 15U Select</option>
+                        <option value="DNA 12U">DNA 12U</option>
+                      </select>
+                    </div>
+                    <div>
+                      <InputLabel>3rd Party / External Club</InputLabel>
+                      <FormInput type="text" placeholder="e.g. Next Level Athletics" value={metrics.externalClub} onChange={e => setMetrics({...metrics, externalClub: e.target.value})} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
@@ -763,10 +782,42 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed Verifications</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
-                    <div><InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
-                    <div><InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option></select></div>
-                    <div><InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} /><select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option></select></div>
+                    <div>
+                      <InputLabel>40-Yd (Sec)</InputLabel>
+                      <FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} />
+                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}>
+                        <option value="laser">Laser</option>
+                        <option value="stopwatch">Hand-Timed</option>
+                        <option value="standard">DNA Verified</option>
+                      </select>
+                    </div>
+                    <div>
+                      <InputLabel>5-10-5 (Sec)</InputLabel>
+                      <FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} />
+                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}>
+                        <option value="stopwatch">Hand-Timed</option>
+                        <option value="laser">Laser</option>
+                        <option value="standard">DNA Verified</option>
+                      </select>
+                    </div>
+                    <div>
+                      <InputLabel>L Drill (Sec)</InputLabel>
+                      <FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} />
+                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}>
+                        <option value="stopwatch">Hand-Timed</option>
+                        <option value="laser">Laser</option>
+                        <option value="standard">DNA Verified</option>
+                      </select>
+                    </div>
+                    <div>
+                      <InputLabel>Max Speed (MPH)</InputLabel>
+                      <FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} />
+                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}>
+                        <option value="laser">Laser</option>
+                        <option value="stopwatch">Hand-Timed</option>
+                        <option value="standard">DNA Verified</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -1103,12 +1154,16 @@ export default function App() {
   useEffect(() => {
     if (!isFirebaseActive || !db) return;
     setDbStatus("CONNECTING...");
+    
     onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
       const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); 
     });
+    
     onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
       const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
       setNews(newsItems); setDbStatus("LIVE SYNC");
+    }, (err) => {
+      console.error("Firebase News Error:", err);
     });
   }, []);
 
