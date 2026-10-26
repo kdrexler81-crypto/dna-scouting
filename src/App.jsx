@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
   Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
   X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
-  Download, LayoutDashboard, Star, GripVertical, Building, Megaphone
+  Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
+  CheckCircle, Clock
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -36,7 +37,7 @@ try {
   console.error("Firebase offline", e);
 }
 
-const INITIAL_SEED = { players: [], news: [] };
+const INITIAL_SEED = { players: [], news: [], scouts: [] };
 
 // --- BRAND COMPONENTS ---
 const DNALogo = () => (
@@ -63,8 +64,8 @@ const SanctionedFooter = () => (
 );
 
 // --- MODALS & PAGES ---
-const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
-  const [mode, setMode] = useState('admin');
+const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
+  const [mode, setMode] = useState(initialMode || 'admin');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [coachName, setCoachName] = useState('');
@@ -72,23 +73,45 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode || 'admin');
+      setError('');
+      setUsername('');
+      setPassword('');
+    }
+  }, [isOpen, initialMode]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true); setError('');
+    
+    if (mode === 'recruiter_signup' && !username.toLowerCase().endsWith('.edu')) {
+      setError("Access denied. Scout accounts require a valid .edu university email address.");
+      setLoading(false);
+      return;
+    }
+
     try {
       if (mode === 'recruiter_signup') {
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid), {
-          name: coachName, school: schoolName, email: username, role: 'recruiter', board: { priority: [], interested: [], pass: [] }, createdAt: Date.now()
+          name: coachName, school: schoolName, email: username, role: 'recruiter', approved: false, board: { priority: [], interested: [], pass: [] }, createdAt: Date.now()
         });
-        onLoginSuccess('recruiter', { name: coachName, school: schoolName, uid: userCred.user.uid });
+        await signOut(auth); // Sign them out immediately so they can't bypass approval
+        setError("Account created successfully. It is currently pending Admin approval.");
+        setMode('recruiter_login'); // Swap to login view to read the message
       } else {
         const userCred = await signInWithEmailAndPassword(auth, username, password);
         if (mode === 'recruiter_login') {
           const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid));
           if (docSnap.exists() && docSnap.data().role === 'recruiter') {
+            if (docSnap.data().approved !== true) {
+               await signOut(auth);
+               throw new Error("Your scout account is pending Admin approval. Please check back later.");
+            }
             onLoginSuccess('recruiter', { ...docSnap.data(), uid: userCred.user.uid });
           } else {
             await signOut(auth); throw new Error("Not authorized as a recruiter.");
@@ -97,7 +120,9 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
            onLoginSuccess('admin', null);
         }
       }
-      setUsername(''); setPassword(''); setCoachName(''); setSchoolName('');
+      if (mode !== 'recruiter_signup') {
+        setUsername(''); setPassword(''); setCoachName(''); setSchoolName('');
+      }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
     }
@@ -119,11 +144,11 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
           <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto mb-3" style={{ color: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}>
             {mode === 'admin' ? <Lock size={22} /> : <Building size={22} />}
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 uppercase tracking-tight">{mode === 'admin' ? 'Coach Portal Access' : 'Recruiter Login'}</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">{mode === 'admin' ? 'Authorized Staff Only' : 'Verified College Coaches Only'}</p>
+          <h2 className="text-2xl font-bold text-slate-900 uppercase tracking-tight">{mode === 'admin' ? 'Coach Portal Access' : 'Scout / Recruiter'}</h2>
+          <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">{mode === 'admin' ? 'Authorized Staff Only' : 'Verified .EDU Coaches Only'}</p>
         </div>
         
-        {error && <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold p-3 rounded-lg text-center mb-4 uppercase tracking-wider">{error}</div>}
+        {error && <div className={`border text-xs font-bold p-3 rounded-lg text-center mb-4 uppercase tracking-wider ${error.includes('successfully') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>{error}</div>}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'recruiter_signup' && (
@@ -139,10 +164,10 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess }) => {
             </div>
           )}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Email Address</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-              <input required type="email" placeholder="Enter email" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-1 ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]'}`} value={username} onChange={e => setUsername(e.target.value)} />
+              <input required type="email" placeholder={mode === 'recruiter_signup' ? "coach@university.edu" : "Enter email"} className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-1 ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]'}`} value={username} onChange={e => setUsername(e.target.value)} />
             </div>
           </div>
           <div>
@@ -532,7 +557,7 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>;
 const FormInput = (props) => <input {...props} className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`} />;
 
-const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
+const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   const [activeTab, setActiveTab] = useState('athlete');
   const [savingAthlete, setSavingAthlete] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
@@ -675,6 +700,13 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
     }
   };
 
+  const toggleScoutApproval = async (scoutId, currentStatus) => {
+    if (dbConfigured && db) {
+       try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', scoutId), { approved: !currentStatus }); } 
+       catch (e) { alert("Failed to update status: " + e.message); }
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
       <div className="flex justify-between items-center mb-6">
@@ -682,9 +714,12 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
         <button onClick={onLogout} className="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 px-4 py-2 rounded-lg">Sign Out Admin</button>
       </div>
 
-      <div className="flex gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
-         <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={16} /> Athlete Entry</button>
-         <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 rounded-t-xl text-sm font-bold uppercase tracking-widest flex justify-center gap-2 ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={16} /> Post News</button>
+      <div className="flex flex-wrap gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
+         <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={14} className="hidden sm:block"/> Athlete Entry</button>
+         <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={14} className="hidden sm:block"/> Post News</button>
+         <button onClick={() => setActiveTab('scouts')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'scouts' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'scouts' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}>
+           <Building size={14} className="hidden sm:block"/> Manage Scouts {scouts.filter(s => !s.approved).length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px]">{scouts.filter(s => !s.approved).length}</span>}
+         </button>
       </div>
 
       <div className="bg-white border border-slate-200 rounded-b-2xl rounded-tr-2xl shadow-xl p-6 sm:p-8">
@@ -863,6 +898,42 @@ const AdminPanel = ({ onBack, dbConfigured, players, onLogout }) => {
             </form>
           </div>
         )}
+
+        {activeTab === 'scouts' && (
+          <div className="animate-in fade-in slide-in-from-right-4">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4 flex items-center gap-2"><Building size={20} className="text-[#1c7ed6]"/> Scout Database Approvals</h3>
+            <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+               <table className="w-full text-left border-collapse">
+                 <thead>
+                   <tr className="bg-white text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                     <th className="p-4">Coach Name</th>
+                     <th className="p-4">University</th>
+                     <th className="p-4">Email (.edu)</th>
+                     <th className="p-4 text-center">Access Status</th>
+                   </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-200">
+                   {scouts.length === 0 ? <tr><td colSpan="4" className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No registered scouts yet.</td></tr> : 
+                    scouts.sort((a,b) => (a.approved === b.approved) ? 0 : a.approved ? 1 : -1).map(scout => (
+                     <tr key={scout.id} className="hover:bg-slate-100 transition-colors">
+                       <td className="p-4 font-bold text-slate-800 text-sm">{scout.name}</td>
+                       <td className="p-4 font-bold text-slate-600 text-sm">{scout.school}</td>
+                       <td className="p-4 text-sm text-slate-500">{scout.email}</td>
+                       <td className="p-4 text-center">
+                         <button 
+                           onClick={() => toggleScoutApproval(scout.id, scout.approved)}
+                           className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center justify-center gap-1 mx-auto transition-colors ${scout.approved ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}
+                         >
+                           {scout.approved ? <><CheckCircle size={12}/> Approved</> : <><Clock size={12}/> Pending Approval</>}
+                         </button>
+                       </td>
+                     </tr>
+                   ))}
+                 </tbody>
+               </table>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -926,6 +997,13 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
       <td className="p-3 text-center text-xs font-bold text-slate-700">{player.metrics?.sprint || '-'}</td>
       <td className="p-3 text-center text-xs font-bold text-slate-700">{player.gpa || '-'}</td>
       <td className="p-3 text-center">
+         <div className="flex flex-col items-center gap-1">
+           {player.guardianEmail && <a href={`mailto:${player.guardianEmail}`} title="Email Guardian" className="text-slate-400 hover:text-[#d6336c] transition-colors"><Mail size={14}/></a>}
+           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={14}/></a>}
+           {!player.guardianEmail && !player.twitter && <span className="text-slate-300">-</span>}
+         </div>
+      </td>
+      <td className="p-3 text-center">
          <select 
            className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1.5 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-sm' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
            value={currentStatus}
@@ -946,9 +1024,14 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
   
+  // Filtering States
   const [minDna, setMinDna] = useState(0);
-  const [maxSprint, setMaxSprint] = useState(10);
   const [minGpa, setMinGpa] = useState(0);
+  const [maxSprint, setMaxSprint] = useState(10);
+  const [maxShuttle, setMaxShuttle] = useState(10);
+  const [maxLDrill, setMaxLDrill] = useState(10);
+  const [minBroad, setMinBroad] = useState(0);
+  const [minVert, setMinVert] = useState(0);
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
 
@@ -962,6 +1045,7 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
 
   const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
   const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);
+  const parseBroad = (str) => { if (!str) return 0; const ftMatch = str.match(/(\d+)'/); const inMatch = str.match(/(\d+)"/); return (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0); };
 
   const filteredPlayers = useMemo(() => {
     return players.filter(p => {
@@ -969,20 +1053,58 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
       const matchYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
       const matchDna = (Number(p.dnaScore) || 0) >= Number(minDna);
       const matchGpa = (Number(p.gpa) || 0) >= Number(minGpa);
+      
       const sprintNum = parseFloat(p.metrics?.sprint) || 99;
       const matchSprint = maxSprint >= 10 || sprintNum <= Number(maxSprint);
-      return matchPos && matchYear && matchDna && matchGpa && matchSprint;
-    }).sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore));
-  }, [players, minDna, maxSprint, minGpa, posFilter, yearFilter]);
+      
+      const shuttleNum = parseFloat(p.metrics?.shuttle) || 99;
+      const matchShuttle = maxShuttle >= 10 || shuttleNum <= Number(maxShuttle);
 
-  const exportCSV = () => {
-    const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Hudl Link"];
-    const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.hudlLink || 'N/A' ]);
+      const lDrillNum = parseFloat(p.metrics?.lDrill) || 99;
+      const matchLDrill = maxLDrill >= 10 || lDrillNum <= Number(maxLDrill);
+
+      const broadInches = parseBroad(p.metrics?.broad);
+      const matchBroad = minBroad <= 0 || broadInches >= Number(minBroad);
+
+      const vertNum = parseFloat(p.metrics?.vertical) || 0;
+      const matchVert = minVert <= 0 || vertNum >= Number(minVert);
+
+      return matchPos && matchYear && matchDna && matchGpa && matchSprint && matchShuttle && matchLDrill && matchBroad && matchVert;
+    }).sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore));
+  }, [players, minDna, maxSprint, maxShuttle, maxLDrill, minBroad, minVert, minGpa, posFilter, yearFilter]);
+
+  const exportDatabaseCSV = () => {
+    const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
+    const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `DNA_Prospect_Export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `DNA_Prospects_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click(); link.remove();
+  };
+
+  const exportBoardCSV = () => {
+    const headers = ["Name", "Position", "Class", "Board Status", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
+    
+    const getRows = (statusArr, statusLabel) => statusArr.map(id => {
+      const p = players.find(player => player.id === id);
+      if (!p) return null;
+      return [ `"${p.name}"`, p.primaryPos, p.gradYear, statusLabel, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ];
+    }).filter(Boolean);
+
+    const rows = [
+      ...getRows(boardData.priority, "Priority"),
+      ...getRows(boardData.interested, "Interested"),
+      ...getRows(boardData.pass, "Pass")
+    ];
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `DNA_Recruiting_Board_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click(); link.remove();
   };
@@ -1042,9 +1164,9 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Advanced Filters</h3>
-                   <button onClick={exportCSV} className="text-[10px] font-bold text-white bg-slate-900 px-3 py-1.5 rounded flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm"><Download size={12}/> Export CSV</button>
+                   <button onClick={exportDatabaseCSV} className="text-[10px] font-bold text-white bg-slate-900 px-3 py-1.5 rounded flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm"><Download size={12}/> Export CSV</button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
                    <div>
                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pos</label>
                      <select className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-bold text-slate-700 focus:outline-none" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
@@ -1065,15 +1187,31 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max 40-Yd ({maxSprint >= 10 ? 'Any' : maxSprint + 's'})</label>
                      <input type="range" min="4.5" max="10" step="0.1" value={maxSprint} onChange={e=>setMaxSprint(e.target.value)} className="w-full accent-emerald-500" />
                    </div>
+                   <div>
+                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max Shuttle ({maxShuttle >= 10 ? 'Any' : maxShuttle + 's'})</label>
+                     <input type="range" min="4.0" max="10" step="0.1" value={maxShuttle} onChange={e=>setMaxShuttle(e.target.value)} className="w-full accent-emerald-500" />
+                   </div>
+                   <div>
+                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max L-Drill ({maxLDrill >= 10 ? 'Any' : maxLDrill + 's'})</label>
+                     <input type="range" min="4.0" max="10" step="0.1" value={maxLDrill} onChange={e=>setMaxLDrill(e.target.value)} className="w-full accent-emerald-500" />
+                   </div>
+                   <div>
+                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label>
+                     <input type="range" min="0" max="120" step="1" value={minBroad} onChange={e=>setMinBroad(e.target.value)} className="w-full accent-amber-500" />
+                   </div>
+                   <div className="xl:col-start-8">
+                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min Vert ({minVert <= 0 ? 'Any' : minVert + '"'})</label>
+                     <input type="range" min="0" max="40" step="1" value={minVert} onChange={e=>setMinVert(e.target.value)} className="w-full accent-amber-500" />
+                   </div>
                 </div>
              </div>
              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse min-w-[700px]">
-                      <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[250px]">Athlete</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Board Status</th><th className="p-4 text-center">Tape</th></tr></thead>
+                   <table className="w-full text-left border-collapse min-w-[850px]">
+                      <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[220px]">Athlete</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Contact</th><th className="p-4 text-center">Board Status</th><th className="p-4 text-center">Tape</th></tr></thead>
                       <tbody>
                         {filteredPlayers.length === 0 ? (
-                          <tr><td colSpan="7" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
+                          <tr><td colSpan="8" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
                         ) : (
                           filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} />)
                         )}
@@ -1086,8 +1224,15 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
 
         {activeTab === 'board' && (
           <div className="animate-in fade-in slide-in-from-right-4">
-             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-sm">
-                <div className="flex items-center gap-3"><Star className="text-amber-500" size={20} /><div><h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3><p className="text-[10px] font-semibold text-slate-500 uppercase">Use the database tab to save prospects here.</p></div></div>
+             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between shadow-sm gap-4">
+                <div className="flex items-center gap-3">
+                   <Star className="text-amber-500 shrink-0" size={20} />
+                   <div>
+                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3>
+                     <p className="text-[10px] font-semibold text-slate-500 uppercase">Use the database tab to save prospects here.</p>
+                   </div>
+                </div>
+                <button onClick={exportBoardCSV} className="text-[10px] font-bold text-white bg-slate-900 px-4 py-2 rounded-lg flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm whitespace-nowrap"><Download size={14}/> Export Board to CSV</button>
              </div>
              <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4">
                 <DroppableColumn id="priority" title="High Priority" players={boardData.priority.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
@@ -1146,8 +1291,13 @@ export default function App() {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [players, setPlayers] = useState(INITIAL_SEED.players);
   const [news, setNews] = useState(INITIAL_SEED.news);
+  const [scouts, setScouts] = useState(INITIAL_SEED.scouts);
   const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [loginModalMode, setLoginModalMode] = useState('admin');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  
   const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
   const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
 
@@ -1162,8 +1312,11 @@ export default function App() {
     onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
       const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
       setNews(newsItems); setDbStatus("LIVE SYNC");
-    }, (err) => {
-      console.error("Firebase News Error:", err);
+    }, (err) => { console.error("Firebase News Error:", err); });
+
+    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'recruiters'), (snapshot) => {
+      const scoutItems = []; snapshot.forEach(doc => scoutItems.push({ id: doc.id, ...doc.data() }));
+      setScouts(scoutItems);
     });
   }, []);
 
@@ -1179,6 +1332,16 @@ export default function App() {
       }
     }
   }, [players]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLoginSuccess = (role, data) => { 
     setAuthRole(role); sessionStorage.setItem('dna_auth_role', role);
@@ -1208,6 +1371,12 @@ export default function App() {
     }
   };
 
+  const openModal = (mode) => {
+    setLoginModalMode(mode);
+    setIsDropdownOpen(false);
+    setIsLoginModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
       <div>
@@ -1217,9 +1386,20 @@ export default function App() {
             <div className="flex gap-2 sm:gap-4 items-center">
                {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-3 sm:px-4 py-2 rounded-full shadow-sm hover:bg-[#155a9e] flex items-center gap-1.5"><Building size={12}/> Portal</button>}
                <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><QrCode size={12}/> Rosters</button>
-               <button onClick={() => { authRole ? setView(authRole) : setIsLoginModalOpen(true); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : '#d6336c'), border: `1px solid ${authRole === 'admin' ? 'rgba(5,150,105,0.3)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.3)' : 'rgba(214,51,108,0.3)')}`, backgroundColor: authRole === 'admin' ? 'rgba(5,150,105,0.1)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.1)' : 'rgba(214,51,108,0.05)') }}>
-                 <Lock size={12}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
-               </button>
+               
+               {/* Login Dropdown */}
+               <div className="relative" ref={dropdownRef}>
+                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : '#d6336c'), border: `1px solid ${authRole === 'admin' ? 'rgba(5,150,105,0.3)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.3)' : 'rgba(214,51,108,0.3)')}`, backgroundColor: authRole === 'admin' ? 'rgba(5,150,105,0.1)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.1)' : 'rgba(214,51,108,0.05)') }}>
+                   <Lock size={12}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
+                 </button>
+                 {isDropdownOpen && !authRole && (
+                   <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                     <button onClick={() => openModal('admin')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#d6336c] uppercase tracking-wider flex items-center gap-2"><Shield size={14}/> Admin Portal</button>
+                     <div className="h-px bg-slate-100 my-1"></div>
+                     <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] uppercase tracking-wider flex items-center gap-2"><Building size={14}/> Scout Portal</button>
+                   </div>
+                 )}
+               </div>
             </div>
           </div>
         </div>
@@ -1227,12 +1407,12 @@ export default function App() {
           {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
           {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => { if(authRole==='recruiter'){setView('recruiter')} else {setView('home')} }} />}
           {view === 'rosters' && <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => setView('home')} />}
-          {view === 'admin' && authRole === 'admin' && <AdminPanel players={players} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
+          {view === 'admin' && authRole === 'admin' && <AdminPanel players={players} scouts={scouts} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
           {view === 'recruiter' && authRole === 'recruiter' && <RecruiterPortal players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} />}
         </main>
       </div>
       <SanctionedFooter />
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
+      <LoginModal isOpen={isLoginModalOpen} initialMode={loginModalMode} onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
     </div>
   );
 }
