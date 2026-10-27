@@ -39,11 +39,15 @@ try {
 
 const INITIAL_SEED = { players: [], news: [], scouts: [] };
 
+// --- TYPOGRAPHY HELPERS ---
+const displayFont = { fontFamily: "'Outfit', sans-serif" };
+const bodyFont = { fontFamily: "'Inter', sans-serif" };
+
 // --- BRAND COMPONENTS ---
 const DNALogo = () => (
   <div className="flex items-center gap-3">
-    <img src="/DNA Logo.png" alt="DNA Football Logo" className="h-10 w-auto" onError={(e) => e.target.style.display='none'} />
-    <span className="font-bold text-xl tracking-wide uppercase text-slate-900 hidden sm:block print:block">DNA Football</span>
+    <img src="/DNA Logo.png" alt="DNA Football Logo" className="h-9 w-auto" onError={(e) => e.target.style.display='none'} />
+    <span className="font-extrabold text-xl tracking-wide uppercase text-slate-900 hidden sm:block print:block" style={displayFont}>DNA Football</span>
   </div>
 );
 
@@ -51,11 +55,11 @@ const SanctionedFooter = () => (
   <footer className="bg-white border-t border-slate-200 py-12 mt-20 text-center shadow-sm print:hidden">
     <div className="max-w-7xl mx-auto px-4 flex flex-col items-center justify-center space-y-6">
       <div className="flex flex-col items-center space-y-2">
-        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
-        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-center gap-6">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-center gap-6 shadow-sm">
           <img src="/usa-football-logo.jpg" alt="USA Football Sanctioned" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-          <div className="h-8 w-px bg-slate-300"></div>
-          <span className="text-xs font-display font-bold text-slate-800 uppercase tracking-wider">USA Football & NFL FLAG Partner</span>
+          <div className="h-8 w-px bg-slate-200"></div>
+          <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider" style={displayFont}>USA Football & NFL FLAG Partner</span>
         </div>
       </div>
       <p className="text-slate-400 text-[10px] uppercase tracking-widest pt-4">&copy; {new Date().getFullYear()} DNA Football. All rights reserved.</p>
@@ -100,9 +104,9 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid), {
           name: coachName, school: schoolName, email: username, role: 'recruiter', approved: false, board: { priority: [], interested: [], pass: [] }, createdAt: Date.now()
         });
-        await signOut(auth); // Sign them out immediately so they can't bypass approval
+        await signOut(auth);
         setError("Account created successfully. It is currently pending Admin approval.");
-        setMode('recruiter_login'); // Swap to login view to read the message
+        setMode('recruiter_login');
       } else {
         const userCred = await signInWithEmailAndPassword(auth, username, password);
         if (mode === 'recruiter_login') {
@@ -130,63 +134,63 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1" style={{ background: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}></div>
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors"><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}></div>
+        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors bg-slate-50 p-1.5 rounded-full"><X size={18} /></button>
         
-        <div className="flex gap-2 mb-6 bg-slate-50 p-1 rounded-lg border border-slate-200">
-          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-md transition-colors ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500'}`}>Admin</button>
-          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-xs font-bold uppercase tracking-widest rounded-md transition-colors ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500'}`}>Scout Portal</button>
+        <div className="flex gap-2 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all duration-200 ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
+          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all duration-200 ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
         </div>
 
-        <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center mx-auto mb-3" style={{ color: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}>
-            {mode === 'admin' ? <Lock size={22} /> : <Building size={22} />}
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4" style={{ color: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}>
+            {mode === 'admin' ? <Lock size={24} /> : <Building size={24} />}
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 uppercase tracking-tight">{mode === 'admin' ? 'Coach Portal Access' : 'Scout / Recruiter'}</h2>
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-widest mt-1">{mode === 'admin' ? 'Authorized Staff Only' : 'Verified .EDU Coaches Only'}</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>{mode === 'admin' ? 'Coach Portal Access' : 'Scout / Recruiter'}</h2>
+          <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1.5">{mode === 'admin' ? 'Authorized Staff Only' : 'Verified .EDU Coaches Only'}</p>
         </div>
         
-        {error && <div className={`border text-xs font-bold p-3 rounded-lg text-center mb-4 uppercase tracking-wider ${error.includes('successfully') ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700'}`}>{error}</div>}
+        {error && <div className={`border text-xs font-semibold p-3.5 rounded-xl text-center mb-6 leading-relaxed ${error.includes('successfully') ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>{error}</div>}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'recruiter_signup' && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Coach Name</label>
-                <input required type="text" placeholder="John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1c7ed6]" value={coachName} onChange={e => setCoachName(e.target.value)} />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Coach Name</label>
+                <input required type="text" placeholder="John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={coachName} onChange={e => setCoachName(e.target.value)} />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">University / College</label>
-                <input required type="text" placeholder="State Univ." className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#1c7ed6]" value={schoolName} onChange={e => setSchoolName(e.target.value)} />
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">University / College</label>
+                <input required type="text" placeholder="State Univ." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={schoolName} onChange={e => setSchoolName(e.target.value)} />
               </div>
             </div>
           )}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-              <input required type="email" placeholder={mode === 'recruiter_signup' ? "coach@university.edu" : "Enter email"} className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-1 ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]'}`} value={username} onChange={e => setUsername(e.target.value)} />
+              <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+              <input required type="email" placeholder={mode === 'recruiter_signup' ? "coach@university.edu" : "Enter email"} className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]/20' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]/20'}`} value={username} onChange={e => setUsername(e.target.value)} />
             </div>
           </div>
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Password</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-              <input required type="password" placeholder="Enter password" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-1 ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]'}`} value={password} onChange={e => setPassword(e.target.value)} />
+              <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+              <input required type="password" placeholder="Enter password" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]/20' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]/20'}`} value={password} onChange={e => setPassword(e.target.value)} />
             </div>
           </div>
           
-          <button type="submit" disabled={loading} className="w-full hover:scale-[1.02] transition-transform text-white font-bold py-3.5 rounded-xl uppercase tracking-wider text-sm shadow-md mt-2 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : '#1c7ed6' }}>
-            {loading ? <Loader2 size={16} className="animate-spin" /> : (mode === 'recruiter_signup' ? 'Create Scout Account' : 'Authenticate & Enter')}
+          <button type="submit" disabled={loading} className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg mt-4 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : '#1c7ed6' }}>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : (mode === 'recruiter_signup' ? 'Create Scout Account' : 'Authenticate & Enter')}
           </button>
         </form>
 
         {mode.includes('recruiter') && (
-           <div className="mt-4 text-center">
-             <button type="button" onClick={() => setMode(mode === 'recruiter_login' ? 'recruiter_signup' : 'recruiter_login')} className="text-[10px] font-bold text-slate-500 hover:text-[#1c7ed6] uppercase tracking-widest transition-colors">
-               {mode === 'recruiter_login' ? "Don't have an account? Register" : "Already registered? Sign In"}
+           <div className="mt-5 text-center">
+             <button type="button" onClick={() => setMode(mode === 'recruiter_login' ? 'recruiter_signup' : 'recruiter_login')} className="text-[11px] font-semibold text-slate-500 hover:text-[#1c7ed6] transition-colors">
+               {mode === 'recruiter_login' ? "Don't have an account? Create one." : "Already registered? Sign In."}
              </button>
            </div>
         )}
@@ -212,38 +216,38 @@ const ProfilePage = ({ player, onBack }) => {
 
   const getMetricStyle = (val, label) => {
     try {
-      if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-      const green = { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
-      const yellow = { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' };
-      const red = { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+      if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
+      const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
+      const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
+      const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' };
       const num = parseFloat(String(val).replace(/[^0-9.]/g, ''));
-      if (isNaN(num)) return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+      if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
       if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red;
       if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red;
       if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red;
       if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red;
-      return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
-    } catch (e) { return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' }; }
+      return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
+    } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; }
   };
 
   const MetricRow = ({ icon: Icon, label, playerStat, verifyStatus }) => {
     const statStyle = getMetricStyle(playerStat, label); 
     const hasData = playerStat && playerStat !== "N/A" && playerStat !== "";
     return (
-      <div className="flex items-center justify-between py-3 border-b border-slate-100 group hover:bg-slate-50 transition-colors px-2 rounded-lg gap-2 print:py-1.5">
+      <div className="flex items-center justify-between py-3 border-b border-slate-100/60 group hover:bg-slate-50/50 transition-colors px-2 rounded-xl gap-2 print:py-1.5">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="p-2 bg-slate-100 rounded-lg group-hover:bg-white border border-slate-200 transition-colors shrink-0 print:hidden">
-            {Icon && <Icon size={16} className="text-slate-700" />}
+          <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-white border border-slate-100 transition-colors shrink-0 print:hidden">
+            {Icon && <Icon size={16} className="text-slate-500" />}
           </div>
-          <div className="flex flex-col justify-center gap-0.5">
-            <span className="text-[11px] font-bold text-slate-800 uppercase tracking-tight leading-tight whitespace-normal">{label}</span>
-            {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-400 text-amber-900 text-[8px] px-1.5 py-0.5 rounded shadow-sm print:border print:border-amber-500 font-black tracking-widest flex items-center gap-1"><Award size={8}/> LASER</span>}
-            {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-200 text-slate-600 text-[8px] px-1.5 py-0.5 rounded shadow-sm print:border print:border-slate-400 font-black tracking-widest flex items-center gap-1"><Activity size={8}/> MANUAL</span>}
-            {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded shadow-sm print:text-black print:border print:border-slate-800 print:bg-white font-black tracking-widest flex items-center gap-1"><Shield size={8}/> DNA VERIFIED</span>}
+          <div className="flex flex-col justify-center gap-1">
+            <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide leading-tight whitespace-normal">{label}</span>
+            {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Award size={10}/> LASER</span>}
+            {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-100 text-slate-500 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Activity size={10}/> MANUAL</span>}
+            {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Shield size={10}/> DNA VERIFIED</span>}
           </div>
         </div>
-        <div className="w-24 shrink-0 text-center">
-          <span className={`text-sm px-3 py-1 rounded-md font-bold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap print:border-2`}>
+        <div className="w-24 shrink-0 text-right pr-2">
+          <span className={`text-sm px-4 py-1.5 rounded-full font-semibold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}>
             {playerStat || "N/A"}
           </span>
         </div>
@@ -259,47 +263,43 @@ const ProfilePage = ({ player, onBack }) => {
   return (
     <div className="max-w-7xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
       <div className="flex justify-between items-center mb-6 print:hidden">
-        <button onClick={onBack} className="font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back</button>
-        <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Print Sheet</button>
+        <button onClick={onBack} className="font-semibold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity text-slate-500"><ChevronLeft size={18} /> Back</button>
+        <button onClick={() => window.print()} className="font-semibold flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm uppercase tracking-wider shadow-md hover:bg-slate-800 hover:-translate-y-0.5 transition-all"><FileText size={16}/> Print Report</button>
       </div>
       
-      {/* 1. TOP HERO SECTION */}
-      <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 mb-8 flex flex-col md:flex-row print:flex-row print:shadow-none print:border-2 print:mb-6">
+      <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mb-8 flex flex-col md:flex-row print:flex-row print:shadow-none print:border-2 print:mb-6">
         <div className="w-full md:w-1/3 print:w-1/3 bg-slate-900 relative shrink-0">
-           <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Score</div>
-           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-[280px] sm:h-full object-cover print:h-[220px]" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
+           <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Profile</div>
+           <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-[320px] sm:h-full object-cover print:h-[220px]" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
         
         <div className="w-full md:w-2/3 print:w-2/3 flex flex-col">
-          <div className="bg-slate-900 text-left p-6 md:p-8 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900 print:p-4">
-            <h1 className="text-3xl md:text-5xl font-black text-white uppercase print:text-black">{player?.name}</h1>
-            <p className="font-black text-sm md:text-lg uppercase tracking-widest mt-2" style={{ color: '#1c7ed6' }}>
-              {player?.primaryPos} • Class of {player?.gradYear} 
+          <div className="bg-slate-900 text-left p-8 md:p-10 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900 print:p-4">
+            <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase print:text-black tracking-tight" style={displayFont}>{player?.name}</h1>
+            <p className="font-bold text-sm md:text-lg uppercase tracking-widest mt-3 text-slate-300" style={displayFont}>
+              <span className="text-[#1c7ed6]">{player?.primaryPos}</span> • Class of {player?.gradYear} 
               {player?.dnaTeam && player.dnaTeam !== 'None' ? ` • ${player.dnaTeam}` : (player?.externalClub ? ` • ${player.externalClub}` : '')}
             </p>
           </div>
 
-          <div className="flex bg-slate-50 border-t border-slate-200 divide-x divide-slate-200 print:bg-white">
-            <div className="flex-1 p-4 md:p-6 text-center bg-slate-100 print:bg-white print:p-3">
-              <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">DNA Score</span>
-              <span className="text-4xl md:text-5xl font-black" style={{ color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
+          <div className="flex bg-slate-50 border-t border-slate-800 divide-x divide-slate-200 print:bg-white print:border-slate-200">
+            <div className="flex-1 p-6 text-center bg-slate-50 print:bg-white print:p-3">
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">DNA Score</span>
+              <span className="text-5xl md:text-6xl font-black" style={{ ...displayFont, color: '#d6336c' }}>{player?.dnaScore || "0.0"}</span>
             </div>
-            <div className="flex-1 p-4 md:p-6 flex flex-col justify-center gap-2 md:gap-4 bg-white print:p-3">
-              <div className="flex items-center gap-3 print:gap-2"><GraduationCap size={20} className="text-[#1c7ed6]"/> <span className="text-sm print:text-xs font-bold uppercase text-slate-500">GPA:</span> <span className="text-lg print:text-sm font-black text-slate-900">{player?.gpa || 'N/A'}</span></div>
-              <div className="flex items-center gap-3 print:gap-2"><FileText size={20} className="text-[#1c7ed6]"/> <span className="text-sm print:text-xs font-bold uppercase text-slate-500">SAT:</span> <span className="text-lg print:text-sm font-black text-slate-900">{player?.sat || 'N/A'}</span></div>
+            <div className="flex-1 p-6 flex flex-col justify-center gap-3 bg-white print:p-3">
+              <div className="flex items-center gap-3 print:gap-2"><div className="p-2 bg-blue-50 rounded-lg"><GraduationCap size={18} className="text-[#1c7ed6]"/></div> <span className="text-xs print:text-xs font-semibold uppercase text-slate-400 tracking-wider">GPA:</span> <span className="text-xl print:text-sm font-bold text-slate-800">{player?.gpa || 'N/A'}</span></div>
+              <div className="flex items-center gap-3 print:gap-2"><div className="p-2 bg-blue-50 rounded-lg"><FileText size={18} className="text-[#1c7ed6]"/></div> <span className="text-xs print:text-xs font-semibold uppercase text-slate-400 tracking-wider">SAT:</span> <span className="text-xl print:text-sm font-bold text-slate-800">{player?.sat || 'N/A'}</span></div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. SPREAD OUT GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start print:grid-cols-3 print:gap-4">
-        
-        {/* Left/Center Column */}
-        <div className="lg:col-span-2 print:col-span-2 flex flex-col gap-6 print:gap-4">
-          <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 sm:p-8 print:shadow-none print:border-2 print:p-4">
-            <h3 className="text-2xl print:text-lg font-black text-slate-900 uppercase tracking-tight mb-6 print:mb-3">Verified Combine Metrics</h3>
-            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start print:grid-cols-3 print:gap-4">
+        <div className="lg:col-span-2 print:col-span-2 flex flex-col gap-8 print:gap-4">
+          <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 print:shadow-none print:border-2 print:p-4">
+            <h3 className="text-2xl print:text-lg font-extrabold text-slate-900 uppercase tracking-tight mb-6 print:mb-3" style={displayFont}>Verified Combine Metrics</h3>
+            <div className="grid sm:grid-cols-2 gap-x-12 gap-y-3">
               <div>
                 <MetricRow icon={Zap} label="40-Yard Sprint" playerStat={player.metrics?.sprint} verifyStatus={getVerify('sprint')} />
                 <MetricRow icon={Activity} label="5-10-5 Shuttle" playerStat={player.metrics?.shuttle} verifyStatus={getVerify('shuttle')} />
@@ -316,63 +316,62 @@ const ProfilePage = ({ player, onBack }) => {
           </div>
 
           {(player?.seasonStats?.stat1Label || player?.seasonStats?.stat2Label || player?.seasonStats?.stat3Label) && (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 print:border-2 print:shadow-none print:p-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500 print:mb-2"><Trophy size={16} /> In-Season Performance Stats</h3>
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
-                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat1Label || 'Touchdowns'}>{player.seasonStats.stat1Label || 'Touchdowns'}</span>
-                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat1Value || '0'}</span>
+            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 print:border-2 print:shadow-none print:p-4">
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-amber-500 print:mb-2"><Trophy size={18} /> In-Season Performance Stats</h3>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
+                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat1Label || 'Touchdowns'}>{player.seasonStats.stat1Label || 'Touchdowns'}</span>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat1Value || '0'}</span>
                 </div>
-                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
-                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat2Label || 'Interceptions'}>{player.seasonStats.stat2Label || 'Interceptions'}</span>
-                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat2Value || '0'}</span>
+                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
+                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat2Label || 'Interceptions'}>{player.seasonStats.stat2Label || 'Interceptions'}</span>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat2Value || '0'}</span>
                 </div>
-                <div className="bg-slate-50 p-2 sm:p-4 rounded-xl border border-slate-200 overflow-hidden">
-                  <span className="block text-[8px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider sm:tracking-widest mb-1 truncate" title={player.seasonStats.stat3Label || 'Yards / Rec'}>{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
-                  <span className="text-lg sm:text-2xl font-black text-slate-900">{player.seasonStats.stat3Value || '0'}</span>
+                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
+                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat3Label || 'Yards / Rec'}>{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
+                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat3Value || '0'}</span>
                 </div>
               </div>
             </div>
           )}
 
           {player?.hudlLink && (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200 p-6 flex flex-col h-[350px] print:hidden">
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Video size={16} /> Highlight Film</h3>
-              <div className="relative w-full flex-grow rounded-xl overflow-hidden bg-slate-200 border border-slate-300">
+            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 flex flex-col h-[400px] print:hidden">
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><Video size={18} /> Highlight Film</h3>
+              <div className="relative w-full flex-grow rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
                 {getEmbedUrl(player.hudlLink) ? <iframe src={getEmbedUrl(player.hudlLink)} title="Highlight Reel" className="absolute inset-0 w-full h-full" allowFullScreen></iframe> : 
-                <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="absolute inset-0 flex items-center justify-center bg-slate-900 text-white font-bold uppercase tracking-wider text-sm hover:bg-slate-800">Watch Film On Hudl</a>}
+                <a href={player.hudlLink} target="_blank" rel="noopener noreferrer" className="absolute inset-0 flex items-center justify-center bg-slate-800 text-white font-bold uppercase tracking-wider text-sm hover:bg-slate-700 transition-colors">Watch Film On Hudl</a>}
               </div>
             </div>
           )}
         </div>
 
-        {/* Right Column */}
-        <div className="lg:col-span-1 print:col-span-1 flex flex-col gap-6 print:gap-4">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xl print:shadow-none print:p-4 print:border-2">
-             <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-slate-500 border-b border-slate-100 pb-3 print:mb-2">Recruiting Contact</h3>
+        <div className="lg:col-span-1 print:col-span-1 flex flex-col gap-8 print:gap-4">
+          <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] print:shadow-none print:p-4 print:border-2">
+             <h3 className="text-[11px] font-bold uppercase tracking-widest mb-5 text-slate-400 border-b border-slate-100 pb-3 print:mb-2">Recruiting Contact</h3>
              <div className="space-y-4 print:space-y-2">
-               {player?.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm print:text-xs font-bold text-slate-700 hover:text-[#1c7ed6] print:text-black"><div className="p-2 bg-slate-100 rounded-lg print:hidden"><AtSign size={16} className="text-[#1c7ed6]"/></div> {player.twitter}</a>}
-               <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-3 text-sm print:text-xs font-bold text-slate-700 hover:text-[#d6336c] print:text-black"><div className="p-2 bg-slate-100 rounded-lg print:hidden"><Mail size={16} className="text-[#d6336c]"/></div> Contact Parent/Guardian</a>
+               {player?.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 text-sm font-medium text-slate-700 hover:text-[#1c7ed6] transition-colors print:text-black"><div className="p-2.5 bg-blue-50 rounded-xl print:hidden"><AtSign size={16} className="text-[#1c7ed6]"/></div> {player.twitter}</a>}
+               <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-3 text-sm font-medium text-slate-700 hover:text-[#d6336c] transition-colors print:text-black"><div className="p-2.5 bg-pink-50 rounded-xl print:hidden"><Mail size={16} className="text-[#d6336c]"/></div> Contact Parent/Guardian</a>
              </div>
           </div>
 
           {player?.scoutNotes && (
-            <div className="bg-slate-900 rounded-3xl p-6 shadow-xl print:bg-white print:border-2 print:border-slate-200 print:p-4 print:shadow-none">
-               <h3 className="text-xs font-black uppercase tracking-widest mb-3 text-white flex items-center gap-2 print:text-black print:mb-1"><Eye size={14} style={{ color: '#d6336c' }}/> Scout Notes</h3>
-               <p className="text-sm print:text-xs text-slate-300 italic print:text-slate-700 leading-relaxed">"{player.scoutNotes}"</p>
+            <div className="bg-slate-900 rounded-3xl p-8 shadow-xl print:bg-white print:border-2 print:border-slate-200 print:p-4 print:shadow-none">
+               <h3 className="text-[11px] font-bold uppercase tracking-widest mb-4 text-white flex items-center gap-2 print:text-black print:mb-1"><Eye size={16} style={{ color: '#d6336c' }}/> Scout Notes</h3>
+               <p className="text-sm print:text-xs text-slate-300 italic print:text-slate-700 leading-relaxed font-medium">"{player.scoutNotes}"</p>
             </div>
           )}
 
           {player?.recentViews && Array.isArray(player.recentViews) && player.recentViews.length > 0 && (
-            <div className="bg-white rounded-3xl border border-[#1c7ed6]/30 p-6 shadow-xl print:hidden">
-               <h3 className="text-xs font-bold uppercase tracking-widest mb-4 text-[#1c7ed6] border-b border-slate-100 pb-3 flex items-center gap-2"><Eye size={14}/> Recent Scout Views</h3>
-               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+            <div className="bg-white rounded-3xl border border-[#1c7ed6]/20 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] print:hidden">
+               <h3 className="text-[11px] font-bold uppercase tracking-widest mb-5 text-[#1c7ed6] border-b border-slate-100 pb-3 flex items-center gap-2"><Eye size={16}/> Recent Scout Views</h3>
+               <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
                  {[...player.recentViews].reverse().slice(0, 10).map((view, i) => (
-                   <div key={i} className="flex gap-3 items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
-                     <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-200"><Building size={16} className="text-slate-400" /></div>
+                   <div key={i} className="flex gap-3.5 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
+                     <div className="p-2.5 bg-white rounded-xl shadow-sm border border-slate-100"><Building size={16} className="text-slate-400" /></div>
                      <div>
-                       <p className="text-xs font-bold text-slate-800 leading-tight">{view.coach} <span className="text-slate-400 font-normal">from</span></p>
-                       <p className="text-[10px] font-black text-[#1c7ed6] uppercase tracking-widest truncate max-w-[180px]">{view.school}</p>
+                       <p className="text-xs font-bold text-slate-700 leading-tight">{view.coach} <span className="text-slate-400 font-medium">from</span></p>
+                       <p className="text-[10px] font-extrabold text-[#1c7ed6] uppercase tracking-widest truncate max-w-[160px] mt-0.5">{view.school}</p>
                      </div>
                    </div>
                  ))}
@@ -453,8 +452,8 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
   }, [players, searchTerm, posFilter, yearFilter, sortConfig]);
 
   const SortableHeader = ({ label, sortKey, align = 'center' }) => (
-    <th className={`p-3 md:p-4 cursor-pointer hover:bg-slate-100 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
-      <div className={`flex items-center gap-1 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
+    <th className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
+      <div className={`flex items-center gap-1.5 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
         {label}
         <div className="flex flex-col -space-y-1">
           <ChevronLeft size={10} className={`rotate-90 ${sortConfig.key === sortKey && sortConfig.direction === 'asc' ? 'text-[#1c7ed6] opacity-100' : 'text-slate-300 opacity-0 group-hover:opacity-100'}`} />
@@ -466,37 +465,37 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 md:p-8 mb-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden" style={{ borderTop: '4px solid #1c7ed6' }}>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[rgba(214,51,108,0.05)] to-transparent rounded-bl-full pointer-events-none"></div>
+      <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 md:p-10 mb-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-bl from-[rgba(214,51,108,0.06)] to-transparent rounded-bl-full pointer-events-none"></div>
         <div className="relative z-10 text-center md:text-left">
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 uppercase tracking-tight mb-2">Want to get on the <span style={{ color: '#d6336c' }}>Leaderboard?</span></h2>
-          <p className="text-slate-600 text-sm font-semibold max-w-2xl">Evaluation spots are strictly limited. Register for our next official combine to get your verified physicals, earn your DNA Score, and secure your national ranking.</p>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight mb-3" style={displayFont}>Want to get on the <span style={{ color: '#d6336c' }}>Leaderboard?</span></h2>
+          <p className="text-slate-500 text-sm font-medium max-w-2xl leading-relaxed">Evaluation spots are strictly limited. Register for our next official combine to get your verified physicals, earn your DNA Score, and secure your national ranking.</p>
         </div>
-        <a href="https://form.jotform.com/262914891648168" target="_blank" rel="noopener noreferrer" className="relative z-10 shrink-0 hover:scale-105 transition-transform text-white font-bold px-8 py-4 rounded-xl uppercase tracking-wider shadow-md text-sm flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
+        <a href="https://form.jotform.com/262914891648168" target="_blank" rel="noopener noreferrer" className="relative z-10 shrink-0 hover:-translate-y-0.5 transition-all text-white font-bold px-8 py-4 rounded-full uppercase tracking-wider shadow-lg shadow-blue-500/20 text-sm flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
           Register For Combine <ExternalLink size={16} />
         </a>
       </div>
 
       <div className="grid lg:grid-cols-4 gap-8">
         <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
-          <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Megaphone style={{ color: '#1c7ed6' }} /> Live News</h2>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-              {combinedNews.length === 0 ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden p-7">
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6 uppercase tracking-tight" style={displayFont}><Megaphone style={{ color: '#1c7ed6' }} size={22}/> Live News</h2>
+            <div className="space-y-5 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {combinedNews.length === 0 ? <p className="text-slate-400 text-sm italic">No recent updates.</p> : (
                  combinedNews.map(item => (
-                   <div key={item.id} className="block pl-3 transition-transform relative group" style={{ borderLeft: `2px solid ${item.isExternal ? '#64748b' : '#d6336c'}` }}>
+                   <div key={item.id} className="block pl-3.5 transition-transform relative group" style={{ borderLeft: `2px solid ${item.isExternal ? '#94a3b8' : '#d6336c'}` }}>
                      <div className="flex items-center gap-1.5">
-                       <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: item.isExternal ? '#64748b' : '#d6336c' }}>
+                       <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: item.isExternal ? '#64748b' : '#d6336c' }}>
                          {item.category}
                        </span>
                      </div>
                      {item.isExternal ? (
-                       <a href={item.link} target="_blank" rel="noopener noreferrer" className="block mt-1">
-                         <p className="text-sm font-bold text-slate-700 group-hover:text-[#1c7ed6] transition-colors leading-tight">{item.title}</p>
-                         <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 flex items-center gap-1"><Globe size={10}/> Read Article</p>
+                       <a href={item.link} target="_blank" rel="noopener noreferrer" className="block mt-1.5">
+                         <p className="text-sm font-semibold text-slate-700 group-hover:text-[#1c7ed6] transition-colors leading-snug">{item.title}</p>
+                         <p className="text-[10px] font-bold text-slate-400 uppercase mt-2 flex items-center gap-1.5"><Globe size={12}/> Read Article</p>
                        </a>
                      ) : (
-                       <p className="text-sm font-bold text-slate-900 mt-1 leading-tight">{item.title}</p>
+                       <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{item.title}</p>
                      )}
                    </div>
                  ))
@@ -506,44 +505,44 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
         </div>
 
         <div className="lg:col-span-3 order-1 lg:order-2">
-          <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden" style={{ borderTop: '4px solid #1c7ed6' }}>
-            <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+            <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2 uppercase"><Trophy style={{ color: '#d6336c' }} /> National Leaderboard</h2>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Combine Results Tracker</p>
+                <h2 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5 uppercase tracking-tight" style={displayFont}><Trophy style={{ color: '#d6336c' }} size={24}/> National Leaderboard</h2>
+                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-1.5">Combine Results Tracker</p>
               </div>
-              <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">{filteredAndSortedPlayers.length} Athletes Found</div>
+              <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">{filteredAndSortedPlayers.length} Athletes Found</div>
             </div>
 
-            <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-col md:flex-row gap-3">
+            <div className="bg-slate-50/50 p-5 border-b border-slate-100 flex flex-col md:flex-row gap-4">
                <div className="relative flex-1">
-                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-                 <input type="text" placeholder="Search by athlete name..." className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg pl-10 pr-4 py-2.5 text-sm font-semibold focus:outline-none transition-colors focus:border-[#1c7ed6]" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                 <input type="text" placeholder="Search by athlete name..." className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:outline-none transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                </div>
-               <div className="flex gap-3 sm:w-auto w-full">
-                  <div className="flex-1 md:w-36">
-                     <select className="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none cursor-pointer focus:border-[#1c7ed6]" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
+               <div className="flex gap-4 sm:w-auto w-full">
+                  <div className="flex-1 md:w-40">
+                     <select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
                        {uniquePositions.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}
                      </select>
                   </div>
-                  <div className="flex-1 md:w-40">
-                     <select className="w-full bg-white border border-slate-300 text-slate-700 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none cursor-pointer focus:border-[#1c7ed6]" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                  <div className="flex-1 md:w-44">
+                     <select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
                        {uniqueYears.map(year => <option key={year} value={year}>{year === 'All' ? 'All Classes' : `Class of ${year}`}</option>)}
                      </select>
                   </div>
                </div>
             </div>
 
-            <div className="md:hidden flex items-center justify-start gap-2 px-4 py-2.5 bg-slate-100 border-b border-slate-200 text-slate-500 shadow-inner w-full overflow-hidden">
+            <div className="md:hidden flex items-center justify-start gap-2 px-5 py-3 bg-slate-50/80 border-b border-slate-100 text-slate-500 shadow-inner w-full overflow-hidden">
               <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6] shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 truncate">Swipe table to view all metrics</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">Swipe table to view all metrics</span>
               <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6] shrink-0" />
             </div>
 
             <div className="overflow-x-auto w-full relative">
               <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
-                  <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
+                  <tr className="bg-white text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
                     <SortableHeader label="Athlete" sortKey="name" align="left" />
                     <SortableHeader label="DNA Score" sortKey="dnaScore" />
                     <SortableHeader label="40-Yd" sortKey="sprint" />
@@ -554,31 +553,31 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
                     <SortableHeader label="Vert" sortKey="vertical" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-50">
                   {filteredAndSortedPlayers.length === 0 ? (
-                     <tr><td colSpan="8" className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest text-sm">No athletes match your filters.</td></tr>
+                     <tr><td colSpan="8" className="p-16 text-center text-slate-400 font-medium text-sm">No athletes match your filters.</td></tr>
                   ) : (
                      filteredAndSortedPlayers.map((p, i) => (
-                       <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50 cursor-pointer transition-colors group border-b border-slate-100">
-                         <td className="p-3 md:p-4">
+                       <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50/80 cursor-pointer transition-colors group border-b border-slate-50">
+                         <td className="p-4 md:p-5">
                            <div className="flex items-center gap-4">
-                             <div className="w-6 text-center text-slate-400 font-bold text-sm">#{i + 1}</div>
-                             <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-10 h-10 rounded-full border border-slate-200 bg-slate-100 object-cover transition-colors group-hover:border-[#d6336c]" />
+                             <div className="w-6 text-center text-slate-300 font-bold text-xs">{i + 1}</div>
+                             <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-11 h-11 rounded-full border border-slate-200 bg-slate-50 object-cover transition-colors group-hover:border-[#d6336c]" />
                              <div>
-                               <p className="font-bold text-slate-900 text-sm uppercase flex items-center gap-1 transition-colors">{p.name} {p.hudlLink && <Video size={12} style={{ color: '#1c7ed6' }} />}</p>
-                               <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{p.primaryPos || p.pos} • {p.gradYear}</p>
+                               <p className="font-extrabold text-slate-900 text-sm uppercase flex items-center gap-1.5 transition-colors group-hover:text-[#1c7ed6]" style={displayFont}>{p.name} {p.hudlLink && <Video size={14} style={{ color: '#1c7ed6' }} />}</p>
+                               <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{p.primaryPos || p.pos} • {p.gradYear}</p>
                              </div>
                            </div>
                          </td>
-                         <td className="p-3 md:p-4 text-center">
-                           <span className="font-black text-lg bg-white px-3 py-1 rounded shadow-sm border border-slate-200 group-hover:border-slate-300" style={{ color: '#d6336c' }}>{p.dnaScore}</span>
+                         <td className="p-4 md:p-5 text-center">
+                           <span className="font-black text-xl px-4 py-1.5 rounded-lg border border-slate-100 bg-white group-hover:border-slate-200 shadow-sm transition-colors" style={{ color: '#d6336c', ...displayFont }}>{p.dnaScore}</span>
                          </td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.sprint || '-'}</td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.shuttle || '-'}</td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.lDrill || '-'}</td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.mph || '-'}</td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.broad || '-'}</td>
-                         <td className="p-3 md:p-4 text-center font-semibold text-sm text-slate-700">{p.metrics?.vertical || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.sprint || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.shuttle || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.lDrill || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.mph || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.broad || '-'}</td>
+                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.vertical || '-'}</td>
                        </tr>
                      ))
                   )}
@@ -593,8 +592,8 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
 };
 
 // --- ADMIN PANEL ---
-const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-1.5 uppercase tracking-widest">{children}</label>;
-const FormInput = (props) => <input {...props} className={`w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] ${props.className || ''}`} />;
+const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-widest">{children}</label>;
+const FormInput = (props) => <input {...props} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all ${props.className || ''}`} />;
 
 const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   const [activeTab, setActiveTab] = useState('athlete');
@@ -603,7 +602,6 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   const [selectedExistingId, setSelectedExistingId] = useState("");
   const [athleteSearchTerm, setAthleteSearchTerm] = useState("");
   
-  // News Form State
   const [newsTitle, setNewsTitle] = useState('');
   const [newsCategory, setNewsCategory] = useState('ANNOUNCEMENT');
 
@@ -707,7 +705,6 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) updatedHistory[updatedHistory.length - 1] = newCombineRecord; else updatedHistory.push(newCombineRecord);
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { ...playerData, combineHistory: updatedHistory, avatar: photoPreview || existingPlayer?.avatar || "" });
           
-          // Automated News: Update
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
             title: `${metrics.name} posted a new verified DNA Score of ${overallResult.data.dnaScore}!`,
             category: 'COMBINE',
@@ -718,7 +715,6 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           playerData.avatar = photoPreview || ""; playerData.views = 0; playerData.createdAt = Date.now(); playerData.combineHistory = [newCombineRecord];
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
           
-          // Automated News: New Athlete
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
             title: `New Prospect Added: ${metrics.name} (Class of ${metrics.gradYear}) joins the national leaderboard.`,
             category: 'ANNOUNCEMENT',
@@ -763,49 +759,49 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
 
   return (
     <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
-      <div className="flex justify-between items-center mb-6">
-        <button onClick={onBack} className="font-bold flex items-center gap-1 text-sm text-[#1c7ed6]"><ChevronLeft size={16} /> Return to Hub</button>
-        <button onClick={onLogout} className="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 px-4 py-2 rounded-lg">Sign Out Admin</button>
+      <div className="flex justify-between items-center mb-8">
+        <button onClick={onBack} className="font-semibold flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"><ChevronLeft size={18} /> Return to Hub</button>
+        <button onClick={onLogout} className="text-xs font-bold text-rose-600 border border-rose-200 bg-rose-50 px-5 py-2.5 rounded-full hover:bg-rose-100 transition-colors uppercase tracking-wider">Sign Out Admin</button>
       </div>
 
-      <div className="flex flex-wrap gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
-         <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={14} className="hidden sm:block"/> Athlete Entry</button>
-         <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={14} className="hidden sm:block"/> Post News</button>
-         <button onClick={() => setActiveTab('scouts')} className={`flex-1 py-3 px-2 rounded-t-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 ${activeTab === 'scouts' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`} style={activeTab === 'scouts' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}>
-           <Building size={14} className="hidden sm:block"/> Manage Scouts {scouts.filter(s => !s.approved).length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px]">{scouts.filter(s => !s.approved).length}</span>}
+      <div className="flex flex-wrap gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+         <button onClick={() => setActiveTab('athlete')} className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${activeTab === 'athlete' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} style={activeTab === 'athlete' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Activity size={16} className="hidden sm:block"/> Athlete Entry</button>
+         <button onClick={() => setActiveTab('news')} className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${activeTab === 'news' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} style={activeTab === 'news' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Megaphone size={16} className="hidden sm:block"/> Post News</button>
+         <button onClick={() => setActiveTab('scouts')} className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${activeTab === 'scouts' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} style={activeTab === 'scouts' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}>
+           <Building size={16} className="hidden sm:block"/> Manage Scouts {scouts.filter(s => !s.approved).length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px]">{scouts.filter(s => !s.approved).length}</span>}
          </button>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-b-2xl rounded-tr-2xl shadow-xl p-6 sm:p-8">
+      <div className="bg-white border border-slate-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 sm:p-10">
         {activeTab === 'athlete' && (
            <div className="animate-in fade-in slide-in-from-left-4">
-              <div className="bg-slate-50 p-5 rounded-xl mb-8 border border-slate-200 shadow-sm">
-                <label className="text-xs font-bold uppercase tracking-widest block mb-3 text-[#d6336c]">Select Existing Athlete (Or Create New)</label>
-                <div className="relative mb-3"><Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
-                <select className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900 font-bold" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
+              <div className="bg-slate-50/80 p-6 rounded-2xl mb-8 border border-slate-100">
+                <label className="text-xs font-extrabold uppercase tracking-widest block mb-4 text-slate-800">Select Existing Athlete (Or Create New)</label>
+                <div className="relative mb-3"><Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
+                <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
               </div>
 
-              <form onSubmit={submitCombineData} className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-center gap-6 bg-slate-50 p-5 rounded-xl border border-slate-200">
-                  <div className="relative w-32 h-32 bg-white rounded-xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center overflow-hidden shrink-0">
-                     {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-400 mb-2" /></div>}
+              <form onSubmit={submitCombineData} className="space-y-8">
+                <div className="flex flex-col sm:flex-row items-center gap-8 bg-slate-50/80 p-6 rounded-2xl border border-slate-100">
+                  <div className="relative w-36 h-36 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden shrink-0 group hover:border-[#1c7ed6] transition-colors cursor-pointer">
+                     {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-300 mb-2 group-hover:text-[#1c7ed6] transition-colors" /></div>}
                      <input type="file" accept="image/*" onChange={handlePhotoCapture} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
-                  <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-5">
                      <div className="sm:col-span-2"><InputLabel>Name</InputLabel><FormInput required value={metrics.name} onChange={e => setMetrics({...metrics, name: e.target.value})} disabled={!!selectedExistingId} /></div>
-                     <div><InputLabel>Primary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
-                     <div><InputLabel>Secondary Position</InputLabel><select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}><option value="">None</option>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+                     <div><InputLabel>Primary Position</InputLabel><select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={metrics.primaryPos} onChange={e => setMetrics({...metrics, primaryPos: e.target.value})}>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+                     <div><InputLabel>Secondary Position</InputLabel><select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={metrics.secondaryPos} onChange={e => setMetrics({...metrics, secondaryPos: e.target.value})}><option value="">None</option>{["QB", "RB", "WR", "TE", "C", "DB", "LB", "RUSH", "ATH"].map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
                      <div><InputLabel>Grad Year</InputLabel><FormInput required type="number" value={metrics.gradYear} onChange={e => setMetrics({...metrics, gradYear: e.target.value})} disabled={!!selectedExistingId} /></div>
                      <div><InputLabel>State</InputLabel><FormInput required maxLength="2" placeholder="NJ" value={metrics.state} onChange={e => setMetrics({...metrics, state: e.target.value.toUpperCase()})} /></div>
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#d6336c]">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#d6336c]"><Users size={14} /> Club Team Assignment</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-[#d6336c]">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#d6336c]"><Users size={16} /> Club Team Assignment</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <InputLabel>DNA Roster (Tournament Teams)</InputLabel>
-                      <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold focus:outline-none focus:border-[#d6336c]" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}>
+                      <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#d6336c]/20 transition-all" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}>
                         <option value="None">Not Assigned</option>
                         <option value="DNA 18U Elite">DNA 18U Elite</option>
                         <option value="DNA 18U Select">DNA 18U Select</option>
@@ -821,24 +817,24 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-[#1c7ed6]">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={14} /> Academic & Recruiting</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-[#1c7ed6]">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><GraduationCap size={16} /> Academic & Recruiting</h3>
+                  <div className="grid grid-cols-2 gap-5 mb-5">
                     <div><InputLabel>GPA</InputLabel><FormInput type="number" step="0.1" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
                     <div><InputLabel>SAT/ACT</InputLabel><FormInput type="text" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
                     <div><InputLabel>Twitter</InputLabel><FormInput type="text" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
                     <div><InputLabel>Guardian Email</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
                   </div>
-                  <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
+                  <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none min-h-[100px]" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm border-t-4 border-t-amber-500">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-amber-500"><Trophy size={14} /> Media & In-Season Stats</h3>
-                  <div className="mb-4">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-amber-500">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-amber-500"><Trophy size={16} /> Media & In-Season Stats</h3>
+                  <div className="mb-5">
                     <InputLabel>Highlight Tape URL (Hudl / YouTube)</InputLabel>
                     <FormInput type="url" placeholder="https://..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
                     <div>
                       <InputLabel>Stat 1 Label & Value</InputLabel>
                       <div className="flex gap-2">
@@ -863,18 +859,18 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><MapPin size={14} /> Combine Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><InputLabel>Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div><div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div></div>
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-slate-800">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-slate-800"><MapPin size={16} /> Combine Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5"><div><InputLabel>Location</InputLabel><FormInput required type="text" value={metrics.combineLocation} onChange={e => setMetrics({...metrics, combineLocation: e.target.value})} /></div><div><InputLabel>Date</InputLabel><FormInput required type="date" value={metrics.combineDate} onChange={e => setMetrics({...metrics, combineDate: e.target.value})} /></div></div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Zap size={14} /> Speed Verifications</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><Zap size={16} /> Speed Verifications</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                     <div>
                       <InputLabel>40-Yd (Sec)</InputLabel>
                       <FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} />
-                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}>
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}>
                         <option value="laser">Laser</option>
                         <option value="stopwatch">Hand-Timed</option>
                         <option value="standard">DNA Verified</option>
@@ -883,7 +879,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                     <div>
                       <InputLabel>5-10-5 (Sec)</InputLabel>
                       <FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} />
-                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}>
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}>
                         <option value="stopwatch">Hand-Timed</option>
                         <option value="laser">Laser</option>
                         <option value="standard">DNA Verified</option>
@@ -892,7 +888,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                     <div>
                       <InputLabel>L Drill (Sec)</InputLabel>
                       <FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} />
-                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}>
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}>
                         <option value="stopwatch">Hand-Timed</option>
                         <option value="laser">Laser</option>
                         <option value="standard">DNA Verified</option>
@@ -901,7 +897,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                     <div>
                       <InputLabel>Max Speed (MPH)</InputLabel>
                       <FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} />
-                      <select className="w-full mt-1 bg-slate-50 border border-slate-200 text-[10px] font-bold p-1" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}>
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}>
                         <option value="laser">Laser</option>
                         <option value="stopwatch">Hand-Timed</option>
                         <option value="standard">DNA Verified</option>
@@ -910,9 +906,9 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                   </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                  <h3 className="text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={14} /> Skills & Explosiveness</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50/80 p-6 rounded-2xl border border-slate-100">
+                  <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><Ruler size={16} /> Skills & Explosiveness</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                     <div><InputLabel>Catching %</InputLabel><FormInput type="number" value={metrics.catchingPct} onChange={e => setMetrics({...metrics, catchingPct: e.target.value})} /></div>
                     <div><InputLabel>Throwing %</InputLabel><FormInput type="number" value={metrics.throwingPct} onChange={e => setMetrics({...metrics, throwingPct: e.target.value})} /></div>
                     <div><InputLabel>Flag Pull %</InputLabel><FormInput type="number" value={metrics.flagPullingPct} onChange={e => setMetrics({...metrics, flagPullingPct: e.target.value})} /></div>
@@ -925,15 +921,15 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                 </div>
                 
                 <div className="flex gap-4">
-                  <button type="submit" disabled={savingAthlete} className="flex-1 hover:scale-[1.02] text-white font-bold py-4 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Save Profile</button>
-                  {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-6 hover:scale-[1.02] text-white font-bold rounded-xl shadow-md bg-rose-600 hover:bg-rose-700">Delete</button>}
+                  <button type="submit" disabled={savingAthlete} className="flex-1 hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl shadow-lg" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Save Profile</button>
+                  {selectedExistingId && <button type="button" onClick={deleteAthlete} className="px-8 hover:-translate-y-0.5 transition-all text-white font-bold rounded-xl shadow-md bg-rose-500 hover:bg-rose-600">Delete</button>}
                 </div>
               </form>
            </div>
         )}
 
         {activeTab === 'news' && (
-          <div className="animate-in fade-in slide-in-from-right-4">
+          <div className="animate-in fade-in slide-in-from-right-4 max-w-2xl mx-auto">
             <form onSubmit={submitNews} className="space-y-6">
               <div>
                 <InputLabel>Headline</InputLabel>
@@ -941,44 +937,44 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
               </div>
               <div>
                 <InputLabel>Category</InputLabel>
-                <select className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-sm font-bold focus:outline-none focus:border-[#1c7ed6]" value={newsCategory} onChange={(e) => setNewsCategory(e.target.value)}>
+                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={newsCategory} onChange={(e) => setNewsCategory(e.target.value)}>
                   <option value="ANNOUNCEMENT">Announcement</option>
                   <option value="RECRUITING">Recruiting</option>
                   <option value="TOURNAMENT">Tournament Result</option>
                   <option value="COMBINE">Combine Result</option>
                 </select>
               </div>
-              <button type="submit" className="w-full hover:scale-[1.02] text-white font-bold py-4 rounded-xl shadow-md" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Post Update to Hub</button>
+              <button type="submit" className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl shadow-lg" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Post Update to Hub</button>
             </form>
           </div>
         )}
 
         {activeTab === 'scouts' && (
           <div className="animate-in fade-in slide-in-from-right-4">
-            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-4 flex items-center gap-2"><Building size={20} className="text-[#1c7ed6]"/> Scout Database Approvals</h3>
-            <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+            <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight mb-6 flex items-center gap-3" style={displayFont}><Building size={24} className="text-[#1c7ed6]"/> Scout Database Approvals</h3>
+            <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
                <table className="w-full text-left border-collapse">
                  <thead>
-                   <tr className="bg-white text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200">
-                     <th className="p-4">Coach Name</th>
-                     <th className="p-4">University</th>
-                     <th className="p-4">Email (.edu)</th>
-                     <th className="p-4 text-center">Access Status</th>
+                   <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                     <th className="p-5">Coach Name</th>
+                     <th className="p-5">University</th>
+                     <th className="p-5">Email (.edu)</th>
+                     <th className="p-5 text-center">Access Status</th>
                    </tr>
                  </thead>
-                 <tbody className="divide-y divide-slate-200">
-                   {scouts.length === 0 ? <tr><td colSpan="4" className="p-8 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No registered scouts yet.</td></tr> : 
+                 <tbody className="divide-y divide-slate-50">
+                   {scouts.length === 0 ? <tr><td colSpan="4" className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No registered scouts yet.</td></tr> : 
                     scouts.sort((a,b) => (a.approved === b.approved) ? 0 : a.approved ? 1 : -1).map(scout => (
-                     <tr key={scout.id} className="hover:bg-slate-100 transition-colors">
-                       <td className="p-4 font-bold text-slate-800 text-sm">{scout.name}</td>
-                       <td className="p-4 font-bold text-slate-600 text-sm">{scout.school}</td>
-                       <td className="p-4 text-sm text-slate-500">{scout.email}</td>
-                       <td className="p-4 text-center">
+                     <tr key={scout.id} className="hover:bg-slate-50/50 transition-colors">
+                       <td className="p-5 font-bold text-slate-800 text-sm">{scout.name}</td>
+                       <td className="p-5 font-bold text-slate-500 text-sm">{scout.school}</td>
+                       <td className="p-5 text-sm font-medium text-slate-500">{scout.email}</td>
+                       <td className="p-5 text-center">
                          <button 
                            onClick={() => toggleScoutApproval(scout.id, scout.approved)}
-                           className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center justify-center gap-1 mx-auto transition-colors ${scout.approved ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}
+                           className={`text-[10px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full flex items-center justify-center gap-1.5 mx-auto transition-colors ${scout.approved ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100'}`}
                          >
-                           {scout.approved ? <><CheckCircle size={12}/> Approved</> : <><Clock size={12}/> Pending Approval</>}
+                           {scout.approved ? <><CheckCircle size={14}/> Approved</> : <><Clock size={14}/> Pending Approval</>}
                          </button>
                        </td>
                      </tr>
@@ -999,16 +995,16 @@ const DraggableCard = ({ player, onClick }) => {
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, position: 'relative' } : undefined;
   
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm cursor-grab active:cursor-grabbing hover:border-[#1c7ed6] transition-colors flex items-center gap-3 relative group touch-none">
-       <GripVertical size={14} className="text-slate-300 absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
-       <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-10 h-10 rounded-full border border-slate-100 ml-2" alt={player.name} />
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="bg-white p-3.5 rounded-2xl border border-slate-100 shadow-[0_4px_12px_rgb(0,0,0,0.03)] cursor-grab active:cursor-grabbing hover:border-[#1c7ed6]/50 hover:shadow-md transition-all flex items-center gap-3 relative group touch-none">
+       <GripVertical size={16} className="text-slate-300 absolute left-1.5 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity" />
+       <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-12 h-12 rounded-full border border-slate-100 ml-3 object-cover" alt={player.name} />
        <div className="flex-1 min-w-0" onPointerDown={(e) => { e.stopPropagation(); onClick(player); }}>
-         <p className="text-xs font-bold text-slate-900 truncate hover:text-[#1c7ed6] transition-colors">{player.name}</p>
-         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest truncate">{player.primaryPos} • {player.gradYear}</p>
+         <p className="text-sm font-bold text-slate-800 truncate group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
+         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">{player.primaryPos} • {player.gradYear}</p>
        </div>
-       <div className="text-center shrink-0">
-         <span className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">DNA</span>
-         <span className="text-xs font-black text-[#d6336c]">{player.dnaScore}</span>
+       <div className="text-center shrink-0 pr-1">
+         <span className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">DNA</span>
+         <span className="text-sm font-black text-[#d6336c]" style={displayFont}>{player.dnaScore}</span>
        </div>
     </div>
   );
@@ -1017,12 +1013,12 @@ const DraggableCard = ({ player, onClick }) => {
 const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
   const { isOver, setNodeRef } = useDroppable({ id });
   return (
-    <div className="flex flex-col bg-slate-50 rounded-2xl border border-slate-200 h-[600px] flex-1 min-w-[280px]">
-       <div className="p-4 border-b border-slate-200 bg-white flex justify-between items-center rounded-t-2xl">
-         <h3 className="font-black text-slate-800 uppercase tracking-tight text-sm">{title}</h3>
-         <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{players.length}</span>
+    <div className="flex flex-col bg-slate-50/50 rounded-3xl border border-slate-100 h-[650px] flex-1 min-w-[300px]">
+       <div className="p-5 border-b border-slate-100 bg-white flex justify-between items-center rounded-t-3xl">
+         <h3 className="font-extrabold text-slate-800 uppercase tracking-tight text-sm" style={displayFont}>{title}</h3>
+         <span className="text-[11px] font-bold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{players.length}</span>
        </div>
-       <div ref={setNodeRef} className={`flex-1 p-3 overflow-y-auto space-y-3 transition-colors rounded-b-2xl ${isOver ? 'bg-slate-100 ring-2 ring-inset ring-[#1c7ed6]/30' : ''}`}>
+       <div ref={setNodeRef} className={`flex-1 p-4 overflow-y-auto space-y-3 transition-colors rounded-b-3xl ${isOver ? 'bg-blue-50/50 ring-2 ring-inset ring-[#1c7ed6]/20' : ''}`}>
          {players.map(p => <DraggableCard key={p.id} player={p} onClick={onPlayerClick} />)}
        </div>
     </div>
@@ -1036,30 +1032,30 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
   else if (boardData.pass.includes(player.id)) currentStatus = 'pass';
 
   return (
-    <tr className="hover:bg-slate-50 border-b border-slate-100 transition-colors group">
-      <td className="p-3">
-         <div className="flex items-center gap-3">
-           <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-8 h-8 rounded-full border border-slate-200 object-cover cursor-pointer" onClick={() => onSelect(player)} />
+    <tr className="hover:bg-slate-50/80 border-b border-slate-50 transition-colors group">
+      <td className="p-4 md:p-5">
+         <div className="flex items-center gap-4">
+           <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-10 h-10 rounded-full border border-slate-200 object-cover cursor-pointer hover:border-[#1c7ed6] transition-colors" onClick={() => onSelect(player)} />
            <div onClick={() => onSelect(player)} className="cursor-pointer">
-             <p className="font-bold text-slate-900 text-sm hover:text-[#1c7ed6] transition-colors">{player.name}</p>
-             <p className="text-slate-500 text-[10px] font-bold tracking-widest uppercase">{player.city}, {player.state}</p>
+             <p className="font-extrabold text-slate-900 text-sm group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
+             <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{player.city}, {player.state}</p>
            </div>
          </div>
       </td>
-      <td className="p-3 text-center"><span className="font-black text-base text-[#d6336c] bg-white px-2 py-0.5 rounded border border-slate-200">{player.dnaScore}</span></td>
-      <td className="p-3 text-center text-xs font-bold text-slate-700">{player.primaryPos} / {player.gradYear}</td>
-      <td className="p-3 text-center text-xs font-bold text-slate-700">{player.metrics?.sprint || '-'}</td>
-      <td className="p-3 text-center text-xs font-bold text-slate-700">{player.gpa || '-'}</td>
-      <td className="p-3 text-center">
-         <div className="flex flex-col items-center gap-1">
-           {player.guardianEmail && <a href={`mailto:${player.guardianEmail}`} title="Email Guardian" className="text-slate-400 hover:text-[#d6336c] transition-colors"><Mail size={14}/></a>}
-           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={14}/></a>}
+      <td className="p-4 md:p-5 text-center"><span className="font-black text-lg text-[#d6336c] bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm" style={displayFont}>{player.dnaScore}</span></td>
+      <td className="p-4 md:p-5 text-center text-xs font-bold text-slate-600">{player.primaryPos} / {player.gradYear}</td>
+      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.metrics?.sprint || '-'}</td>
+      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.gpa || '-'}</td>
+      <td className="p-4 md:p-5 text-center">
+         <div className="flex flex-col items-center gap-1.5">
+           {player.guardianEmail && <a href={`mailto:${player.guardianEmail}`} title="Email Guardian" className="text-slate-400 hover:text-[#d6336c] transition-colors"><Mail size={16}/></a>}
+           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={16}/></a>}
            {!player.guardianEmail && !player.twitter && <span className="text-slate-300">-</span>}
          </div>
       </td>
-      <td className="p-3 text-center">
+      <td className="p-4 md:p-5 text-center">
          <select 
-           className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-1.5 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-sm' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}
+           className={`text-[10px] font-extrabold uppercase tracking-wider rounded-lg px-3 py-2 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
            value={currentStatus}
            onChange={(e) => onMoveToBoard(player.id, e.target.value)}
          >
@@ -1069,7 +1065,7 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
             <option value="pass">🚫 Pass</option>
          </select>
       </td>
-      <td className="p-3 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-white bg-slate-900 px-2 py-1 rounded hover:bg-[#1c7ed6] transition-colors uppercase"><Video size={12}/> Film</a> : '-'}</td>
+      <td className="p-4 md:p-5 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-white bg-slate-900 px-3 py-1.5 rounded-lg hover:bg-[#1c7ed6] transition-colors uppercase tracking-wide"><Video size={14}/> Film</a> : '-'}</td>
     </tr>
   );
 };
@@ -1197,75 +1193,75 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div className="max-w-7xl mx-auto p-4 py-8 animate-in fade-in">
-        <div className="bg-slate-900 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4 mb-8 border border-slate-800" style={{ borderTop: '4px solid #1c7ed6' }}>
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/10 rounded-xl"><Building size={24} className="text-white" /></div>
+        <div className="bg-slate-900 rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-10 border border-slate-800" style={{ borderTop: '4px solid #1c7ed6' }}>
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-white/10 rounded-2xl"><Building size={28} className="text-white" /></div>
             <div>
-              <h2 className="text-xl font-black text-white uppercase tracking-tight">Scout Portal: {recruiterData?.school}</h2>
-              <p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest">Logged in as {recruiterData?.name}</p>
+              <h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Scout Portal: {recruiterData?.school}</h2>
+              <p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest mt-1">Logged in as {recruiterData?.name}</p>
             </div>
           </div>
-          <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-4 py-2 rounded-lg hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
+          <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
         </div>
 
-        <div className="flex gap-2 sm:gap-4 mb-6 border-b border-slate-200 pb-2">
-           <button onClick={() => setActiveTab('database')} className={`flex-1 py-3 px-4 rounded-t-xl text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'database' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`} style={activeTab === 'database' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Search size={16} /> Prospect Database</button>
-           <button onClick={() => setActiveTab('board')} className={`flex-1 py-3 px-4 rounded-t-xl text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors ${activeTab === 'board' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'}`} style={activeTab === 'board' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><LayoutDashboard size={16} /> My Recruiting Board</button>
+        <div className="flex gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+           <button onClick={() => setActiveTab('database')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'database' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'database' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Search size={16} /> Prospect Database</button>
+           <button onClick={() => setActiveTab('board')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'board' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'board' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><LayoutDashboard size={16} /> My Recruiting Board</button>
         </div>
 
         {activeTab === 'database' && (
           <div className="animate-in fade-in slide-in-from-left-4">
-             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
-                <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                   <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Advanced Filters</h3>
-                   <button onClick={exportDatabaseCSV} className="text-[10px] font-bold text-white bg-slate-900 px-3 py-1.5 rounded flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm"><Download size={12}/> Export CSV</button>
+             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6 md:p-8 mb-8">
+                <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                   <h3 className="text-sm font-extrabold uppercase tracking-widest text-slate-800" style={displayFont}>Advanced Filters</h3>
+                   <button onClick={exportDatabaseCSV} className="text-[10px] font-bold text-white bg-slate-900 px-4 py-2 rounded-full flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm"><Download size={14}/> Export CSV</button>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-5">
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Pos</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-bold text-slate-700 focus:outline-none" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Pos</label>
+                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Class</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-bold text-slate-700 focus:outline-none" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Class</label>
+                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select>
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min DNA ({minDna})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min DNA ({minDna})</label>
                      <input type="range" min="0" max="10" step="0.1" value={minDna} onChange={e=>setMinDna(e.target.value)} className="w-full accent-[#d6336c]" />
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min GPA ({minGpa})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min GPA ({minGpa})</label>
                      <input type="range" min="0" max="4.5" step="0.1" value={minGpa} onChange={e=>setMinGpa(e.target.value)} className="w-full accent-[#1c7ed6]" />
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max 40-Yd ({maxSprint >= 10 ? 'Any' : maxSprint + 's'})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max 40-Yd ({maxSprint >= 10 ? 'Any' : maxSprint + 's'})</label>
                      <input type="range" min="4.5" max="10" step="0.1" value={maxSprint} onChange={e=>setMaxSprint(e.target.value)} className="w-full accent-emerald-500" />
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max Shuttle ({maxShuttle >= 10 ? 'Any' : maxShuttle + 's'})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max Shuttle ({maxShuttle >= 10 ? 'Any' : maxShuttle + 's'})</label>
                      <input type="range" min="4.0" max="10" step="0.1" value={maxShuttle} onChange={e=>setMaxShuttle(e.target.value)} className="w-full accent-emerald-500" />
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Max L-Drill ({maxLDrill >= 10 ? 'Any' : maxLDrill + 's'})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max L-Drill ({maxLDrill >= 10 ? 'Any' : maxLDrill + 's'})</label>
                      <input type="range" min="4.0" max="10" step="0.1" value={maxLDrill} onChange={e=>setMaxLDrill(e.target.value)} className="w-full accent-emerald-500" />
                    </div>
                    <div>
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label>
                      <input type="range" min="0" max="120" step="1" value={minBroad} onChange={e=>setMinBroad(e.target.value)} className="w-full accent-amber-500" />
                    </div>
                    <div className="xl:col-start-8">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Min Vert ({minVert <= 0 ? 'Any' : minVert + '"'})</label>
+                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Vert ({minVert <= 0 ? 'Any' : minVert + '"'})</label>
                      <input type="range" min="0" max="40" step="1" value={minVert} onChange={e=>setMinVert(e.target.value)} className="w-full accent-amber-500" />
                    </div>
                 </div>
              </div>
-             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+             <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse min-w-[850px]">
-                      <thead><tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200"><th className="p-4 w-[220px]">Athlete</th><th className="p-4 text-center">DNA Score</th><th className="p-4 text-center">Pos / Yr</th><th className="p-4 text-center">40-Yd</th><th className="p-4 text-center">GPA</th><th className="p-4 text-center">Contact</th><th className="p-4 text-center">Board Status</th><th className="p-4 text-center">Tape</th></tr></thead>
-                      <tbody>
+                   <table className="w-full text-left border-collapse min-w-[900px]">
+                      <thead><tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100"><th className="p-5 w-[240px]">Athlete</th><th className="p-5 text-center">DNA Score</th><th className="p-5 text-center">Pos / Yr</th><th className="p-5 text-center">40-Yd</th><th className="p-5 text-center">GPA</th><th className="p-5 text-center">Contact</th><th className="p-5 text-center">Board Status</th><th className="p-5 text-center">Tape</th></tr></thead>
+                      <tbody className="divide-y divide-slate-50">
                         {filteredPlayers.length === 0 ? (
-                          <tr><td colSpan="8" className="p-8 text-center text-sm font-bold text-slate-400">No athletes match these strict criteria.</td></tr>
+                          <tr><td colSpan="8" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match these strict criteria.</td></tr>
                         ) : (
                           filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} />)
                         )}
@@ -1278,17 +1274,17 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
 
         {activeTab === 'board' && (
           <div className="animate-in fade-in slide-in-from-right-4">
-             <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between shadow-sm gap-4">
-                <div className="flex items-center gap-3">
-                   <Star className="text-amber-500 shrink-0" size={20} />
+             <div className="mb-8 p-6 bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+                <div className="flex items-center gap-4">
+                   <div className="p-3 bg-amber-50 rounded-2xl"><Star className="text-amber-500 shrink-0" size={24} /></div>
                    <div>
-                     <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Recruiting Board</h3>
-                     <p className="text-[10px] font-semibold text-slate-500 uppercase">Use the database tab to save prospects here.</p>
+                     <h3 className="text-lg font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Recruiting Board</h3>
+                     <p className="text-[11px] font-semibold text-slate-400 uppercase mt-0.5">Use the database tab to save prospects here.</p>
                    </div>
                 </div>
-                <button onClick={exportBoardCSV} className="text-[10px] font-bold text-white bg-slate-900 px-4 py-2 rounded-lg flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm whitespace-nowrap"><Download size={14}/> Export Board to CSV</button>
+                <button onClick={exportBoardCSV} className="text-[10px] font-bold text-white bg-slate-900 px-5 py-2.5 rounded-full flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm whitespace-nowrap"><Download size={14}/> Export Board to CSV</button>
              </div>
-             <div className="flex flex-col md:flex-row gap-4 overflow-x-auto pb-4">
+             <div className="flex flex-col md:flex-row gap-6 overflow-x-auto pb-6">
                 <DroppableColumn id="priority" title="High Priority" players={boardData.priority.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
                 <DroppableColumn id="interested" title="Interested / Watch" players={boardData.interested.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
                 <DroppableColumn id="pass" title="Pass / Archive" players={boardData.pass.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
@@ -1308,27 +1304,27 @@ const RosterPage = ({ players, onSelect, onBack }) => {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-in slide-in-from-bottom-8">
        <div className="flex justify-between items-center mb-8 print:hidden">
-          <button onClick={onBack} className="font-bold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity" style={{ color: '#d6336c' }}><ChevronLeft size={16} /> Back to Hub</button>
-          <button onClick={() => window.print()} className="font-bold flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg text-sm uppercase tracking-wider shadow-md hover:bg-slate-800"><FileText size={16}/> Print QR Brochures</button>
+          <button onClick={onBack} className="font-semibold flex items-center gap-1.5 uppercase tracking-wider text-sm text-slate-500 hover:text-slate-800 transition-colors"><ChevronLeft size={18} /> Back to Hub</button>
+          <button onClick={() => window.print()} className="font-semibold flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm uppercase tracking-wider shadow-md hover:bg-slate-800 hover:-translate-y-0.5 transition-all"><FileText size={16}/> Print QR Brochures</button>
        </div>
        {teams.map((team, index) => (
          <div key={team} className={`mb-16 print:m-0 ${index !== teams.length - 1 ? 'print:page-break-after-always' : ''}`}>
-            <div className="mb-6 pb-2 border-b-2 border-slate-900 flex justify-between items-end">
+            <div className="mb-8 pb-3 border-b-2 border-slate-900 flex justify-between items-end">
               <div>
-                 <h2 className="text-3xl font-black uppercase tracking-tight text-slate-900">{team}</h2>
-                 <p className="text-sm font-bold text-[#d6336c] uppercase tracking-widest mt-1">Official Tournament Roster & Scouting QR</p>
+                 <h2 className="text-4xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>{team}</h2>
+                 <p className="text-sm font-bold text-[#d6336c] uppercase tracking-widest mt-1.5">Official Tournament Roster & Scouting QR</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 print:grid-cols-4 print:gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 print:grid-cols-4 print:gap-4">
                {rosteredPlayers.filter(p => p.dnaTeam === team).sort((a,b) => a.name.localeCompare(b.name)).map(p => (
-                  <div key={p.id} className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer group" onClick={() => onSelect(p)}>
-                     <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-16 h-16 rounded-full object-cover mb-3" alt={p.name} />
-                     <h4 className="font-black text-sm uppercase truncate w-full">{p.name}</h4>
-                     <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">{p.primaryPos} • {p.gradYear}</p>
-                     <div className="my-4"><QRCodeSVG value={`https://www.dnaflagratings.com/?p=${p.id}`} size={90} /></div>
-                     <div className="w-full bg-slate-50 p-2 rounded-lg flex justify-between items-center mt-auto border border-slate-100">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase">DNA Score</span>
-                        <span className="font-black text-sm text-[#d6336c]">{p.dnaScore || "N/A"}</span>
+                  <div key={p.id} className="bg-white border border-slate-100 rounded-3xl p-5 flex flex-col items-center text-center cursor-pointer shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-lg hover:border-[#1c7ed6]/30 transition-all group" onClick={() => onSelect(p)}>
+                     <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-20 h-20 rounded-full object-cover mb-4 border border-slate-100" alt={p.name} />
+                     <h4 className="font-extrabold text-sm uppercase truncate w-full group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{p.name}</h4>
+                     <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">{p.primaryPos} • {p.gradYear}</p>
+                     <div className="my-5 p-2 bg-white rounded-xl border border-slate-100 shadow-sm"><QRCodeSVG value={`https://www.dnaflagratings.com/?p=${p.id}`} size={96} /></div>
+                     <div className="w-full bg-slate-50/80 p-2.5 rounded-xl flex justify-between items-center mt-auto border border-slate-100/50">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">DNA Score</span>
+                        <span className="font-black text-sm text-[#d6336c]" style={displayFont}>{p.dnaScore || "N/A"}</span>
                      </div>
                   </div>
                ))}
@@ -1354,6 +1350,16 @@ export default function App() {
   
   const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
   const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
+
+  useEffect(() => {
+    if (!document.getElementById('dna-fonts')) {
+      const link = document.createElement('link');
+      link.id = 'dna-fonts';
+      link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isFirebaseActive || !db) return;
@@ -1432,25 +1438,24 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between" style={bodyFont}>
       <div>
-        <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm print:hidden">
+        <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50 shadow-sm print:hidden">
           <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
             <div className="flex gap-2 sm:gap-4 items-center">
-               {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-3 sm:px-4 py-2 rounded-full shadow-sm hover:bg-[#155a9e] flex items-center gap-1.5"><Building size={12}/> Portal</button>}
-               <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm text-slate-600 hover:text-[#1c7ed6] hover:bg-slate-100 border border-slate-200"><QrCode size={12}/> Rosters</button>
+               {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-4 py-2.5 rounded-full shadow-md shadow-blue-500/20 hover:bg-[#155a9e] flex items-center gap-1.5 transition-colors"><Building size={14}/> Portal</button>}
+               <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full text-slate-500 hover:text-[#1c7ed6] hover:bg-slate-50 border border-slate-200/50"><QrCode size={14}/> Rosters</button>
                
-               {/* Login Dropdown */}
                <div className="relative" ref={dropdownRef}>
-                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-xs font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : '#d6336c'), border: `1px solid ${authRole === 'admin' ? 'rgba(5,150,105,0.3)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.3)' : 'rgba(214,51,108,0.3)')}`, backgroundColor: authRole === 'admin' ? 'rgba(5,150,105,0.1)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.1)' : 'rgba(214,51,108,0.05)') }}>
-                   <Lock size={12}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
+                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : '#d6336c'), border: `1px solid ${authRole === 'admin' ? 'rgba(5,150,105,0.3)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.3)' : 'rgba(214,51,108,0.3)')}`, backgroundColor: authRole === 'admin' ? 'rgba(5,150,105,0.1)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.1)' : 'rgba(214,51,108,0.05)') }}>
+                   <Lock size={14}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
                  </button>
                  {isDropdownOpen && !authRole && (
-                   <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                     <button onClick={() => openModal('admin')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#d6336c] uppercase tracking-wider flex items-center gap-2"><Shield size={14}/> Admin Portal</button>
-                     <div className="h-px bg-slate-100 my-1"></div>
-                     <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] uppercase tracking-wider flex items-center gap-2"><Building size={14}/> Scout Portal</button>
+                   <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                     <button onClick={() => openModal('admin')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#d6336c] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Shield size={16}/> Admin Portal</button>
+                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                     <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Building size={16}/> Scout Portal</button>
                    </div>
                  )}
                </div>
