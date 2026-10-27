@@ -4,7 +4,7 @@ import {
   Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
   X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
   Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
-  CheckCircle, Clock
+  CheckCircle, Clock, Globe
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -391,6 +391,34 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'dnaScore', direction: 'desc' });
+  const [externalNews, setExternalNews] = useState([]);
+
+  useEffect(() => {
+    const fetchExternalNews = async () => {
+      try {
+        const response = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fnews.google.com%2Frss%2Fsearch%3Fq%3D%22flag%2Bfootball%22%26hl%3Den-US%26gl%3DUS%26ceid%3DUS%3Aen');
+        const data = await response.json();
+        if (data.status === 'ok') {
+          const formattedNews = data.items.slice(0, 8).map(item => ({
+            id: item.guid || Math.random().toString(),
+            title: item.title,
+            category: 'WEB NEWS',
+            timestamp: new Date(item.pubDate).getTime(),
+            link: item.link,
+            isExternal: true
+          }));
+          setExternalNews(formattedNews);
+        }
+      } catch (err) {
+        console.error("Failed to fetch external news", err);
+      }
+    };
+    fetchExternalNews();
+  }, []);
+
+  const combinedNews = useMemo(() => {
+    return [...(localNews || []), ...externalNews].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }, [localNews, externalNews]);
 
   const requestSort = (key) => {
     if (sortConfig.key === key) { setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }); } 
@@ -453,12 +481,23 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
         <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
           <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden p-6" style={{ borderTop: '4px solid #1c7ed6' }}>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 mb-4 uppercase"><Megaphone style={{ color: '#1c7ed6' }} /> Live News</h2>
-            <div className="space-y-4">
-              {(!localNews || localNews.length === 0) ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
-                 [...localNews].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0)).map(item => (
-                   <div key={item.id} className="block pl-3 transition-transform" style={{ borderLeft: '2px solid #d6336c' }}>
-                     <div className="flex items-center gap-1.5"><span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#d6336c' }}>{item.category}</span></div>
-                     <p className="text-sm font-bold text-slate-800 mt-1">{item.title}</p>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+              {combinedNews.length === 0 ? <p className="text-slate-500 text-sm italic">No recent updates.</p> : (
+                 combinedNews.map(item => (
+                   <div key={item.id} className="block pl-3 transition-transform relative group" style={{ borderLeft: `2px solid ${item.isExternal ? '#64748b' : '#d6336c'}` }}>
+                     <div className="flex items-center gap-1.5">
+                       <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: item.isExternal ? '#64748b' : '#d6336c' }}>
+                         {item.category}
+                       </span>
+                     </div>
+                     {item.isExternal ? (
+                       <a href={item.link} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                         <p className="text-sm font-bold text-slate-700 group-hover:text-[#1c7ed6] transition-colors leading-tight">{item.title}</p>
+                         <p className="text-[9px] font-bold text-slate-400 uppercase mt-1 flex items-center gap-1"><Globe size={10}/> Read Article</p>
+                       </a>
+                     ) : (
+                       <p className="text-sm font-bold text-slate-900 mt-1 leading-tight">{item.title}</p>
+                     )}
                    </div>
                  ))
               )}
@@ -667,9 +706,24 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           let updatedHistory = existingPlayer?.combineHistory ? [...existingPlayer.combineHistory] : [];
           if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) updatedHistory[updatedHistory.length - 1] = newCombineRecord; else updatedHistory.push(newCombineRecord);
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { ...playerData, combineHistory: updatedHistory, avatar: photoPreview || existingPlayer?.avatar || "" });
+          
+          // Automated News: Update
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
+            title: `${metrics.name} posted a new verified DNA Score of ${overallResult.data.dnaScore}!`,
+            category: 'COMBINE',
+            timestamp: Date.now()
+          });
+
         } else {
           playerData.avatar = photoPreview || ""; playerData.views = 0; playerData.createdAt = Date.now(); playerData.combineHistory = [newCombineRecord];
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
+          
+          // Automated News: New Athlete
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
+            title: `New Prospect Added: ${metrics.name} (Class of ${metrics.gradYear}) joins the national leaderboard.`,
+            category: 'ANNOUNCEMENT',
+            timestamp: Date.now()
+          });
         }
       }
       alert(`Saved! Score: ${overallResult.data.dnaScore}`); setMetrics(defaultMetrics); setSelectedExistingId(""); setPhotoPreview(null);
