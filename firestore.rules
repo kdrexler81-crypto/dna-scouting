@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Target the specific document path used in your React app
+    match /artifacts/{appId}/public/data {
+      
+      // --- HELPER FUNCTIONS ---
+      function isAuthenticated() {
+        return request.auth != null;
+      }
+      
+      function isAdmin() {
+        // Defines an admin as an authenticated user who does NOT exist in the recruiters database
+        return isAuthenticated() && 
+               !exists(/databases/$(database)/documents/artifacts/$(appId)/public/data/recruiters/$(request.auth.uid));
+      }
+
+      // --- 1. ATHLETES COLLECTION ---
+      match /players/{playerId} {
+        // Anyone can view the leaderboard
+        allow read: if true;
+        // Only Admins can add or remove athletes entirely
+        allow create, delete: if isAdmin();
+        
+        // Admins can edit anything. 
+        // The public/scouts can ONLY update the 'views' and 'recentViews' tracking fields.
+        allow update: if isAdmin() || 
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'recentViews']);
+      }
+
+      // --- 2. NEWS COLLECTION ---
+      match /news/{newsId} {
+        // Anyone can read the news feed
+        allow read: if true;
+        // Only Admins can post or delete news
+        allow write: if isAdmin();
+      }
+
+      // --- 3. RECRUITERS / SCOUTS COLLECTION ---
+      match /recruiters/{scoutId} {
+        // Admins can read all scouts to approve them. Scouts can only read their own profile.
+        allow read: if isAdmin() || request.auth.uid == scoutId;
+        
+        // A scout can create their own document during the signup process
+        allow create: if request.auth.uid == scoutId;
+        
+        // Admins can update scouts (to toggle the 'approved' status). 
+        // Scouts can update their own document (to save their recruiting board).
+        allow update: if isAdmin() || request.auth.uid == scoutId;
+        
+        // Only admins can delete a scout
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}
