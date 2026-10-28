@@ -1438,15 +1438,49 @@ export default function App() {
   };
 
   const handlePlayerSelect = async (p) => {
-    setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
+    setSelectedPlayer(p); 
+    setView('profile'); 
+    window.scrollTo(0,0);
+    
     if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { 
       try { 
-        const updates = { views: increment(1) };
+        let updates = {};
+        
         if (authRole === 'recruiter' && recruiterData) {
-          updates.recentViews = arrayUnion({ coach: recruiterData.name, school: recruiterData.school, time: Date.now() });
+          const now = Date.now();
+          const twentyFourHours = 24 * 60 * 60 * 1000;
+          const existingViews = p.recentViews || [];
+          
+          // 1. Check if this exact coach viewed this player in the last 24 hours
+          const recentlyViewed = existingViews.some(view => 
+            view.coach === recruiterData.name && 
+            (now - view.time) < twentyFourHours
+          );
+
+          // 2. Only log a new view if they haven't looked today
+          if (!recentlyViewed) {
+            // Add new view and cap the array at the 50 most recent to protect database size
+            const updatedViews = [...existingViews, { 
+              coach: recruiterData.name, 
+              school: recruiterData.school, 
+              time: now 
+            }].slice(-50); 
+            
+            updates.views = increment(1);
+            updates.recentViews = updatedViews;
+          }
+        } else {
+           // If it's a public user (not a logged-in scout), just increment the anonymous counter
+           updates.views = increment(1);
         }
-        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), updates); 
-      } catch (err) { console.error("Error logging view", err); } 
+
+        // 3. Only push to database if there is new data to save
+        if (Object.keys(updates).length > 0) {
+           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), updates); 
+        }
+      } catch (err) { 
+        console.error("Error logging view", err); 
+      } 
     }
   };
 
