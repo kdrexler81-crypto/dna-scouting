@@ -10,12 +10,12 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage'; // <-- ADDED THIS LINE
+import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { QRCodeSVG } from 'qrcode.react';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 
 // --- FIREBASE INITIALIZATION ---
-let app, auth, db, appId;
+let app, auth, db, appId, storage;
 let isFirebaseActive = false;
 
 try {
@@ -31,6 +31,7 @@ try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
+    storage = getStorage(app);
     appId = firebaseConfig.appId || 'default-app-id';
     isFirebaseActive = true;
   }
@@ -39,29 +40,7 @@ try {
 }
 
 const INITIAL_SEED = { players: [], news: [], scouts: [] };
-let app, auth, db, appId, storage; // <-- Added storage
-let isFirebaseActive = false;
 
-try {
-  const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID
-  };
-  if (firebaseConfig.apiKey) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app); // <-- ADDED THIS LINE
-    appId = firebaseConfig.appId || 'default-app-id';
-    isFirebaseActive = true;
-  }
-} catch (e) {
-  console.error("Firebase offline", e);
-}
 // --- TYPOGRAPHY HELPERS ---
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 const bodyFont = { fontFamily: "'Inter', sans-serif" };
@@ -723,7 +702,6 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
       };
 
       if (dbConfigured && db) {
-        
         // --- NEW: FIREBASE STORAGE UPLOAD LOGIC ---
         let finalAvatarUrl = existingPlayer?.avatar || ""; 
         // Only upload to Storage if photoPreview has a new Base64 string
@@ -740,7 +718,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { 
             ...playerData, 
             combineHistory: updatedHistory, 
-            avatar: finalAvatarUrl // <-- Uses new Cloud URL
+            avatar: finalAvatarUrl 
           });
           
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
@@ -750,7 +728,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           });
 
         } else {
-          playerData.avatar = finalAvatarUrl; // <-- Uses new Cloud URL
+          playerData.avatar = finalAvatarUrl;
           playerData.views = 0; 
           playerData.createdAt = Date.now(); 
           playerData.combineHistory = [newCombineRecord];
