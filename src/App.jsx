@@ -1044,14 +1044,22 @@ const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
   );
 };
 
-const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
+const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, onToggleSelect }) => {
   let currentStatus = '';
   if (boardData.priority.includes(player.id)) currentStatus = 'priority';
   else if (boardData.interested.includes(player.id)) currentStatus = 'interested';
   else if (boardData.pass.includes(player.id)) currentStatus = 'pass';
 
   return (
-    <tr className="hover:bg-slate-50/80 border-b border-slate-50 transition-colors group">
+    <tr className={`hover:bg-slate-50/80 border-b border-slate-50 transition-colors group ${isSelected ? 'bg-blue-50/40' : ''}`}>
+      <td className="p-4 md:p-5 text-center">
+        <input 
+          type="checkbox" 
+          checked={isSelected} 
+          onChange={() => onToggleSelect(player.id)} 
+          className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" 
+        />
+      </td>
       <td className="p-4 md:p-5">
          <div className="flex items-center gap-4">
            <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-10 h-10 rounded-full border border-slate-200 object-cover cursor-pointer hover:border-[#1c7ed6] transition-colors" onClick={() => onSelect(player)} />
@@ -1092,7 +1100,8 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
 const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
-  const [compareIds, setCompareIds] = useState([]); // New state for Compare Mode
+  const [compareIds, setCompareIds] = useState([]);
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]); // Multi-select state
   
   // Filtering States
   const [minDna, setMinDna] = useState(0);
@@ -1138,6 +1147,53 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
     }).sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore));
   }, [players, minDna, maxSprint, maxShuttle, maxLDrill, minBroad, minVert, minGpa, posFilter, yearFilter]);
 
+  const getBoardStatus = (playerId) => {
+    if (boardData.priority.includes(playerId)) return 'priority';
+    if (boardData.interested.includes(playerId)) return 'interested';
+    if (boardData.pass.includes(playerId)) return 'pass';
+    return '';
+  };
+
+  const handleMoveToBoard = async (playerId, destCol) => {
+    const newBoard = {
+      priority: boardData.priority.filter(id => id !== playerId),
+      interested: boardData.interested.filter(id => id !== playerId),
+      pass: boardData.pass.filter(id => id !== playerId),
+    };
+    if (destCol) newBoard[destCol].push(playerId);
+    setBoardData(newBoard);
+    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
+    catch (err) { console.error("Error saving board", err); }
+  };
+
+  const handleBatchMoveToBoard = async (destCol) => {
+    if (selectedPlayerIds.length === 0) return;
+    const newBoard = {
+      priority: boardData.priority.filter(id => !selectedPlayerIds.includes(id)),
+      interested: boardData.interested.filter(id => !selectedPlayerIds.includes(id)),
+      pass: boardData.pass.filter(id => !selectedPlayerIds.includes(id)),
+    };
+    if (destCol) newBoard[destCol].push(...selectedPlayerIds);
+    setBoardData(newBoard);
+    setSelectedPlayerIds([]);
+    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
+    catch (err) { console.error("Error saving batch board update", err); }
+  };
+
+  const toggleSelectPlayer = (id) => {
+    setSelectedPlayerIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  };
+
+  const toggleSelectAll = () => {
+    const allFilteredIds = filteredPlayers.map(p => p.id);
+    const areAllSelected = allFilteredIds.every(id => selectedPlayerIds.includes(id));
+    if (areAllSelected) {
+      setSelectedPlayerIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedPlayerIds(prev => [...new Set([...prev, ...allFilteredIds])]);
+    }
+  };
+
   const exportDatabaseCSV = () => {
     const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
     const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ]);
@@ -1163,22 +1219,26 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
     document.body.appendChild(link); link.click(); link.remove();
   };
 
-  const handleMoveToBoard = async (playerId, destCol) => {
-    const newBoard = {
-      priority: boardData.priority.filter(id => id !== playerId),
-      interested: boardData.interested.filter(id => id !== playerId),
-      pass: boardData.pass.filter(id => id !== playerId),
-    };
-    if (destCol) newBoard[destCol].push(playerId);
-    setBoardData(newBoard);
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
-    catch (err) { console.error("Error saving board", err); }
-  };
-
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     if (!over) return;
     handleMoveToBoard(String(active.id), over.id);
+  };
+
+  const BoardStatusDropdown = ({ playerId, className = "" }) => {
+    const status = getBoardStatus(playerId);
+    return (
+      <select 
+        className={`text-[10px] font-extrabold uppercase tracking-wider rounded-lg px-3 py-2 border cursor-pointer focus:outline-none transition-colors ${status ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'} ${className}`}
+        value={status}
+        onChange={(e) => handleMoveToBoard(playerId, e.target.value)}
+      >
+         <option value="">+ Add to Board</option>
+         <option value="priority">⭐ Priority</option>
+         <option value="interested">👀 Interested</option>
+         <option value="pass">🚫 Pass</option>
+      </select>
+    );
   };
 
   return (
@@ -1243,15 +1303,62 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                    </div>
                 </div>
              </div>
+
+             {/* Batch Action Bar */}
+             {selectedPlayerIds.length > 0 && (
+               <div className="bg-slate-900 text-white p-4 rounded-2xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl border border-slate-800 animate-in fade-in">
+                  <div className="flex items-center gap-3">
+                     <span className="bg-[#1c7ed6] text-white text-xs font-black px-3 py-1 rounded-full">{selectedPlayerIds.length}</span>
+                     <span className="text-xs font-extrabold uppercase tracking-widest">Athletes Selected</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Batch Add to:</span>
+                     <button onClick={() => handleBatchMoveToBoard('priority')} className="text-[10px] font-extrabold uppercase px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors">⭐ Priority</button>
+                     <button onClick={() => handleBatchMoveToBoard('interested')} className="text-[10px] font-extrabold uppercase px-3 py-2 rounded-xl bg-[#1c7ed6] hover:bg-blue-500 text-white shadow-sm transition-colors">👀 Interested</button>
+                     <button onClick={() => handleBatchMoveToBoard('pass')} className="text-[10px] font-extrabold uppercase px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white shadow-sm transition-colors">🚫 Pass</button>
+                     <button onClick={() => setSelectedPlayerIds([])} className="text-[10px] font-bold text-slate-400 hover:text-white px-2 py-1 ml-2 underline uppercase tracking-wider">Clear</button>
+                  </div>
+               </div>
+             )}
+
              <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
                    <table className="w-full text-left border-collapse min-w-[900px]">
-                      <thead><tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100"><th className="p-5 w-[240px]">Athlete</th><th className="p-5 text-center">DNA Score</th><th className="p-5 text-center">Pos / Yr</th><th className="p-5 text-center">40-Yd</th><th className="p-5 text-center">GPA</th><th className="p-5 text-center">Contact</th><th className="p-5 text-center">Board Status</th><th className="p-5 text-center">Tape</th></tr></thead>
+                      <thead>
+                        <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                           <th className="p-5 w-12 text-center">
+                             <input 
+                               type="checkbox" 
+                               checked={filteredPlayers.length > 0 && filteredPlayers.every(p => selectedPlayerIds.includes(p.id))} 
+                               onChange={toggleSelectAll} 
+                               className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" 
+                             />
+                           </th>
+                           <th className="p-5 w-[240px]">Athlete</th>
+                           <th className="p-5 text-center">DNA Score</th>
+                           <th className="p-5 text-center">Pos / Yr</th>
+                           <th className="p-5 text-center">40-Yd</th>
+                           <th className="p-5 text-center">GPA</th>
+                           <th className="p-5 text-center">Contact</th>
+                           <th className="p-5 text-center">Board Status</th>
+                           <th className="p-5 text-center">Tape</th>
+                        </tr>
+                      </thead>
                       <tbody className="divide-y divide-slate-50">
                         {filteredPlayers.length === 0 ? (
-                          <tr><td colSpan="8" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match these strict criteria.</td></tr>
+                          <tr><td colSpan="9" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match these strict criteria.</td></tr>
                         ) : (
-                          filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} />)
+                          filteredPlayers.map(p => (
+                            <DatabaseRow 
+                              key={p.id} 
+                              player={p} 
+                              onSelect={onSelect} 
+                              boardData={boardData} 
+                              onMoveToBoard={handleMoveToBoard} 
+                              isSelected={selectedPlayerIds.includes(p.id)}
+                              onToggleSelect={toggleSelectPlayer}
+                            />
+                          ))
                         )}
                       </tbody>
                    </table>
@@ -1331,7 +1438,10 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                               <button onClick={() => setCompareIds(compareIds.filter(cid => cid !== p.id))} className="absolute top-4 right-4 text-rose-400 hover:bg-rose-50 hover:text-rose-600 p-1.5 rounded-full transition-colors"><X size={16}/></button>
                               <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-20 h-20 mx-auto rounded-full object-cover mb-3 border border-slate-200" alt={p.name} />
                               <div className="font-extrabold text-slate-900 uppercase text-sm tracking-tight cursor-pointer hover:text-[#1c7ed6] transition-colors" style={displayFont} onClick={() => onSelect(p)}>{p.name}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{p.primaryPos} • Class of {p.gradYear}</div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mb-3">{p.primaryPos} • Class of {p.gradYear}</div>
+                              
+                              {/* TOP BOARD STATUS DROPDOWN */}
+                              <BoardStatusDropdown playerId={p.id} className="w-full" />
                             </th>
                           );
                         })}
@@ -1379,6 +1489,16 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                             </td>
                           );
                         })}
+                      </tr>
+
+                      {/* BOTTOM BOARD STATUS DROPDOWN ROW */}
+                      <tr className="bg-slate-100/60 border-t-2 border-slate-200">
+                        <td className="p-4 border-r border-slate-200 text-xs font-black uppercase tracking-widest text-slate-700 align-middle">Board Status</td>
+                        {compareIds.map(id => (
+                          <td key={id} className="p-4 text-center border-r last:border-r-0 border-slate-200">
+                            <BoardStatusDropdown playerId={id} className="w-full" />
+                          </td>
+                        ))}
                       </tr>
                     </tbody>
                   </table>
