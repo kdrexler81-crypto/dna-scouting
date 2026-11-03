@@ -4,11 +4,11 @@ import {
   Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
   X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
   Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
-  CheckCircle, Clock, Globe, GitCompare // <-- ADDED GitCompare HERE
+  CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc, arrayUnion, query, where } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { QRCodeSVG } from 'qrcode.react';
@@ -82,76 +82,75 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode || 'admin');
-      setError('');
-      setUsername('');
-      setPassword('');
+      setError(''); setUsername(''); setPassword('');
     }
   }, [isOpen, initialMode]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true); setError('');
+    e.preventDefault(); setLoading(true); setError('');
     
     if (mode === 'recruiter_signup' && !username.toLowerCase().endsWith('.edu')) {
       setError("Access denied. Scout accounts require a valid .edu university email address.");
-      setLoading(false);
-      return;
+      setLoading(false); return;
     }
 
     try {
       if (mode === 'recruiter_signup') {
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid), {
-          name: coachName, school: schoolName, email: username, role: 'recruiter', approved: false, board: { priority: [], interested: [], pass: [] }, createdAt: Date.now()
-        });
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid), { name: coachName, school: schoolName, email: username, role: 'recruiter', approved: false, board: { priority: [], interested: [], pass: [] }, createdAt: Date.now() });
         await signOut(auth);
         setError("Account created successfully. It is currently pending Admin approval.");
         setMode('recruiter_login');
+      } else if (mode === 'family_signup') {
+        const userCred = await createUserWithEmailAndPassword(auth, username, password);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'families', userCred.user.uid), { email: username, role: 'family', createdAt: Date.now() });
+        onLoginSuccess('family', { email: username, uid: userCred.user.uid });
+      } else if (mode === 'family_login') {
+        const userCred = await signInWithEmailAndPassword(auth, username, password);
+        onLoginSuccess('family', { email: username, uid: userCred.user.uid });
       } else {
         const userCred = await signInWithEmailAndPassword(auth, username, password);
         if (mode === 'recruiter_login') {
           const docSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', userCred.user.uid));
           if (docSnap.exists() && docSnap.data().role === 'recruiter') {
-            if (docSnap.data().approved !== true) {
-               await signOut(auth);
-               throw new Error("Your scout account is pending Admin approval. Please check back later.");
-            }
+            if (docSnap.data().approved !== true) { await signOut(auth); throw new Error("Your scout account is pending Admin approval."); }
             onLoginSuccess('recruiter', { ...docSnap.data(), uid: userCred.user.uid });
-          } else {
-            await signOut(auth); throw new Error("Not authorized as a recruiter.");
-          }
+          } else { await signOut(auth); throw new Error("Not authorized as a recruiter."); }
         } else {
            onLoginSuccess('admin', null);
         }
       }
-      if (mode !== 'recruiter_signup') {
-        setUsername(''); setPassword(''); setCoachName(''); setSchoolName('');
-      }
-    } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify your credentials.');
-    }
+      if (!mode.includes('signup')) { setUsername(''); setPassword(''); setCoachName(''); setSchoolName(''); }
+    } catch (err) { setError(err.message || 'Authentication failed. Please verify your credentials.'); }
     setLoading(false);
   };
+
+  const activeColor = mode === 'admin' ? '#d6336c' : (mode.includes('recruiter') ? '#1c7ed6' : '#059669');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
       <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}></div>
+        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: activeColor }}></div>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors bg-slate-50 p-1.5 rounded-full"><X size={18} /></button>
         
-        <div className="flex gap-2 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all duration-200 ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
-          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all duration-200 ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
+        <div className="flex gap-1.5 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
+          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
+          <button onClick={() => {setMode('family_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('family') ? 'bg-white shadow-sm text-[#059669]' : 'text-slate-500 hover:text-slate-700'}`}>Family</button>
         </div>
 
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4" style={{ color: mode === 'admin' ? '#d6336c' : '#1c7ed6' }}>
-            {mode === 'admin' ? <Lock size={24} /> : <Building size={24} />}
+          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4" style={{ color: activeColor }}>
+            {mode === 'admin' ? <Lock size={24} /> : (mode.includes('recruiter') ? <Building size={24} /> : <Users size={24} />)}
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>{mode === 'admin' ? 'Coach Portal Access' : 'Scout / Recruiter'}</h2>
-          <p className="text-xs text-slate-400 font-medium uppercase tracking-widest mt-1.5">{mode === 'admin' ? 'Authorized Staff Only' : 'Verified .EDU Coaches Only'}</p>
+          <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>
+            {mode === 'admin' ? 'Coach Portal' : (mode.includes('recruiter') ? 'Scout / Recruiter' : 'Family Portal')}
+          </h2>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">
+            {mode === 'admin' ? 'Authorized Staff Only' : (mode.includes('recruiter') ? 'Verified .EDU Coaches Only' : 'Athlete Parents & Guardians')}
+          </p>
         </div>
         
         {error && <div className={`border text-xs font-semibold p-3.5 rounded-xl text-center mb-6 leading-relaxed ${error.includes('successfully') ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>{error}</div>}
@@ -159,40 +158,34 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'recruiter_signup' && (
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Coach Name</label>
-                <input required type="text" placeholder="John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={coachName} onChange={e => setCoachName(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">University / College</label>
-                <input required type="text" placeholder="State Univ." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={schoolName} onChange={e => setSchoolName(e.target.value)} />
-              </div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Coach Name</label><input required type="text" placeholder="John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={coachName} onChange={e => setCoachName(e.target.value)} /></div>
+              <div><label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">University</label><input required type="text" placeholder="State Univ." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={schoolName} onChange={e => setSchoolName(e.target.value)} /></div>
             </div>
           )}
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="email" placeholder={mode === 'recruiter_signup' ? "coach@university.edu" : "Enter email"} className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]/20' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]/20'}`} value={username} onChange={e => setUsername(e.target.value)} />
+              <input required type="email" placeholder="Enter email" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all`} style={{ borderColor: activeColor }} value={username} onChange={e => setUsername(e.target.value)} />
             </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="password" placeholder="Enter password" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all ${mode === 'admin' ? 'focus:border-[#d6336c] focus:ring-[#d6336c]/20' : 'focus:border-[#1c7ed6] focus:ring-[#1c7ed6]/20'}`} value={password} onChange={e => setPassword(e.target.value)} />
+              <input required type="password" placeholder="Enter password" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all`} style={{ borderColor: activeColor }} value={password} onChange={e => setPassword(e.target.value)} />
             </div>
           </div>
           
-          <button type="submit" disabled={loading} className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg mt-4 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : '#1c7ed6' }}>
-            {loading ? <Loader2 size={18} className="animate-spin" /> : (mode === 'recruiter_signup' ? 'Create Scout Account' : 'Authenticate & Enter')}
+          <button type="submit" disabled={loading} className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg mt-4 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : activeColor }}>
+            {loading ? <Loader2 size={18} className="animate-spin" /> : (mode.includes('signup') ? 'Create Account' : 'Authenticate & Enter')}
           </button>
         </form>
 
-        {mode.includes('recruiter') && (
+        {(mode.includes('recruiter') || mode.includes('family')) && (
            <div className="mt-5 text-center">
-             <button type="button" onClick={() => setMode(mode === 'recruiter_login' ? 'recruiter_signup' : 'recruiter_login')} className="text-[11px] font-semibold text-slate-500 hover:text-[#1c7ed6] transition-colors">
-               {mode === 'recruiter_login' ? "Don't have an account? Create one." : "Already registered? Sign In."}
+             <button type="button" onClick={() => setMode(mode.includes('login') ? mode.replace('login', 'signup') : mode.replace('signup', 'login'))} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+               {mode.includes('login') ? "Don't have an account? Create one." : "Already registered? Sign In."}
              </button>
            </div>
         )}
@@ -201,66 +194,112 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   );
 };
 
-// --- 1. PROFILE PAGE ---
-const ProfilePage = ({ player, onBack }) => {
-  if (!player) return null;
+// --- FAMILY DASHBOARD ---
+const FamilyDashboard = ({ user, onLogout }) => {
+  const [messages, setMessages] = useState([]);
+  const [loadingAction, setLoadingAction] = useState(null);
 
-  const getEmbedUrl = (url) => {
-    if (!url || typeof url !== 'string') return null;
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      let videoId = '';
-      if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0];
-      else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; }
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-    }
-    return null;
-  };
+  useEffect(() => {
+    if (!user?.email || !isFirebaseActive) return;
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("guardianEmail", "==", user.email));
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
+      msgs.sort((a,b) => b.timestamp - a.timestamp);
+      setMessages(msgs);
+    });
+    return () => unsub();
+  }, [user]);
 
-  const getMetricStyle = (val, label) => {
+  const handleModerate = async (msgId, action) => {
+    setLoadingAction(msgId);
     try {
-      if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-      const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' };
-      const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' };
-      const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' };
-      const num = parseFloat(String(val).replace(/[^0-9.]/g, ''));
-      if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-      if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red;
-      if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red;
-      if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red;
-      if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red;
-      return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' };
-    } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; }
+      const moderateMessage = httpsCallable(getFunctions(app), 'moderateMessage');
+      await moderateMessage({ messageId: msgId, action, appId });
+    } catch (e) { alert("Error updating message: " + e.message); }
+    setLoadingAction(null);
   };
 
-  const MetricRow = ({ icon: Icon, label, playerStat, verifyStatus }) => {
-    const statStyle = getMetricStyle(playerStat, label); 
-    const hasData = playerStat && playerStat !== "N/A" && playerStat !== "";
-    return (
-      <div className="flex items-center justify-between py-3 border-b border-slate-100/60 group hover:bg-slate-50/50 transition-colors px-2 rounded-xl gap-2 print:py-1.5">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-white border border-slate-100 transition-colors shrink-0 print:hidden">
-            {Icon && <Icon size={16} className="text-slate-500" />}
-          </div>
-          <div className="flex flex-col justify-center gap-1">
-            <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide leading-tight whitespace-normal">{label}</span>
-            {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Award size={10}/> LASER</span>}
-            {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-100 text-slate-500 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Activity size={10}/> MANUAL</span>}
-            {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Shield size={10}/> DNA VERIFIED</span>}
+  const pendingMessages = messages.filter(m => m.status === 'pending');
+  const approvedMessages = messages.filter(m => m.status === 'approved');
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
+      <div className="bg-slate-900 rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-8 border border-slate-800" style={{ borderTop: '4px solid #059669' }}>
+        <div className="flex items-center gap-5">
+          <div className="p-4 bg-white/10 rounded-2xl"><Shield size={28} className="text-emerald-400" /></div>
+          <div>
+            <h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Family Inbox</h2>
+            <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest mt-1">Logged in as {user?.email}</p>
           </div>
         </div>
-        <div className="w-24 shrink-0 text-right pr-2">
-          <span className={`text-sm px-4 py-1.5 rounded-full font-semibold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}>
-            {playerStat || "N/A"}
-          </span>
+        <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
+      </div>
+
+      <div className="space-y-8">
+        <div className="bg-white rounded-3xl border border-amber-200 shadow-md overflow-hidden">
+          <div className="bg-amber-50 border-b border-amber-100 p-5 flex items-center gap-3">
+            <Clock className="text-amber-500" size={20} />
+            <h3 className="font-extrabold text-amber-900 uppercase tracking-widest text-sm">Action Required: Pending Coach Messages</h3>
+            <span className="ml-auto bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded-full text-xs">{pendingMessages.length}</span>
+          </div>
+          <div className="p-6">
+            {pendingMessages.length === 0 ? <p className="text-sm text-slate-500 italic">No pending messages from recruiters.</p> : 
+              pendingMessages.map(msg => (
+                <div key={msg.id} className="mb-4 last:mb-0 border border-slate-200 rounded-2xl p-5 bg-slate-50">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} <span className="text-slate-400 lowercase font-medium">from</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Message for: {msg.athleteName}</p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-semibold">{new Date(msg.timestamp).toLocaleDateString()}</span>
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 text-sm text-slate-700 leading-relaxed italic">"{msg.content}"</div>
+                  <div className="flex gap-3">
+                    <button onClick={() => handleModerate(msg.id, 'approve')} disabled={loadingAction === msg.id} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
+                      {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><CheckCircle2 size={16}/> Approve Message</>}
+                    </button>
+                    <button onClick={() => handleModerate(msg.id, 'reject')} disabled={loadingAction === msg.id} className="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
+                      {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><XCircle size={16}/> Reject & Block</>}
+                    </button>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center gap-3">
+            <CheckCircle2 className="text-emerald-500" size={20} />
+            <h3 className="font-extrabold text-slate-700 uppercase tracking-widest text-sm">Approved Messages</h3>
+          </div>
+          <div className="p-6">
+            {approvedMessages.length === 0 ? <p className="text-sm text-slate-500 italic">No approved messages yet.</p> : 
+              approvedMessages.map(msg => (
+                <div key={msg.id} className="mb-4 last:mb-0 border border-slate-100 rounded-2xl p-5">
+                  <div className="flex justify-between items-start mb-2">
+                    <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} • <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
+                    <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Approved</span>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">For: {msg.athleteName}</p>
+                  <p className="text-sm text-slate-700 leading-relaxed">"{msg.content}"</p>
+                </div>
+              ))
+            }
+          </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
-  const getVerify = (metricKey) => {
-    if (player?.speedVerifications) return player.speedVerifications[metricKey] || 'stopwatch';
-    return player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch';
-  };
+// --- PROFILE PAGE ---
+const ProfilePage = ({ player, onBack }) => {
+  if (!player) return null;
+  const getEmbedUrl = (url) => { if (!url || typeof url !== 'string') return null; if (url.includes('youtube.com') || url.includes('youtu.be')) { let videoId = ''; if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0]; else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; } return videoId ? `https://www.youtube.com/embed/${videoId}` : null; } return null; };
+  const getMetricStyle = (val, label) => { try { if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' }; const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }; const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }; const num = parseFloat(String(val).replace(/[^0-9.]/g, '')); if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red; if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red; if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red; if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red; return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } };
+  const MetricRow = ({ icon: Icon, label, playerStat, verifyStatus }) => { const statStyle = getMetricStyle(playerStat, label); const hasData = playerStat && playerStat !== "N/A" && playerStat !== ""; return ( <div className="flex items-center justify-between py-3 border-b border-slate-100/60 group hover:bg-slate-50/50 transition-colors px-2 rounded-xl gap-2 print:py-1.5"> <div className="flex items-center gap-3 flex-1 min-w-0"> <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-white border border-slate-100 transition-colors shrink-0 print:hidden"> {Icon && <Icon size={16} className="text-slate-500" />} </div> <div className="flex flex-col justify-center gap-1"> <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide leading-tight whitespace-normal">{label}</span> {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Award size={10}/> LASER</span>} {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-100 text-slate-500 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Activity size={10}/> MANUAL</span>} {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Shield size={10}/> DNA VERIFIED</span>} </div> </div> <div className="w-24 shrink-0 text-right pr-2"> <span className={`text-sm px-4 py-1.5 rounded-full font-semibold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}> {playerStat || "N/A"} </span> </div> </div> ); };
+  const getVerify = (metricKey) => { if (player?.speedVerifications) return player.speedVerifications[metricKey] || 'stopwatch'; return player?.verificationLevel === 'Hardware Verified (Laser)' ? 'laser' : 'stopwatch'; };
 
   return (
     <div className="max-w-7xl mx-auto p-4 py-8 animate-in slide-in-from-bottom-8 print:p-0 print:m-0 print:max-w-full">
@@ -268,22 +307,16 @@ const ProfilePage = ({ player, onBack }) => {
         <button onClick={onBack} className="font-semibold flex items-center gap-1 uppercase tracking-wider text-sm hover:opacity-80 transition-opacity text-slate-500"><ChevronLeft size={18} /> Back</button>
         <button onClick={() => window.print()} className="font-semibold flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-sm uppercase tracking-wider shadow-md hover:bg-slate-800 hover:-translate-y-0.5 transition-all"><FileText size={16}/> Print Report</button>
       </div>
-      
       <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 mb-8 flex flex-col md:flex-row print:flex-row print:shadow-none print:border-2 print:mb-6">
         <div className="w-full md:w-1/3 print:w-1/3 bg-slate-900 relative shrink-0">
            <div className="absolute top-4 right-4 text-white text-[10px] font-bold px-4 py-1.5 rounded-full uppercase tracking-widest shadow-lg print:bg-black" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Verified Profile</div>
            <img src={player?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player?.name || 'athlete'}`} className="w-full h-[320px] sm:h-full object-cover print:h-[220px]" style={{ borderBottom: '4px solid #d6336c' }} alt={player?.name} />
         </div>
-        
         <div className="w-full md:w-2/3 print:w-2/3 flex flex-col">
           <div className="bg-slate-900 text-left p-8 md:p-10 flex-1 flex flex-col justify-center print:bg-white print:text-slate-900 print:p-4">
             <h1 className="text-4xl md:text-6xl font-extrabold text-white uppercase print:text-black tracking-tight" style={displayFont}>{player?.name}</h1>
-            <p className="font-bold text-sm md:text-lg uppercase tracking-widest mt-3 text-slate-300" style={displayFont}>
-              <span className="text-[#1c7ed6]">{player?.primaryPos}</span> • Class of {player?.gradYear} 
-              {player?.dnaTeam && player.dnaTeam !== 'None' ? ` • ${player.dnaTeam}` : (player?.externalClub ? ` • ${player.externalClub}` : '')}
-            </p>
+            <p className="font-bold text-sm md:text-lg uppercase tracking-widest mt-3 text-slate-300" style={displayFont}><span className="text-[#1c7ed6]">{player?.primaryPos}</span> • Class of {player?.gradYear} {player?.dnaTeam && player.dnaTeam !== 'None' ? ` • ${player.dnaTeam}` : (player?.externalClub ? ` • ${player.externalClub}` : '')}</p>
           </div>
-
           <div className="flex bg-slate-50 border-t border-slate-800 divide-x divide-slate-200 print:bg-white print:border-slate-200">
             <div className="flex-1 p-6 text-center bg-slate-50 print:bg-white print:p-3">
               <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">DNA Score</span>
@@ -316,27 +349,6 @@ const ProfilePage = ({ player, onBack }) => {
               </div>
             </div>
           </div>
-
-          {(player?.seasonStats?.stat1Label || player?.seasonStats?.stat2Label || player?.seasonStats?.stat3Label) && (
-            <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 print:border-2 print:shadow-none print:p-4">
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-amber-500 print:mb-2"><Trophy size={18} /> In-Season Performance Stats</h3>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
-                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat1Label || 'Touchdowns'}>{player.seasonStats.stat1Label || 'Touchdowns'}</span>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat1Value || '0'}</span>
-                </div>
-                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
-                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat2Label || 'Interceptions'}>{player.seasonStats.stat2Label || 'Interceptions'}</span>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat2Value || '0'}</span>
-                </div>
-                <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100/50 overflow-hidden">
-                  <span className="block text-[9px] font-bold text-amber-600 uppercase tracking-widest mb-2 truncate" title={player.seasonStats.stat3Label || 'Yards / Rec'}>{player.seasonStats.stat3Label || 'Yards / Rec'}</span>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-800" style={displayFont}>{player.seasonStats.stat3Value || '0'}</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {player?.hudlLink && (
             <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 flex flex-col h-[400px] print:hidden">
               <h3 className="text-sm font-bold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><Video size={18} /> Highlight Film</h3>
@@ -347,7 +359,6 @@ const ProfilePage = ({ player, onBack }) => {
             </div>
           )}
         </div>
-
         <div className="lg:col-span-1 print:col-span-1 flex flex-col gap-8 print:gap-4">
           <div className="bg-white rounded-3xl border border-slate-100 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] print:shadow-none print:p-4 print:border-2">
              <h3 className="text-[11px] font-bold uppercase tracking-widest mb-5 text-slate-400 border-b border-slate-100 pb-3 print:mb-2">Recruiting Contact</h3>
@@ -356,28 +367,10 @@ const ProfilePage = ({ player, onBack }) => {
                <a href={`mailto:${player?.guardianEmail || ''}`} className="flex items-center gap-3 text-sm font-medium text-slate-700 hover:text-[#d6336c] transition-colors print:text-black"><div className="p-2.5 bg-pink-50 rounded-xl print:hidden"><Mail size={16} className="text-[#d6336c]"/></div> Contact Parent/Guardian</a>
              </div>
           </div>
-
           {player?.scoutNotes && (
             <div className="bg-slate-900 rounded-3xl p-8 shadow-xl print:bg-white print:border-2 print:border-slate-200 print:p-4 print:shadow-none">
                <h3 className="text-[11px] font-bold uppercase tracking-widest mb-4 text-white flex items-center gap-2 print:text-black print:mb-1"><Eye size={16} style={{ color: '#d6336c' }}/> Scout Notes</h3>
                <p className="text-sm print:text-xs text-slate-300 italic print:text-slate-700 leading-relaxed font-medium">"{player.scoutNotes}"</p>
-            </div>
-          )}
-
-          {player?.recentViews && Array.isArray(player.recentViews) && player.recentViews.length > 0 && (
-            <div className="bg-white rounded-3xl border border-[#1c7ed6]/20 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] print:hidden">
-               <h3 className="text-[11px] font-bold uppercase tracking-widest mb-5 text-[#1c7ed6] border-b border-slate-100 pb-3 flex items-center gap-2"><Eye size={16}/> Recent Scout Views</h3>
-               <div className="space-y-4 max-h-72 overflow-y-auto pr-2">
-                 {[...player.recentViews].reverse().slice(0, 10).map((view, i) => (
-                   <div key={i} className="flex gap-3.5 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
-                     <div className="p-2.5 bg-white rounded-xl shadow-sm border border-slate-100"><Building size={16} className="text-slate-400" /></div>
-                     <div>
-                       <p className="text-xs font-bold text-slate-700 leading-tight">{view.coach} <span className="text-slate-400 font-medium">from</span></p>
-                       <p className="text-[10px] font-extrabold text-[#1c7ed6] uppercase tracking-widest truncate max-w-[160px] mt-0.5">{view.school}</p>
-                     </div>
-                   </div>
-                 ))}
-               </div>
             </div>
           )}
         </div>
@@ -392,51 +385,16 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
   const [sortConfig, setSortConfig] = useState({ key: 'dnaScore', direction: 'desc' });
-  const [externalNews, setExternalNews] = useState([]);
-
-  useEffect(() => {
-    const fetchExternalNews = async () => {
-      try {
-        const response = await fetch('https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fnews.google.com%2Frss%2Fsearch%3Fq%3D%22flag%2Bfootball%22%26hl%3Den-US%26gl%3DUS%26ceid%3DUS%3Aen');
-        const data = await response.json();
-        if (data.status === 'ok') {
-          const formattedNews = data.items.slice(0, 8).map(item => ({
-            id: item.guid || Math.random().toString(),
-            title: item.title,
-            category: 'WEB NEWS',
-            timestamp: new Date(item.pubDate).getTime(),
-            link: item.link,
-            isExternal: true
-          }));
-          setExternalNews(formattedNews);
-        }
-      } catch (err) {
-        console.error("Failed to fetch external news", err);
-      }
-    };
-    fetchExternalNews();
-  }, []);
-
-  const combinedNews = useMemo(() => {
-    return [...(localNews || []), ...externalNews].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  }, [localNews, externalNews]);
-
-  const requestSort = (key) => {
-    if (sortConfig.key === key) { setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }); } 
-    else { const ascDefault = ['sprint', 'shuttle', 'lDrill', 'name']; setSortConfig({ key, direction: ascDefault.includes(key) ? 'asc' : 'desc' }); }
-  };
-
-  const parseBroad = (str) => { if (!str) return 0; const ftMatch = str.match(/(\d+)'/); const inMatch = str.match(/(\d+)"/); return (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0); };
-
+  
   const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
   const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);
+  const parseBroad = (str) => { if (!str) return 0; const ftMatch = str.match(/(\d+)'/); const inMatch = str.match(/(\d+)"/); return (ftMatch ? parseInt(ftMatch[1]) * 12 : 0) + (inMatch ? parseInt(inMatch[1]) : 0); };
 
   const filteredAndSortedPlayers = useMemo(() => {
     return players.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesPos = posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter));
-      const matchesYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
-      return matchesSearch && matchesPos && matchesYear;
+      return (p.name.toLowerCase().includes(searchTerm.toLowerCase())) && 
+             (posFilter === 'All' || p.primaryPos === posFilter || (p.pos && p.pos.includes(posFilter))) && 
+             (yearFilter === 'All' || p.gradYear === Number(yearFilter));
     }).sort((a, b) => {
       let aVal, bVal;
       if (sortConfig.key === 'name') return sortConfig.direction === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
@@ -453,6 +411,11 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
     });
   }, [players, searchTerm, posFilter, yearFilter, sortConfig]);
 
+  const requestSort = (key) => {
+    if (sortConfig.key === key) { setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' }); } 
+    else { const ascDefault = ['sprint', 'shuttle', 'lDrill', 'name']; setSortConfig({ key, direction: ascDefault.includes(key) ? 'asc' : 'desc' }); }
+  };
+  
   const SortableHeader = ({ label, sortKey, align = 'center' }) => (
     <th className={`p-4 cursor-pointer hover:bg-slate-50 transition-colors text-${align} whitespace-nowrap group select-none`} onClick={() => requestSort(sortKey)}>
       <div className={`flex items-center gap-1.5 ${align === 'center' ? 'justify-center' : ''} ${align === 'right' ? 'justify-end' : ''}`}>
@@ -467,126 +430,66 @@ const PublicHub = ({ players, news: localNews, onSelect }) => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
-      <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-8 md:p-10 mb-10 flex flex-col md:flex-row items-center justify-between gap-8 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-bl from-[rgba(214,51,108,0.06)] to-transparent rounded-bl-full pointer-events-none"></div>
-        <div className="relative z-10 text-center md:text-left">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 uppercase tracking-tight mb-3" style={displayFont}>Want to get on the <span style={{ color: '#d6336c' }}>Leaderboard?</span></h2>
-          <p className="text-slate-500 text-sm font-medium max-w-2xl leading-relaxed">Evaluation spots are strictly limited. Register for our next official combine to get your verified physicals, earn your DNA Score, and secure your national ranking.</p>
+      <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
+        <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5 uppercase tracking-tight" style={displayFont}><Trophy style={{ color: '#d6336c' }} size={24}/> National Leaderboard</h2>
+            <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-1.5">Combine Results Tracker</p>
+          </div>
+          <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">{filteredAndSortedPlayers.length} Athletes Found</div>
         </div>
-        <a href="https://form.jotform.com/262914891648168" target="_blank" rel="noopener noreferrer" className="relative z-10 shrink-0 hover:-translate-y-0.5 transition-all text-white font-bold px-8 py-4 rounded-full uppercase tracking-wider shadow-lg shadow-blue-500/20 text-sm flex items-center gap-2" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>
-          Register For Combine <ExternalLink size={16} />
-        </a>
-      </div>
-
-      <div className="grid lg:grid-cols-4 gap-8">
-        <div className="lg:col-span-1 order-2 lg:order-1 space-y-6">
-          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden p-7">
-            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6 uppercase tracking-tight" style={displayFont}><Megaphone style={{ color: '#1c7ed6' }} size={22}/> Live News</h2>
-            <div className="space-y-5 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-              {combinedNews.length === 0 ? <p className="text-slate-400 text-sm italic">No recent updates.</p> : (
-                 combinedNews.map(item => (
-                   <div key={item.id} className="block pl-3.5 transition-transform relative group" style={{ borderLeft: `2px solid ${item.isExternal ? '#94a3b8' : '#d6336c'}` }}>
-                     <div className="flex items-center gap-1.5">
-                       <span className="text-[9px] font-extrabold uppercase tracking-widest" style={{ color: item.isExternal ? '#64748b' : '#d6336c' }}>
-                         {item.category}
-                       </span>
-                     </div>
-                     {item.isExternal ? (
-                       <a href={item.link} target="_blank" rel="noopener noreferrer" className="block mt-1.5">
-                         <p className="text-sm font-semibold text-slate-700 group-hover:text-[#1c7ed6] transition-colors leading-snug">{item.title}</p>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase mt-2 flex items-center gap-1.5"><Globe size={12}/> Read Article</p>
-                       </a>
-                     ) : (
-                       <p className="text-sm font-semibold text-slate-900 mt-1.5 leading-snug">{item.title}</p>
-                     )}
-                   </div>
+        <div className="bg-slate-50/50 p-5 border-b border-slate-100 flex flex-col md:flex-row gap-4">
+           <div className="relative flex-1">
+             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+             <input type="text" placeholder="Search by athlete name..." className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:outline-none transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+           </div>
+           <div className="flex gap-4 sm:w-auto w-full">
+              <div className="flex-1 md:w-40"><select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer shadow-sm" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}</select></div>
+              <div className="flex-1 md:w-44"><select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer shadow-sm" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>{uniqueYears.map(year => <option key={year} value={year}>{year === 'All' ? 'All Classes' : `Class of ${year}`}</option>)}</select></div>
+           </div>
+        </div>
+        <div className="overflow-x-auto w-full relative">
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr className="bg-white text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                <SortableHeader label="Athlete" sortKey="name" align="left" />
+                <SortableHeader label="DNA Score" sortKey="dnaScore" />
+                <SortableHeader label="40-Yd" sortKey="sprint" />
+                <SortableHeader label="5-10-5" sortKey="shuttle" />
+                <SortableHeader label="L-Drill" sortKey="lDrill" />
+                <SortableHeader label="MPH" sortKey="mph" />
+                <SortableHeader label="Broad" sortKey="broad" />
+                <SortableHeader label="Vert" sortKey="vertical" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredAndSortedPlayers.length === 0 ? (
+                 <tr><td colSpan="8" className="p-16 text-center text-slate-400 font-medium text-sm">No athletes match your filters.</td></tr>
+              ) : (
+                 filteredAndSortedPlayers.map((p, i) => (
+                   <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50/80 cursor-pointer transition-colors group border-b border-slate-50">
+                     <td className="p-4 md:p-5">
+                       <div className="flex items-center gap-4">
+                         <div className="w-6 text-center text-slate-300 font-bold text-xs">{i + 1}</div>
+                         <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-11 h-11 rounded-full border border-slate-200 bg-slate-50 object-cover transition-colors group-hover:border-[#d6336c]" />
+                         <div>
+                           <p className="font-extrabold text-slate-900 text-sm uppercase flex items-center gap-1.5 transition-colors group-hover:text-[#1c7ed6]" style={displayFont}>{p.name} {p.hudlLink && <Video size={14} style={{ color: '#1c7ed6' }} />}</p>
+                           <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{p.primaryPos || p.pos} • {p.gradYear}</p>
+                         </div>
+                       </div>
+                     </td>
+                     <td className="p-4 md:p-5 text-center"><span className="font-black text-xl px-4 py-1.5 rounded-lg border border-slate-100 bg-white shadow-sm" style={{ color: '#d6336c', ...displayFont }}>{p.dnaScore}</span></td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.sprint || '-'}</td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.shuttle || '-'}</td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.lDrill || '-'}</td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.mph || '-'}</td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.broad || '-'}</td>
+                     <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.vertical || '-'}</td>
+                   </tr>
                  ))
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-3 order-1 lg:order-2">
-          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
-            <div className="p-8 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-              <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2.5 uppercase tracking-tight" style={displayFont}><Trophy style={{ color: '#d6336c' }} size={24}/> National Leaderboard</h2>
-                <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest mt-1.5">Combine Results Tracker</p>
-              </div>
-              <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-lg border border-slate-100">{filteredAndSortedPlayers.length} Athletes Found</div>
-            </div>
-
-            <div className="bg-slate-50/50 p-5 border-b border-slate-100 flex flex-col md:flex-row gap-4">
-               <div className="relative flex-1">
-                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                 <input type="text" placeholder="Search by athlete name..." className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:outline-none transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-               </div>
-               <div className="flex gap-4 sm:w-auto w-full">
-                  <div className="flex-1 md:w-40">
-                     <select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={posFilter} onChange={(e) => setPosFilter(e.target.value)}>
-                       {uniquePositions.map(pos => <option key={pos} value={pos}>{pos === 'All' ? 'All Positions' : pos}</option>)}
-                     </select>
-                  </div>
-                  <div className="flex-1 md:w-44">
-                     <select className="w-full bg-white border border-slate-200 text-slate-700 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none cursor-pointer transition-all focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 shadow-sm" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
-                       {uniqueYears.map(year => <option key={year} value={year}>{year === 'All' ? 'All Classes' : `Class of ${year}`}</option>)}
-                     </select>
-                  </div>
-               </div>
-            </div>
-
-            <div className="md:hidden flex items-center justify-start gap-2 px-5 py-3 bg-slate-50/80 border-b border-slate-100 text-slate-500 shadow-inner w-full overflow-hidden">
-              <ChevronLeft size={14} className="animate-pulse text-[#1c7ed6] shrink-0" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">Swipe table to view all metrics</span>
-              <ChevronLeft size={14} className="rotate-180 animate-pulse text-[#1c7ed6] shrink-0" />
-            </div>
-
-            <div className="overflow-x-auto w-full relative">
-              <table className="w-full text-left border-collapse min-w-[900px]">
-                <thead>
-                  <tr className="bg-white text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                    <SortableHeader label="Athlete" sortKey="name" align="left" />
-                    <SortableHeader label="DNA Score" sortKey="dnaScore" />
-                    <SortableHeader label="40-Yd" sortKey="sprint" />
-                    <SortableHeader label="5-10-5" sortKey="shuttle" />
-                    <SortableHeader label="L-Drill" sortKey="lDrill" />
-                    <SortableHeader label="MPH" sortKey="mph" />
-                    <SortableHeader label="Broad" sortKey="broad" />
-                    <SortableHeader label="Vert" sortKey="vertical" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredAndSortedPlayers.length === 0 ? (
-                     <tr><td colSpan="8" className="p-16 text-center text-slate-400 font-medium text-sm">No athletes match your filters.</td></tr>
-                  ) : (
-                     filteredAndSortedPlayers.map((p, i) => (
-                       <tr key={p.id} onClick={() => onSelect(p)} className="hover:bg-slate-50/80 cursor-pointer transition-colors group border-b border-slate-50">
-                         <td className="p-4 md:p-5">
-                           <div className="flex items-center gap-4">
-                             <div className="w-6 text-center text-slate-300 font-bold text-xs">{i + 1}</div>
-                             <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} alt={p.name} className="w-11 h-11 rounded-full border border-slate-200 bg-slate-50 object-cover transition-colors group-hover:border-[#d6336c]" />
-                             <div>
-                               <p className="font-extrabold text-slate-900 text-sm uppercase flex items-center gap-1.5 transition-colors group-hover:text-[#1c7ed6]" style={displayFont}>{p.name} {p.hudlLink && <Video size={14} style={{ color: '#1c7ed6' }} />}</p>
-                               <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{p.primaryPos || p.pos} • {p.gradYear}</p>
-                             </div>
-                           </div>
-                         </td>
-                         <td className="p-4 md:p-5 text-center">
-                           <span className="font-black text-xl px-4 py-1.5 rounded-lg border border-slate-100 bg-white group-hover:border-slate-200 shadow-sm transition-colors" style={{ color: '#d6336c', ...displayFont }}>{p.dnaScore}</span>
-                         </td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.sprint || '-'}</td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.shuttle || '-'}</td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.lDrill || '-'}</td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.mph || '-'}</td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.broad || '-'}</td>
-                         <td className="p-4 md:p-5 text-center font-medium text-sm text-slate-600">{p.metrics?.vertical || '-'}</td>
-                       </tr>
-                     ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -702,9 +605,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
       };
 
       if (dbConfigured && db) {
-        // --- NEW: FIREBASE STORAGE UPLOAD LOGIC ---
         let finalAvatarUrl = existingPlayer?.avatar || ""; 
-        // Only upload to Storage if photoPreview has a new Base64 string
         if (photoPreview && photoPreview.startsWith('data:image')) {
            const storageRef = ref(storage, `avatars/${Date.now()}_${metrics.name.replace(/\s+/g, '_')}.jpg`);
            await uploadString(storageRef, photoPreview, 'data_url');
@@ -716,15 +617,11 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           if (updatedHistory.length > 0 && updatedHistory[updatedHistory.length - 1].date === newCombineRecord.date) updatedHistory[updatedHistory.length - 1] = newCombineRecord; else updatedHistory.push(newCombineRecord);
           
           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', selectedExistingId), { 
-            ...playerData, 
-            combineHistory: updatedHistory, 
-            avatar: finalAvatarUrl 
+            ...playerData, combineHistory: updatedHistory, avatar: finalAvatarUrl 
           });
           
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
-            title: `${metrics.name} posted a new verified DNA Score of ${overallResult.data.dnaScore}!`,
-            category: 'COMBINE',
-            timestamp: Date.now()
+            title: `${metrics.name} posted a new verified DNA Score of ${overallResult.data.dnaScore}!`, category: 'COMBINE', timestamp: Date.now()
           });
 
         } else {
@@ -735,9 +632,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'players'), playerData);
           
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
-            title: `New Prospect Added: ${metrics.name} (Class of ${metrics.gradYear}) joins the national leaderboard.`,
-            category: 'ANNOUNCEMENT',
-            timestamp: Date.now()
+            title: `New Prospect Added: ${metrics.name} (Class of ${metrics.gradYear}) joins the national leaderboard.`, category: 'ANNOUNCEMENT', timestamp: Date.now()
           });
         }
       }
@@ -754,26 +649,13 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   };
 
   const submitNews = async (e) => {
-    e.preventDefault();
-    if (!newsTitle) return;
-    try {
-      if (dbConfigured && db) {
-         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), {
-           title: newsTitle, category: newsCategory, timestamp: Date.now()
-         });
-      }
-      setNewsTitle('');
-      alert('News update posted successfully!');
-    } catch (err) {
-      alert("Error posting news: " + err.message);
-    }
+    e.preventDefault(); if (!newsTitle) return;
+    try { if (dbConfigured && db) { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'news'), { title: newsTitle, category: newsCategory, timestamp: Date.now() }); } setNewsTitle(''); alert('News update posted successfully!'); } 
+    catch (err) { alert("Error posting news: " + err.message); }
   };
 
   const toggleScoutApproval = async (scoutId, currentStatus) => {
-    if (dbConfigured && db) {
-       try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', scoutId), { approved: !currentStatus }); } 
-       catch (e) { alert("Failed to update status: " + e.message); }
-    }
+    if (dbConfigured && db) { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', scoutId), { approved: !currentStatus }); } catch (e) { alert("Failed to update status: " + e.message); } }
   };
 
   return (
@@ -821,18 +703,10 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                     <div>
                       <InputLabel>DNA Roster (Tournament Teams)</InputLabel>
                       <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#d6336c]/20 transition-all" value={metrics.dnaTeam} onChange={e => setMetrics({...metrics, dnaTeam: e.target.value})}>
-                        <option value="None">Not Assigned</option>
-                        <option value="DNA 18U Elite">DNA 18U Elite</option>
-                        <option value="DNA 18U Select">DNA 18U Select</option>
-                        <option value="DNA 15U Elite">DNA 15U Elite</option>
-                        <option value="DNA 15U Select">DNA 15U Select</option>
-                        <option value="DNA 12U">DNA 12U</option>
+                        <option value="None">Not Assigned</option><option value="DNA 18U Elite">DNA 18U Elite</option><option value="DNA 18U Select">DNA 18U Select</option><option value="DNA 15U Elite">DNA 15U Elite</option><option value="DNA 15U Select">DNA 15U Select</option><option value="DNA 12U">DNA 12U</option>
                       </select>
                     </div>
-                    <div>
-                      <InputLabel>3rd Party / External Club</InputLabel>
-                      <FormInput type="text" placeholder="e.g. Next Level Athletics" value={metrics.externalClub} onChange={e => setMetrics({...metrics, externalClub: e.target.value})} />
-                    </div>
+                    <div><InputLabel>3rd Party / External Club</InputLabel><FormInput type="text" placeholder="e.g. Next Level Athletics" value={metrics.externalClub} onChange={e => setMetrics({...metrics, externalClub: e.target.value})} /></div>
                   </div>
                 </div>
 
@@ -849,32 +723,11 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
 
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-t-4 border-t-amber-500">
                   <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-amber-500"><Trophy size={16} /> Media & In-Season Stats</h3>
-                  <div className="mb-5">
-                    <InputLabel>Highlight Tape URL (Hudl / YouTube)</InputLabel>
-                    <FormInput type="url" placeholder="https://..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} />
-                  </div>
+                  <div className="mb-5"><InputLabel>Highlight Tape URL (Hudl / YouTube)</InputLabel><FormInput type="url" placeholder="https://..." value={metrics.hudlLink} onChange={e => setMetrics({...metrics, hudlLink: e.target.value})} /></div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                    <div>
-                      <InputLabel>Stat 1 Label & Value</InputLabel>
-                      <div className="flex gap-2">
-                        <FormInput type="text" placeholder="TDs" className="w-1/2" value={metrics.stat1Label} onChange={e => setMetrics({...metrics, stat1Label: e.target.value})} />
-                        <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat1Value} onChange={e => setMetrics({...metrics, stat1Value: e.target.value})} />
-                      </div>
-                    </div>
-                    <div>
-                      <InputLabel>Stat 2 Label & Value</InputLabel>
-                      <div className="flex gap-2">
-                        <FormInput type="text" placeholder="INTs" className="w-1/2" value={metrics.stat2Label} onChange={e => setMetrics({...metrics, stat2Label: e.target.value})} />
-                        <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat2Value} onChange={e => setMetrics({...metrics, stat2Value: e.target.value})} />
-                      </div>
-                    </div>
-                    <div>
-                      <InputLabel>Stat 3 Label & Value</InputLabel>
-                      <div className="flex gap-2">
-                        <FormInput type="text" placeholder="Yds" className="w-1/2" value={metrics.stat3Label} onChange={e => setMetrics({...metrics, stat3Label: e.target.value})} />
-                        <FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat3Value} onChange={e => setMetrics({...metrics, stat3Value: e.target.value})} />
-                      </div>
-                    </div>
+                    <div><InputLabel>Stat 1 Label & Value</InputLabel><div className="flex gap-2"><FormInput type="text" placeholder="TDs" className="w-1/2" value={metrics.stat1Label} onChange={e => setMetrics({...metrics, stat1Label: e.target.value})} /><FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat1Value} onChange={e => setMetrics({...metrics, stat1Value: e.target.value})} /></div></div>
+                    <div><InputLabel>Stat 2 Label & Value</InputLabel><div className="flex gap-2"><FormInput type="text" placeholder="INTs" className="w-1/2" value={metrics.stat2Label} onChange={e => setMetrics({...metrics, stat2Label: e.target.value})} /><FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat2Value} onChange={e => setMetrics({...metrics, stat2Value: e.target.value})} /></div></div>
+                    <div><InputLabel>Stat 3 Label & Value</InputLabel><div className="flex gap-2"><FormInput type="text" placeholder="Yds" className="w-1/2" value={metrics.stat3Label} onChange={e => setMetrics({...metrics, stat3Label: e.target.value})} /><FormInput type="number" placeholder="0" className="w-1/2" value={metrics.stat3Value} onChange={e => setMetrics({...metrics, stat3Value: e.target.value})} /></div></div>
                   </div>
                 </div>
 
@@ -887,40 +740,20 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                   <h3 className="text-xs font-extrabold uppercase tracking-widest mb-6 flex items-center gap-2 text-[#1c7ed6]"><Zap size={16} /> Speed Verifications</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                     <div>
-                      <InputLabel>40-Yd (Sec)</InputLabel>
-                      <FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} />
-                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}>
-                        <option value="laser">Laser</option>
-                        <option value="stopwatch">Hand-Timed</option>
-                        <option value="standard">DNA Verified</option>
-                      </select>
+                      <InputLabel>40-Yd (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.sprint} onChange={e => setMetrics({...metrics, sprint: e.target.value})} />
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.sprintVerify} onChange={e => setMetrics({...metrics, sprintVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option><option value="standard">DNA Verified</option></select>
                     </div>
                     <div>
-                      <InputLabel>5-10-5 (Sec)</InputLabel>
-                      <FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} />
-                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}>
-                        <option value="stopwatch">Hand-Timed</option>
-                        <option value="laser">Laser</option>
-                        <option value="standard">DNA Verified</option>
-                      </select>
+                      <InputLabel>5-10-5 (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.shuttle} onChange={e => setMetrics({...metrics, shuttle: e.target.value})} />
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.shuttleVerify} onChange={e => setMetrics({...metrics, shuttleVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option><option value="standard">DNA Verified</option></select>
                     </div>
                     <div>
-                      <InputLabel>L Drill (Sec)</InputLabel>
-                      <FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} />
-                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}>
-                        <option value="stopwatch">Hand-Timed</option>
-                        <option value="laser">Laser</option>
-                        <option value="standard">DNA Verified</option>
-                      </select>
+                      <InputLabel>L Drill (Sec)</InputLabel><FormInput type="number" step="0.01" value={metrics.lDrill} onChange={e => setMetrics({...metrics, lDrill: e.target.value})} />
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.lDrillVerify} onChange={e => setMetrics({...metrics, lDrillVerify: e.target.value})}><option value="stopwatch">Hand-Timed</option><option value="laser">Laser</option><option value="standard">DNA Verified</option></select>
                     </div>
                     <div>
-                      <InputLabel>Max Speed (MPH)</InputLabel>
-                      <FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} />
-                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}>
-                        <option value="laser">Laser</option>
-                        <option value="stopwatch">Hand-Timed</option>
-                        <option value="standard">DNA Verified</option>
-                      </select>
+                      <InputLabel>Max Speed (MPH)</InputLabel><FormInput type="number" step="0.1" value={metrics.mph} onChange={e => setMetrics({...metrics, mph: e.target.value})} />
+                      <select className="w-full mt-2 bg-white border border-slate-200 text-[10px] font-bold p-2 rounded-lg" value={metrics.mphVerify} onChange={e => setMetrics({...metrics, mphVerify: e.target.value})}><option value="laser">Laser</option><option value="stopwatch">Hand-Timed</option><option value="standard">DNA Verified</option></select>
                     </div>
                   </div>
                 </div>
@@ -950,19 +783,8 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
         {activeTab === 'news' && (
           <div className="animate-in fade-in slide-in-from-right-4 max-w-2xl mx-auto">
             <form onSubmit={submitNews} className="space-y-6">
-              <div>
-                <InputLabel>Headline</InputLabel>
-                <FormInput required type="text" placeholder="e.g., DNA 15U Wins Tournament..." value={newsTitle} onChange={(e) => setNewsTitle(e.target.value)} />
-              </div>
-              <div>
-                <InputLabel>Category</InputLabel>
-                <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={newsCategory} onChange={(e) => setNewsCategory(e.target.value)}>
-                  <option value="ANNOUNCEMENT">Announcement</option>
-                  <option value="RECRUITING">Recruiting</option>
-                  <option value="TOURNAMENT">Tournament Result</option>
-                  <option value="COMBINE">Combine Result</option>
-                </select>
-              </div>
+              <div><InputLabel>Headline</InputLabel><FormInput required type="text" placeholder="e.g., DNA 15U Wins Tournament..." value={newsTitle} onChange={(e) => setNewsTitle(e.target.value)} /></div>
+              <div><InputLabel>Category</InputLabel><select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={newsCategory} onChange={(e) => setNewsCategory(e.target.value)}><option value="ANNOUNCEMENT">Announcement</option><option value="RECRUITING">Recruiting</option><option value="TOURNAMENT">Tournament Result</option><option value="COMBINE">Combine Result</option></select></div>
               <button type="submit" className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl shadow-lg" style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}>Post Update to Hub</button>
             </form>
           </div>
@@ -974,12 +796,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
                <table className="w-full text-left border-collapse">
                  <thead>
-                   <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                     <th className="p-5">Coach Name</th>
-                     <th className="p-5">University</th>
-                     <th className="p-5">Email (.edu)</th>
-                     <th className="p-5 text-center">Access Status</th>
-                   </tr>
+                   <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100"><th className="p-5">Coach Name</th><th className="p-5">University</th><th className="p-5">Email (.edu)</th><th className="p-5 text-center">Access Status</th></tr>
                  </thead>
                  <tbody className="divide-y divide-slate-50">
                    {scouts.length === 0 ? <tr><td colSpan="4" className="p-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">No registered scouts yet.</td></tr> : 
@@ -989,10 +806,7 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
                        <td className="p-5 font-bold text-slate-500 text-sm">{scout.school}</td>
                        <td className="p-5 text-sm font-medium text-slate-500">{scout.email}</td>
                        <td className="p-5 text-center">
-                         <button 
-                           onClick={() => toggleScoutApproval(scout.id, scout.approved)}
-                           className={`text-[10px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full flex items-center justify-center gap-1.5 mx-auto transition-colors ${scout.approved ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100'}`}
-                         >
+                         <button onClick={() => toggleScoutApproval(scout.id, scout.approved)} className={`text-[10px] font-extrabold uppercase tracking-widest px-4 py-2 rounded-full flex items-center justify-center gap-1.5 mx-auto transition-colors ${scout.approved ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-100'}`}>
                            {scout.approved ? <><CheckCircle size={14}/> Approved</> : <><Clock size={14}/> Pending Approval</>}
                          </button>
                        </td>
@@ -1008,7 +822,45 @@ const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   );
 };
 
-// --- PHASE 2: THE RECRUITER PORTAL ---
+// --- RECRUITER PORTAL COMPONENTS ---
+const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, onToggleSelect, onMessageClick }) => {
+  let currentStatus = '';
+  if (boardData.priority.includes(player.id)) currentStatus = 'priority';
+  else if (boardData.interested.includes(player.id)) currentStatus = 'interested';
+  else if (boardData.pass.includes(player.id)) currentStatus = 'pass';
+
+  return (
+    <tr className={`hover:bg-slate-50/80 border-b border-slate-50 transition-colors group ${isSelected ? 'bg-blue-50/40' : ''}`}>
+      <td className="p-4 md:p-5 text-center"><input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(player.id)} className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" /></td>
+      <td className="p-4 md:p-5">
+         <div className="flex items-center gap-4">
+           <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-10 h-10 rounded-full border border-slate-200 object-cover cursor-pointer hover:border-[#1c7ed6] transition-colors" onClick={() => onSelect(player)} />
+           <div onClick={() => onSelect(player)} className="cursor-pointer">
+             <p className="font-extrabold text-slate-900 text-sm group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
+             <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{player.city}, {player.state}</p>
+           </div>
+         </div>
+      </td>
+      <td className="p-4 md:p-5 text-center"><span className="font-black text-lg text-[#d6336c] bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm" style={displayFont}>{player.dnaScore}</span></td>
+      <td className="p-4 md:p-5 text-center text-xs font-bold text-slate-600">{player.primaryPos} / {player.gradYear}</td>
+      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.metrics?.sprint || '-'}</td>
+      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.gpa || '-'}</td>
+      <td className="p-4 md:p-5 text-center">
+         <div className="flex flex-col items-center gap-1.5">
+           {player.guardianEmail && <button onClick={() => onMessageClick(player)} title="Secure Message via DNA" className="text-slate-400 hover:text-[#1c7ed6] transition-colors bg-white p-1.5 rounded-full border border-slate-200 shadow-sm"><MessageSquare size={14}/></button>}
+           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={16}/></a>}
+         </div>
+      </td>
+      <td className="p-4 md:p-5 text-center">
+         <select className={`text-[10px] font-extrabold uppercase tracking-wider rounded-lg px-3 py-2 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`} value={currentStatus} onChange={(e) => onMoveToBoard(player.id, e.target.value)}>
+            <option value="">+ Add to Board</option><option value="priority">⭐ Priority</option><option value="interested">👀 Interested</option><option value="pass">🚫 Pass</option>
+         </select>
+      </td>
+      <td className="p-4 md:p-5 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-white bg-slate-900 px-3 py-1.5 rounded-lg hover:bg-[#1c7ed6] transition-colors uppercase tracking-wide"><Video size={14}/> Film</a> : '-'}</td>
+    </tr>
+  );
+};
+
 const DraggableCard = ({ player, onClick }) => {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, position: 'relative' } : undefined;
@@ -1044,75 +896,19 @@ const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
   );
 };
 
-const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, onToggleSelect }) => {
-  let currentStatus = '';
-  if (boardData.priority.includes(player.id)) currentStatus = 'priority';
-  else if (boardData.interested.includes(player.id)) currentStatus = 'interested';
-  else if (boardData.pass.includes(player.id)) currentStatus = 'pass';
-
-  return (
-    <tr className={`hover:bg-slate-50/80 border-b border-slate-50 transition-colors group ${isSelected ? 'bg-blue-50/40' : ''}`}>
-      <td className="p-4 md:p-5 text-center">
-        <input 
-          type="checkbox" 
-          checked={isSelected} 
-          onChange={() => onToggleSelect(player.id)} 
-          className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" 
-        />
-      </td>
-      <td className="p-4 md:p-5">
-         <div className="flex items-center gap-4">
-           <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} alt={player.name} className="w-10 h-10 rounded-full border border-slate-200 object-cover cursor-pointer hover:border-[#1c7ed6] transition-colors" onClick={() => onSelect(player)} />
-           <div onClick={() => onSelect(player)} className="cursor-pointer">
-             <p className="font-extrabold text-slate-900 text-sm group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
-             <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mt-0.5">{player.city}, {player.state}</p>
-           </div>
-         </div>
-      </td>
-      <td className="p-4 md:p-5 text-center"><span className="font-black text-lg text-[#d6336c] bg-white px-3 py-1 rounded-lg border border-slate-100 shadow-sm" style={displayFont}>{player.dnaScore}</span></td>
-      <td className="p-4 md:p-5 text-center text-xs font-bold text-slate-600">{player.primaryPos} / {player.gradYear}</td>
-      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.metrics?.sprint || '-'}</td>
-      <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.gpa || '-'}</td>
-      <td className="p-4 md:p-5 text-center">
-         <div className="flex flex-col items-center gap-1.5">
-           {player.guardianEmail && <a href={`mailto:${player.guardianEmail}`} title="Email Guardian" className="text-slate-400 hover:text-[#d6336c] transition-colors"><Mail size={16}/></a>}
-           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={16}/></a>}
-           {!player.guardianEmail && !player.twitter && <span className="text-slate-300">-</span>}
-         </div>
-      </td>
-      <td className="p-4 md:p-5 text-center">
-         <select 
-           className={`text-[10px] font-extrabold uppercase tracking-wider rounded-lg px-3 py-2 border cursor-pointer focus:outline-none transition-colors ${currentStatus ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'}`}
-           value={currentStatus}
-           onChange={(e) => onMoveToBoard(player.id, e.target.value)}
-         >
-            <option value="">+ Add to Board</option>
-            <option value="priority">⭐ Priority</option>
-            <option value="interested">👀 Interested</option>
-            <option value="pass">🚫 Pass</option>
-         </select>
-      </td>
-      <td className="p-4 md:p-5 text-center">{player.hudlLink ? <a href={player.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-white bg-slate-900 px-3 py-1.5 rounded-lg hover:bg-[#1c7ed6] transition-colors uppercase tracking-wide"><Video size={14}/> Film</a> : '-'}</td>
-    </tr>
-  );
-};
-
 const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
   const [compareIds, setCompareIds] = useState([]);
-  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]); // Multi-select state
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
   
-  // Filtering States
-  const [minDna, setMinDna] = useState(0);
-  const [minGpa, setMinGpa] = useState(0);
-  const [maxSprint, setMaxSprint] = useState(10);
-  const [maxShuttle, setMaxShuttle] = useState(10);
-  const [maxLDrill, setMaxLDrill] = useState(10);
-  const [minBroad, setMinBroad] = useState(0);
-  const [minVert, setMinVert] = useState(0);
-  const [posFilter, setPosFilter] = useState('All');
-  const [yearFilter, setYearFilter] = useState('All');
+  // Messaging State
+  const [messageTarget, setMessageTarget] = useState(null);
+  const [messageContent, setMessageContent] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Filters
+  const [minDna, setMinDna] = useState(0); const [minGpa, setMinGpa] = useState(0); const [maxSprint, setMaxSprint] = useState(10); const [maxShuttle, setMaxShuttle] = useState(10); const [maxLDrill, setMaxLDrill] = useState(10); const [minBroad, setMinBroad] = useState(0); const [minVert, setMinVert] = useState(0); const [posFilter, setPosFilter] = useState('All'); const [yearFilter, setYearFilter] = useState('All');
 
   useEffect(() => {
     if (!recruiterData?.uid || !isFirebaseActive) return;
@@ -1128,101 +924,27 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
 
   const filteredPlayers = useMemo(() => {
     return players.filter(p => {
-      const matchPos = posFilter === 'All' || p.primaryPos === posFilter;
-      const matchYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
-      const matchDna = (Number(p.dnaScore) || 0) >= Number(minDna);
-      const matchGpa = (Number(p.gpa) || 0) >= Number(minGpa);
-      const sprintNum = parseFloat(p.metrics?.sprint) || 99;
-      const matchSprint = maxSprint >= 10 || sprintNum <= Number(maxSprint);
-      const shuttleNum = parseFloat(p.metrics?.shuttle) || 99;
-      const matchShuttle = maxShuttle >= 10 || shuttleNum <= Number(maxShuttle);
-      const lDrillNum = parseFloat(p.metrics?.lDrill) || 99;
-      const matchLDrill = maxLDrill >= 10 || lDrillNum <= Number(maxLDrill);
-      const broadInches = parseBroad(p.metrics?.broad);
-      const matchBroad = minBroad <= 0 || broadInches >= Number(minBroad);
-      const vertNum = parseFloat(p.metrics?.vertical) || 0;
-      const matchVert = minVert <= 0 || vertNum >= Number(minVert);
-
-      return matchPos && matchYear && matchDna && matchGpa && matchSprint && matchShuttle && matchLDrill && matchBroad && matchVert;
+      return (posFilter === 'All' || p.primaryPos === posFilter) && (yearFilter === 'All' || p.gradYear === Number(yearFilter)) && ((Number(p.dnaScore) || 0) >= Number(minDna)) && ((Number(p.gpa) || 0) >= Number(minGpa)) && (maxSprint >= 10 || (parseFloat(p.metrics?.sprint) || 99) <= Number(maxSprint)) && (maxShuttle >= 10 || (parseFloat(p.metrics?.shuttle) || 99) <= Number(maxShuttle)) && (maxLDrill >= 10 || (parseFloat(p.metrics?.lDrill) || 99) <= Number(maxLDrill)) && (minBroad <= 0 || parseBroad(p.metrics?.broad) >= Number(minBroad)) && (minVert <= 0 || (parseFloat(p.metrics?.vertical) || 0) >= Number(minVert));
     }).sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore));
   }, [players, minDna, maxSprint, maxShuttle, maxLDrill, minBroad, minVert, minGpa, posFilter, yearFilter]);
 
-  const getBoardStatus = (playerId) => {
-    if (boardData.priority.includes(playerId)) return 'priority';
-    if (boardData.interested.includes(playerId)) return 'interested';
-    if (boardData.pass.includes(playerId)) return 'pass';
-    return '';
-  };
+  const getBoardStatus = (playerId) => { if (boardData.priority.includes(playerId)) return 'priority'; if (boardData.interested.includes(playerId)) return 'interested'; if (boardData.pass.includes(playerId)) return 'pass'; return ''; };
+  const handleMoveToBoard = async (playerId, destCol) => { const newBoard = { priority: boardData.priority.filter(id => id !== playerId), interested: boardData.interested.filter(id => id !== playerId), pass: boardData.pass.filter(id => id !== playerId) }; if (destCol) newBoard[destCol].push(playerId); setBoardData(newBoard); try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } catch (err) { console.error("Error saving board", err); } };
+  const handleBatchMoveToBoard = async (destCol) => { if (selectedPlayerIds.length === 0) return; const newBoard = { priority: boardData.priority.filter(id => !selectedPlayerIds.includes(id)), interested: boardData.interested.filter(id => !selectedPlayerIds.includes(id)), pass: boardData.pass.filter(id => !selectedPlayerIds.includes(id)) }; if (destCol) newBoard[destCol].push(...selectedPlayerIds); setBoardData(newBoard); setSelectedPlayerIds([]); try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } catch (err) { console.error("Error saving batch board update", err); } };
+  const toggleSelectPlayer = (id) => setSelectedPlayerIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  const toggleSelectAll = () => { const allFilteredIds = filteredPlayers.map(p => p.id); const areAllSelected = allFilteredIds.every(id => selectedPlayerIds.includes(id)); if (areAllSelected) setSelectedPlayerIds(prev => prev.filter(id => !allFilteredIds.includes(id))); else setSelectedPlayerIds(prev => [...new Set([...prev, ...allFilteredIds])]); };
 
-  const handleMoveToBoard = async (playerId, destCol) => {
-    const newBoard = {
-      priority: boardData.priority.filter(id => id !== playerId),
-      interested: boardData.interested.filter(id => id !== playerId),
-      pass: boardData.pass.filter(id => id !== playerId),
-    };
-    if (destCol) newBoard[destCol].push(playerId);
-    setBoardData(newBoard);
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
-    catch (err) { console.error("Error saving board", err); }
-  };
-
-  const handleBatchMoveToBoard = async (destCol) => {
-    if (selectedPlayerIds.length === 0) return;
-    const newBoard = {
-      priority: boardData.priority.filter(id => !selectedPlayerIds.includes(id)),
-      interested: boardData.interested.filter(id => !selectedPlayerIds.includes(id)),
-      pass: boardData.pass.filter(id => !selectedPlayerIds.includes(id)),
-    };
-    if (destCol) newBoard[destCol].push(...selectedPlayerIds);
-    setBoardData(newBoard);
-    setSelectedPlayerIds([]);
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
-    catch (err) { console.error("Error saving batch board update", err); }
-  };
-
-  const toggleSelectPlayer = (id) => {
-    setSelectedPlayerIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
-  };
-
-  const toggleSelectAll = () => {
-    const allFilteredIds = filteredPlayers.map(p => p.id);
-    const areAllSelected = allFilteredIds.every(id => selectedPlayerIds.includes(id));
-    if (areAllSelected) {
-      setSelectedPlayerIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
-    } else {
-      setSelectedPlayerIds(prev => [...new Set([...prev, ...allFilteredIds])]);
-    }
-  };
-
-  const exportDatabaseCSV = () => {
-    const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
-    const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `DNA_Prospects_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link); link.click(); link.remove();
-  };
-
-  const exportBoardCSV = () => {
-    const headers = ["Name", "Position", "Class", "Board Status", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
-    const getRows = (statusArr, statusLabel) => statusArr.map(id => {
-      const p = players.find(player => player.id === id);
-      if (!p) return null;
-      return [ `"${p.name}"`, p.primaryPos, p.gradYear, statusLabel, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ];
-    }).filter(Boolean);
-    const rows = [...getRows(boardData.priority, "Priority"), ...getRows(boardData.interested, "Interested"), ...getRows(boardData.pass, "Pass")];
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", `DNA_Recruiting_Board_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link); link.click(); link.remove();
-  };
-
-  const handleDragEnd = async (event) => {
-    const { active, over } = event;
-    if (!over) return;
-    handleMoveToBoard(String(active.id), over.id);
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!messageContent.trim()) return;
+    setSendingMessage(true);
+    try {
+      const sendRecruitingMessage = httpsCallable(getFunctions(app), 'sendRecruitingMessage');
+      await sendRecruitingMessage({ athleteId: messageTarget.id, athleteName: messageTarget.name, content: messageContent, appId });
+      alert("Message securely sent to family for review.");
+      setMessageTarget(null); setMessageContent('');
+    } catch (err) { alert("Failed to send message: " + err.message); }
+    setSendingMessage(false);
   };
 
   const BoardStatusDropdown = ({ playerId, className = "" }) => {
@@ -1241,16 +963,33 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
     );
   };
 
+  const exportDatabaseCSV = () => {
+    const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
+    const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `DNA_Prospects_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link); link.click(); link.remove();
+  };
+
+  const exportBoardCSV = () => {
+    const headers = ["Name", "Position", "Class", "Board Status", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
+    const getRows = (statusArr, statusLabel) => statusArr.map(id => {
+      const p = players.find(player => player.id === id); if (!p) return null;
+      return [ `"${p.name}"`, p.primaryPos, p.gradYear, statusLabel, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ];
+    }).filter(Boolean);
+    const rows = [...getRows(boardData.priority, "Priority"), ...getRows(boardData.interested, "Interested"), ...getRows(boardData.pass, "Pass")];
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent)); link.setAttribute("download", `DNA_Recruiting_Board_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link); link.click(); link.remove();
+  };
+
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="max-w-7xl mx-auto p-4 py-8 animate-in fade-in">
+    <DndContext onDragEnd={async (e) => { if (e.over) handleMoveToBoard(String(e.active.id), e.over.id); }}>
+      <div className="max-w-7xl mx-auto p-4 py-8 animate-in fade-in relative">
         <div className="bg-slate-900 rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-10 border border-slate-800" style={{ borderTop: '4px solid #1c7ed6' }}>
           <div className="flex items-center gap-5">
             <div className="p-4 bg-white/10 rounded-2xl"><Building size={28} className="text-white" /></div>
-            <div>
-              <h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Scout Portal: {recruiterData?.school}</h2>
-              <p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest mt-1">Logged in as {recruiterData?.name}</p>
-            </div>
+            <div><h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Scout Portal: {recruiterData?.school}</h2><p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest mt-1">Logged in as {recruiterData?.name}</p></div>
           </div>
           <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
         </div>
@@ -1303,14 +1042,9 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                    </div>
                 </div>
              </div>
-
-             {/* Batch Action Bar */}
              {selectedPlayerIds.length > 0 && (
                <div className="bg-slate-900 text-white p-4 rounded-2xl mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl border border-slate-800 animate-in fade-in">
-                  <div className="flex items-center gap-3">
-                     <span className="bg-[#1c7ed6] text-white text-xs font-black px-3 py-1 rounded-full">{selectedPlayerIds.length}</span>
-                     <span className="text-xs font-extrabold uppercase tracking-widest">Athletes Selected</span>
-                  </div>
+                  <div className="flex items-center gap-3"><span className="bg-[#1c7ed6] text-white text-xs font-black px-3 py-1 rounded-full">{selectedPlayerIds.length}</span><span className="text-xs font-extrabold uppercase tracking-widest">Athletes Selected</span></div>
                   <div className="flex items-center gap-2 flex-wrap">
                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Batch Add to:</span>
                      <button onClick={() => handleBatchMoveToBoard('priority')} className="text-[10px] font-extrabold uppercase px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors">⭐ Priority</button>
@@ -1320,20 +1054,12 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                   </div>
                </div>
              )}
-
              <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 overflow-hidden">
                 <div className="overflow-x-auto">
                    <table className="w-full text-left border-collapse min-w-[900px]">
                       <thead>
                         <tr className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                           <th className="p-5 w-12 text-center">
-                             <input 
-                               type="checkbox" 
-                               checked={filteredPlayers.length > 0 && filteredPlayers.every(p => selectedPlayerIds.includes(p.id))} 
-                               onChange={toggleSelectAll} 
-                               className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" 
-                             />
-                           </th>
+                           <th className="p-5 w-12 text-center"><input type="checkbox" checked={filteredPlayers.length > 0 && filteredPlayers.every(p => selectedPlayerIds.includes(p.id))} onChange={toggleSelectAll} className="w-4 h-4 rounded border-slate-300 text-[#1c7ed6] focus:ring-[#1c7ed6] cursor-pointer" /></th>
                            <th className="p-5 w-[240px]">Athlete</th>
                            <th className="p-5 text-center">DNA Score</th>
                            <th className="p-5 text-center">Pos / Yr</th>
@@ -1345,21 +1071,9 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {filteredPlayers.length === 0 ? (
-                          <tr><td colSpan="9" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match these strict criteria.</td></tr>
-                        ) : (
-                          filteredPlayers.map(p => (
-                            <DatabaseRow 
-                              key={p.id} 
-                              player={p} 
-                              onSelect={onSelect} 
-                              boardData={boardData} 
-                              onMoveToBoard={handleMoveToBoard} 
-                              isSelected={selectedPlayerIds.includes(p.id)}
-                              onToggleSelect={toggleSelectPlayer}
-                            />
-                          ))
-                        )}
+                        {filteredPlayers.length === 0 ? <tr><td colSpan="9" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match criteria.</td></tr> : 
+                          filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} isSelected={selectedPlayerIds.includes(p.id)} onToggleSelect={toggleSelectPlayer} onMessageClick={setMessageTarget} />)
+                        }
                       </tbody>
                    </table>
                 </div>
@@ -1398,19 +1112,9 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                   </div>
                </div>
                <div className="w-full md:w-80">
-                  <select
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all cursor-pointer"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value && compareIds.length < 4 && !compareIds.includes(e.target.value)) {
-                        setCompareIds([...compareIds, e.target.value]);
-                      }
-                    }}
-                  >
+                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all cursor-pointer" value="" onChange={(e) => { if (e.target.value && compareIds.length < 4 && !compareIds.includes(e.target.value)) setCompareIds([...compareIds, e.target.value]); }}>
                     <option value="" disabled>+ Add Athlete to Compare</option>
-                    {players.filter(p => !compareIds.includes(p.id)).sort((a,b) => a.name.localeCompare(b.name)).map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.primaryPos}) - {p.dnaScore}</option>
-                    ))}
+                    {players.filter(p => !compareIds.includes(p.id)).sort((a,b) => a.name.localeCompare(b.name)).map(p => <option key={p.id} value={p.id}>{p.name} ({p.primaryPos}) - {p.dnaScore}</option>)}
                   </select>
                </div>
             </div>
@@ -1431,16 +1135,13 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                           <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Measured Metric</span>
                         </th>
                         {compareIds.map(id => {
-                          const p = players.find(player => player.id === id);
-                          if (!p) return null;
+                          const p = players.find(player => player.id === id); if (!p) return null;
                           return (
                             <th key={p.id} className="p-5 border-b border-r last:border-r-0 border-slate-100 text-center relative w-64 bg-white">
                               <button onClick={() => setCompareIds(compareIds.filter(cid => cid !== p.id))} className="absolute top-4 right-4 text-rose-400 hover:bg-rose-50 hover:text-rose-600 p-1.5 rounded-full transition-colors"><X size={16}/></button>
                               <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-20 h-20 mx-auto rounded-full object-cover mb-3 border border-slate-200" alt={p.name} />
                               <div className="font-extrabold text-slate-900 uppercase text-sm tracking-tight cursor-pointer hover:text-[#1c7ed6] transition-colors" style={displayFont} onClick={() => onSelect(p)}>{p.name}</div>
                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 mb-3">{p.primaryPos} • Class of {p.gradYear}</div>
-                              
-                              {/* TOP BOARD STATUS DROPDOWN */}
                               <BoardStatusDropdown playerId={p.id} className="w-full" />
                             </th>
                           );
@@ -1449,17 +1150,7 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {[
-                        { label: 'DNA Score', key: 'dnaScore' },
-                        { label: 'High School GPA', key: 'gpa' },
-                        { label: 'State / Location', key: 'state' },
-                        { label: '40-Yd Dash', key: 'metrics.sprint' },
-                        { label: '5-10-5 Shuttle', key: 'metrics.shuttle' },
-                        { label: 'L-Drill', key: 'metrics.lDrill' },
-                        { label: 'Max Speed', key: 'metrics.mph' },
-                        { label: 'Broad Jump', key: 'metrics.broad' },
-                        { label: 'Vertical Jump', key: 'metrics.vertical' },
-                        { label: 'Catching %', key: 'metrics.catching' },
-                        { label: 'Throwing %', key: 'metrics.throwing' }
+                        { label: 'DNA Score', key: 'dnaScore' }, { label: 'High School GPA', key: 'gpa' }, { label: 'State / Location', key: 'state' }, { label: '40-Yd Dash', key: 'metrics.sprint' }, { label: '5-10-5 Shuttle', key: 'metrics.shuttle' }, { label: 'L-Drill', key: 'metrics.lDrill' }, { label: 'Max Speed', key: 'metrics.mph' }, { label: 'Broad Jump', key: 'metrics.broad' }, { label: 'Vertical Jump', key: 'metrics.vertical' }, { label: 'Catching %', key: 'metrics.catching' }, { label: 'Throwing %', key: 'metrics.throwing' }
                       ].map((metric, i) => (
                         <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="p-4 border-r border-slate-100 bg-slate-50/30 text-xs font-bold uppercase tracking-widest text-slate-600">{metric.label}</td>
@@ -1469,11 +1160,7 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                             const val = metric.key.includes('.') ? p.metrics?.[metric.key.split('.')[1]] : p[metric.key];
                             return (
                               <td key={id} className={`p-4 text-center border-r last:border-r-0 border-slate-100 ${metric.key === 'dnaScore' ? 'bg-slate-50/30' : ''}`}>
-                                {metric.key === 'dnaScore' ? (
-                                  <span className="font-black text-2xl text-[#d6336c]" style={displayFont}>{val || '0.0'}</span>
-                                ) : (
-                                  <span className="font-semibold text-sm text-slate-700">{val || '-'}</span>
-                                )}
+                                {metric.key === 'dnaScore' ? <span className="font-black text-2xl text-[#d6336c]" style={displayFont}>{val || '0.0'}</span> : <span className="font-semibold text-sm text-slate-700">{val || '-'}</span>}
                               </td>
                             );
                           })}
@@ -1490,15 +1177,9 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                           );
                         })}
                       </tr>
-
-                      {/* BOTTOM BOARD STATUS DROPDOWN ROW */}
                       <tr className="bg-slate-100/60 border-t-2 border-slate-200">
                         <td className="p-4 border-r border-slate-200 text-xs font-black uppercase tracking-widest text-slate-700 align-middle">Board Status</td>
-                        {compareIds.map(id => (
-                          <td key={id} className="p-4 text-center border-r last:border-r-0 border-slate-200">
-                            <BoardStatusDropdown playerId={id} className="w-full" />
-                          </td>
-                        ))}
+                        {compareIds.map(id => <td key={id} className="p-4 text-center border-r last:border-r-0 border-slate-200"><BoardStatusDropdown playerId={id} className="w-full" /></td>)}
                       </tr>
                     </tbody>
                   </table>
@@ -1508,11 +1189,34 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
           </div>
         )}
       </div>
-    </DndContext>
+
+      {/* MESSAGE MODAL */}
+      {messageTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
+           <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative overflow-hidden border-t-4 border-[#1c7ed6]">
+              <button onClick={() => { setMessageTarget(null); setMessageContent(''); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-50 p-1.5 rounded-full transition-colors"><X size={18}/></button>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100"><MessageSquare size={24} className="text-[#1c7ed6]" /></div>
+                <div><h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Secure Message</h3><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">To: <span className="text-[#1c7ed6]">{messageTarget.name}</span></p></div>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 flex items-start gap-3">
+                 <Shield size={16} className="text-slate-400 shrink-0 mt-0.5" />
+                 <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-relaxed">NCAA Compliance Notice: This message will be securely routed to the athlete's parent/guardian dashboard for review before delivery.</p>
+              </div>
+              <form onSubmit={handleSendMessage}>
+                <textarea required placeholder={`Type your message to ${messageTarget.name}...`} className="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none min-h-[150px] mb-4" value={messageContent} onChange={(e) => setMessageContent(e.target.value)} />
+                <button type="submit" disabled={sendingMessage} className="w-full flex justify-center items-center gap-2 hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg bg-[#1c7ed6]">
+                  {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : <><Send size={16}/> Send to Family Dashboard</>}
+                </button>
+              </form>
+           </div>
+        </div>
+      )}
+    </div>
   );
 };
 
-// --- PHASE 2: TEAM ROSTERS & QR BROCHURES ---
+// --- ROSTER PAGE ---
 const RosterPage = ({ players, onSelect, onBack }) => {
   const rosteredPlayers = players.filter(p => p.dnaTeam && p.dnaTeam !== 'None');
   const teams = [...new Set(rosteredPlayers.map(p => p.dnaTeam))].sort();
@@ -1558,7 +1262,7 @@ export default function App() {
   const [players, setPlayers] = useState(INITIAL_SEED.players);
   const [news, setNews] = useState(INITIAL_SEED.news);
   const [scouts, setScouts] = useState(INITIAL_SEED.scouts);
-  const [dbStatus, setDbStatus] = useState("OFFLINE DEMO");
+  const [dbStatus, setDbStatus] = useState("OFFLINE");
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState('admin');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -1566,34 +1270,20 @@ export default function App() {
   
   const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
   const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
+  const [familyData, setFamilyData] = useState(() => JSON.parse(sessionStorage.getItem('dna_family_data')) || null);
 
   useEffect(() => {
     if (!document.getElementById('dna-fonts')) {
-      const link = document.createElement('link');
-      link.id = 'dna-fonts';
-      link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap';
-      link.rel = 'stylesheet';
-      document.head.appendChild(link);
+      const link = document.createElement('link'); link.id = 'dna-fonts'; link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap'; link.rel = 'stylesheet'; document.head.appendChild(link);
     }
   }, []);
 
   useEffect(() => {
     if (!isFirebaseActive || !db) return;
     setDbStatus("CONNECTING...");
-    
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => {
-      const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); 
-    });
-    
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => {
-      const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() }));
-      setNews(newsItems); setDbStatus("LIVE SYNC");
-    }, (err) => { console.error("Firebase News Error:", err); });
-
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'recruiters'), (snapshot) => {
-      const scoutItems = []; snapshot.forEach(doc => scoutItems.push({ id: doc.id, ...doc.data() }));
-      setScouts(scoutItems);
-    });
+    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => { const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); });
+    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => { const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() })); setNews(newsItems); setDbStatus("LIVE SYNC"); }, (err) => { console.error("Firebase News Error:", err); });
+    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'recruiters'), (snapshot) => { const scoutItems = []; snapshot.forEach(doc => scoutItems.push({ id: doc.id, ...doc.data() })); setScouts(scoutItems); });
   }, []);
 
   useEffect(() => {
@@ -1601,20 +1291,12 @@ export default function App() {
     const targetPlayerId = params.get('p');
     if (targetPlayerId && players.length > 0) {
       const p = players.find(p => p.id === targetPlayerId);
-      if (p) {
-        setSelectedPlayer(p);
-        setView('profile');
-        window.history.replaceState(null, '', window.location.pathname);
-      }
+      if (p) { setSelectedPlayer(p); setView('profile'); window.history.replaceState(null, '', window.location.pathname); }
     }
   }, [players]);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
+    const handleClickOutside = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false); };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -1622,83 +1304,48 @@ export default function App() {
   const handleLoginSuccess = (role, data) => { 
     setAuthRole(role); sessionStorage.setItem('dna_auth_role', role);
     if (role === 'recruiter') { setRecruiterData(data); sessionStorage.setItem('dna_recruiter_data', JSON.stringify(data)); }
+    if (role === 'family') { setFamilyData(data); sessionStorage.setItem('dna_family_data', JSON.stringify(data)); }
     setIsLoginModalOpen(false); 
-    setView(role === 'admin' ? 'admin' : 'recruiter'); 
+    setView(role === 'admin' ? 'admin' : (role === 'recruiter' ? 'recruiter' : 'family')); 
     window.scrollTo(0, 0); 
   };
   
   const handleLogout = async () => { 
     if (auth) await signOut(auth); 
-    setAuthRole(null); setRecruiterData(null);
-    sessionStorage.removeItem('dna_auth_role'); sessionStorage.removeItem('dna_recruiter_data'); 
-    setView('home'); window.scrollTo(0, 0); 
+    setAuthRole(null); setRecruiterData(null); setFamilyData(null);
+    sessionStorage.clear(); setView('home'); window.scrollTo(0, 0); 
   };
 
   const handlePlayerSelect = async (p) => {
-    setSelectedPlayer(p); 
-    setView('profile'); 
-    window.scrollTo(0,0);
-    
+    setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
     if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { 
       try { 
         let updates = {};
-        
         if (authRole === 'recruiter' && recruiterData) {
-          const now = Date.now();
-          const twentyFourHours = 24 * 60 * 60 * 1000;
-          const existingViews = p.recentViews || [];
-          
-          // 1. Check if this exact coach viewed this player in the last 24 hours
-          const recentlyViewed = existingViews.some(view => 
-            view.coach === recruiterData.name && 
-            (now - view.time) < twentyFourHours
-          );
-
-          // 2. Only log a new view if they haven't looked today
-          if (!recentlyViewed) {
-            // Add new view and cap the array at the 50 most recent to protect database size
-            const updatedViews = [...existingViews, { 
-              coach: recruiterData.name, 
-              school: recruiterData.school, 
-              time: now 
-            }].slice(-50); 
-            
-            updates.views = increment(1);
-            updates.recentViews = updatedViews;
-          }
-        } else {
-           // If it's a public user (not a logged-in scout), just increment the anonymous counter
-           updates.views = increment(1);
-        }
-
-        // 3. Only push to database if there is new data to save
-        if (Object.keys(updates).length > 0) {
-           await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), updates); 
-        }
-      } catch (err) { 
-        console.error("Error logging view", err); 
-      } 
+          const now = Date.now(); const twentyFourHours = 24 * 60 * 60 * 1000; const existingViews = p.recentViews || [];
+          const recentlyViewed = existingViews.some(view => view.coach === recruiterData.name && (now - view.time) < twentyFourHours);
+          if (!recentlyViewed) { const updatedViews = [...existingViews, { coach: recruiterData.name, school: recruiterData.school, time: now }].slice(-50); updates.views = increment(1); updates.recentViews = updatedViews; }
+        } else { updates.views = increment(1); }
+        if (Object.keys(updates).length > 0) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', p.id), updates); 
+      } catch (err) { console.error("Error logging view", err); } 
     }
   };
 
-  const openModal = (mode) => {
-    setLoginModalMode(mode);
-    setIsDropdownOpen(false);
-    setIsLoginModalOpen(true);
-  };
+  const openModal = (mode) => { setLoginModalMode(mode); setIsDropdownOpen(false); setIsLoginModalOpen(true); };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased selection:bg-[#d6336c] selection:text-white flex flex-col justify-between" style={bodyFont}>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased flex flex-col justify-between" style={bodyFont}>
       <div>
         <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50 shadow-sm print:hidden">
           <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
             <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
             <div className="flex gap-2 sm:gap-4 items-center">
                {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-4 py-2.5 rounded-full shadow-md shadow-blue-500/20 hover:bg-[#155a9e] flex items-center gap-1.5 transition-colors"><Building size={14}/> Portal</button>}
+               {authRole === 'family' && <button onClick={() => { setView('family'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#059669] px-4 py-2.5 rounded-full shadow-md hover:bg-emerald-700 flex items-center gap-1.5 transition-colors"><Shield size={14}/> Inbox</button>}
                <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full text-slate-500 hover:text-[#1c7ed6] hover:bg-slate-50 border border-slate-200/50"><QrCode size={14}/> Rosters</button>
                
                <div className="relative" ref={dropdownRef}>
-                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : '#d6336c'), border: `1px solid ${authRole === 'admin' ? 'rgba(5,150,105,0.3)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.3)' : 'rgba(214,51,108,0.3)')}`, backgroundColor: authRole === 'admin' ? 'rgba(5,150,105,0.1)' : (authRole === 'recruiter' ? 'rgba(28,126,214,0.1)' : 'rgba(214,51,108,0.05)') }}>
+                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : (authRole === 'family' ? '#059669' : '#d6336c')), border: `1px solid ${authRole ? 'rgba(0,0,0,0.1)' : 'rgba(214,51,108,0.3)'}`, backgroundColor: authRole ? 'white' : 'rgba(214,51,108,0.05)' }}>
                    <Lock size={14}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
                  </button>
                  {isDropdownOpen && !authRole && (
@@ -1706,6 +1353,8 @@ export default function App() {
                      <button onClick={() => openModal('admin')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#d6336c] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Shield size={16}/> Admin Portal</button>
                      <div className="h-px bg-slate-100 my-1 mx-2"></div>
                      <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Building size={16}/> Scout Portal</button>
+                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
+                     <button onClick={() => openModal('family_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Users size={16}/> Family Portal</button>
                    </div>
                  )}
                </div>
@@ -1714,10 +1363,11 @@ export default function App() {
         </div>
         <main className="min-h-[calc(100vh-260px)]">
           {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
-          {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => { if(authRole==='recruiter'){setView('recruiter')} else {setView('home')} }} />}
+          {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => { if(authRole==='recruiter'){setView('recruiter')} else if (authRole==='family'){setView('family')} else {setView('home')} }} />}
           {view === 'rosters' && <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => setView('home')} />}
           {view === 'admin' && authRole === 'admin' && <AdminPanel players={players} scouts={scouts} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
           {view === 'recruiter' && authRole === 'recruiter' && <RecruiterPortal players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} />}
+          {view === 'family' && authRole === 'family' && <FamilyDashboard user={familyData} onLogout={handleLogout} />}
         </main>
       </div>
       <SanctionedFooter />

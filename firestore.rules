@@ -52,6 +52,15 @@ service cloud.firestore {
         // Only admins can delete a scout
         allow delete: if isAdmin();
       }
+      // --- 4. MESSAGES COLLECTION (GATEWAY) ---
+      match /messages/{messageId} {
+        // Authenticated users (parents/athletes/scouts) can read messages
+        allow read: if isAuthenticated();
+        
+        // Client-side writes are strictly forbidden. 
+        // All messages MUST be created/updated via the secure Cloud Functions.
+        allow write: if false; 
+      }
     }
   }
 }
