@@ -4,7 +4,7 @@ import {
   Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
   X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
   Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
-  CheckCircle, Clock, Globe
+  CheckCircle, Clock, Globe, GitCompare // <-- ADDED GitCompare HERE
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
@@ -1092,6 +1092,7 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard }) => {
 const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
+  const [compareIds, setCompareIds] = useState([]); // New state for Compare Mode
   
   // Filtering States
   const [minDna, setMinDna] = useState(0);
@@ -1122,19 +1123,14 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
       const matchYear = yearFilter === 'All' || p.gradYear === Number(yearFilter);
       const matchDna = (Number(p.dnaScore) || 0) >= Number(minDna);
       const matchGpa = (Number(p.gpa) || 0) >= Number(minGpa);
-      
       const sprintNum = parseFloat(p.metrics?.sprint) || 99;
       const matchSprint = maxSprint >= 10 || sprintNum <= Number(maxSprint);
-      
       const shuttleNum = parseFloat(p.metrics?.shuttle) || 99;
       const matchShuttle = maxShuttle >= 10 || shuttleNum <= Number(maxShuttle);
-
       const lDrillNum = parseFloat(p.metrics?.lDrill) || 99;
       const matchLDrill = maxLDrill >= 10 || lDrillNum <= Number(maxLDrill);
-
       const broadInches = parseBroad(p.metrics?.broad);
       const matchBroad = minBroad <= 0 || broadInches >= Number(minBroad);
-
       const vertNum = parseFloat(p.metrics?.vertical) || 0;
       const matchVert = minVert <= 0 || vertNum >= Number(minVert);
 
@@ -1146,36 +1142,25 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
     const headers = ["Name", "Position", "Class", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
     const rows = filteredPlayers.map(p => [ `"${p.name}"`, p.primaryPos, p.gradYear, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ]);
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `DNA_Prospects_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click(); link.remove();
+    document.body.appendChild(link); link.click(); link.remove();
   };
 
   const exportBoardCSV = () => {
     const headers = ["Name", "Position", "Class", "Board Status", "DNA Score", "GPA", "SAT", "40-Yd", "State", "Guardian Email", "Twitter", "Hudl Link"];
-    
     const getRows = (statusArr, statusLabel) => statusArr.map(id => {
       const p = players.find(player => player.id === id);
       if (!p) return null;
       return [ `"${p.name}"`, p.primaryPos, p.gradYear, statusLabel, p.dnaScore, p.gpa || 'N/A', p.sat || 'N/A', p.metrics?.sprint || 'N/A', p.state, p.guardianEmail || 'N/A', p.twitter || 'N/A', p.hudlLink || 'N/A' ];
     }).filter(Boolean);
-
-    const rows = [
-      ...getRows(boardData.priority, "Priority"),
-      ...getRows(boardData.interested, "Interested"),
-      ...getRows(boardData.pass, "Pass")
-    ];
-
+    const rows = [...getRows(boardData.priority, "Priority"), ...getRows(boardData.interested, "Interested"), ...getRows(boardData.pass, "Pass")];
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `DNA_Recruiting_Board_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click(); link.remove();
+    document.body.appendChild(link); link.click(); link.remove();
   };
 
   const handleMoveToBoard = async (playerId, destCol) => {
@@ -1185,7 +1170,6 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
       pass: boardData.pass.filter(id => id !== playerId),
     };
     if (destCol) newBoard[destCol].push(playerId);
-    
     setBoardData(newBoard);
     try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
     catch (err) { console.error("Error saving board", err); }
@@ -1194,19 +1178,7 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     if (!over) return;
-    const playerId = String(active.id);
-    const destCol = over.id; 
-    
-    const newBoard = {
-      priority: boardData.priority.filter(id => id !== playerId),
-      interested: boardData.interested.filter(id => id !== playerId),
-      pass: boardData.pass.filter(id => id !== playerId),
-    };
-    newBoard[destCol].push(playerId);
-    
-    setBoardData(newBoard);
-    try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } 
-    catch (err) { console.error("Error saving board", err); }
+    handleMoveToBoard(String(active.id), over.id);
   };
 
   return (
@@ -1223,9 +1195,10 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
           <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
         </div>
 
-        <div className="flex gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+        <div className="flex flex-wrap gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
            <button onClick={() => setActiveTab('database')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'database' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'database' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Search size={16} /> Prospect Database</button>
            <button onClick={() => setActiveTab('board')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'board' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'board' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><LayoutDashboard size={16} /> My Recruiting Board</button>
+           <button onClick={() => setActiveTab('compare')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'compare' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'compare' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><GitCompare size={16} /> Compare Mode</button>
         </div>
 
         {activeTab === 'database' && (
@@ -1238,11 +1211,11 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                 <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-5">
                    <div>
                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Pos</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
+                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
                    </div>
                    <div>
                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Class</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select>
+                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select>
                    </div>
                    <div>
                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min DNA ({minDna})</label>
@@ -1267,10 +1240,6 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                    <div>
                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label>
                      <input type="range" min="0" max="120" step="1" value={minBroad} onChange={e=>setMinBroad(e.target.value)} className="w-full accent-amber-500" />
-                   </div>
-                   <div className="xl:col-start-8">
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Vert ({minVert <= 0 ? 'Any' : minVert + '"'})</label>
-                     <input type="range" min="0" max="40" step="1" value={minVert} onChange={e=>setMinVert(e.target.value)} className="w-full accent-amber-500" />
                    </div>
                 </div>
              </div>
@@ -1308,6 +1277,114 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
                 <DroppableColumn id="interested" title="Interested / Watch" players={boardData.interested.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
                 <DroppableColumn id="pass" title="Pass / Archive" players={boardData.pass.map(id => players.find(p=>p.id===id)).filter(Boolean)} onPlayerClick={onSelect} />
              </div>
+          </div>
+        )}
+
+        {activeTab === 'compare' && (
+          <div className="animate-in fade-in slide-in-from-right-4">
+            <div className="mb-8 p-6 bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col md:flex-row items-center justify-between gap-5">
+               <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-50 rounded-2xl"><GitCompare className="text-purple-500 shrink-0" size={24} /></div>
+                  <div>
+                    <h3 className="text-lg font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Head-to-Head Comparison</h3>
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase mt-0.5">Select up to 4 athletes to compare metrics side-by-side.</p>
+                  </div>
+               </div>
+               <div className="w-full md:w-80">
+                  <select
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all cursor-pointer"
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value && compareIds.length < 4 && !compareIds.includes(e.target.value)) {
+                        setCompareIds([...compareIds, e.target.value]);
+                      }
+                    }}
+                  >
+                    <option value="" disabled>+ Add Athlete to Compare</option>
+                    {players.filter(p => !compareIds.includes(p.id)).sort((a,b) => a.name.localeCompare(b.name)).map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.primaryPos}) - {p.dnaScore}</option>
+                    ))}
+                  </select>
+               </div>
+            </div>
+
+            {compareIds.length === 0 ? (
+              <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center shadow-sm">
+                <GitCompare size={48} className="mx-auto text-slate-200 mb-4" />
+                <h4 className="text-lg font-bold text-slate-800 uppercase tracking-tight" style={displayFont}>No Athletes Selected</h4>
+                <p className="text-sm text-slate-400 mt-2 font-medium">Use the dropdown above to add prospects to your comparison matrix.</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
+                    <thead>
+                      <tr>
+                        <th className="p-5 border-b border-r border-slate-100 bg-slate-50/80 w-48 align-bottom">
+                          <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">Measured Metric</span>
+                        </th>
+                        {compareIds.map(id => {
+                          const p = players.find(player => player.id === id);
+                          if (!p) return null;
+                          return (
+                            <th key={p.id} className="p-5 border-b border-r last:border-r-0 border-slate-100 text-center relative w-64 bg-white">
+                              <button onClick={() => setCompareIds(compareIds.filter(cid => cid !== p.id))} className="absolute top-4 right-4 text-rose-400 hover:bg-rose-50 hover:text-rose-600 p-1.5 rounded-full transition-colors"><X size={16}/></button>
+                              <img src={p.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.name}`} className="w-20 h-20 mx-auto rounded-full object-cover mb-3 border border-slate-200" alt={p.name} />
+                              <div className="font-extrabold text-slate-900 uppercase text-sm tracking-tight cursor-pointer hover:text-[#1c7ed6] transition-colors" style={displayFont} onClick={() => onSelect(p)}>{p.name}</div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{p.primaryPos} • Class of {p.gradYear}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {[
+                        { label: 'DNA Score', key: 'dnaScore' },
+                        { label: 'High School GPA', key: 'gpa' },
+                        { label: 'State / Location', key: 'state' },
+                        { label: '40-Yd Dash', key: 'metrics.sprint' },
+                        { label: '5-10-5 Shuttle', key: 'metrics.shuttle' },
+                        { label: 'L-Drill', key: 'metrics.lDrill' },
+                        { label: 'Max Speed', key: 'metrics.mph' },
+                        { label: 'Broad Jump', key: 'metrics.broad' },
+                        { label: 'Vertical Jump', key: 'metrics.vertical' },
+                        { label: 'Catching %', key: 'metrics.catching' },
+                        { label: 'Throwing %', key: 'metrics.throwing' }
+                      ].map((metric, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="p-4 border-r border-slate-100 bg-slate-50/30 text-xs font-bold uppercase tracking-widest text-slate-600">{metric.label}</td>
+                          {compareIds.map(id => {
+                            const p = players.find(player => player.id === id);
+                            if (!p) return <td key={id} className="p-4 border-r border-slate-100"></td>;
+                            const val = metric.key.includes('.') ? p.metrics?.[metric.key.split('.')[1]] : p[metric.key];
+                            return (
+                              <td key={id} className={`p-4 text-center border-r last:border-r-0 border-slate-100 ${metric.key === 'dnaScore' ? 'bg-slate-50/30' : ''}`}>
+                                {metric.key === 'dnaScore' ? (
+                                  <span className="font-black text-2xl text-[#d6336c]" style={displayFont}>{val || '0.0'}</span>
+                                ) : (
+                                  <span className="font-semibold text-sm text-slate-700">{val || '-'}</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                      <tr className="bg-slate-50/30">
+                        <td className="p-4 border-r border-slate-100 text-xs font-bold uppercase tracking-widest text-slate-600 align-middle">Highlight Film</td>
+                        {compareIds.map(id => {
+                          const p = players.find(player => player.id === id);
+                          return (
+                            <td key={id} className="p-4 text-center border-r last:border-r-0 border-slate-100">
+                               {p?.hudlLink ? <a href={p.hudlLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-white bg-slate-900 px-4 py-2 rounded-lg hover:bg-[#1c7ed6] transition-colors uppercase tracking-wide shadow-sm"><Video size={14}/> Film</a> : <span className="text-sm font-medium text-slate-400">-</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -2,14 +2,12 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 
 exports.calculateDNAScore = onCall((request) => {
-  // Ensure the request comes from an authenticated Admin
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Only authorized coaches can calculate scores.');
   }
 
   const data = request.data;
   
-  // Extract and sanitize metrics
   const sprint = Number(data.sprint) || 0;
   const shuttle = Number(data.shuttle) || 0;
   const lDrill = Number(data.lDrill) || 0;
@@ -23,45 +21,52 @@ exports.calculateDNAScore = onCall((request) => {
   let earnedPoints = 0;
   let maxPossiblePoints = 0;
 
-  // 1. Speed (Max 25 pts) - 40yd dash (Baseline: 7.0s = 0pts, 4.5s = 25pts)
+  // 1. STRAIGHT-LINE SPEED (Total 30 pts)
+  // 40-Yard Dash (Max 20 pts) - Youth Age 8-13 Scale (8.5s = 0, 5.4s = 20)
   if (sprint > 0) {
-    maxPossiblePoints += 25;
-    let sprintScore = ((7.0 - sprint) / (7.0 - 4.5)) * 25;
-    earnedPoints += Math.max(0, Math.min(25, sprintScore));
+    maxPossiblePoints += 20;
+    let sprintScore = ((8.5 - sprint) / (8.5 - 5.4)) * 20;
+    earnedPoints += Math.max(0, Math.min(20, sprintScore));
   }
 
-  // 2. Max Speed / MPH Bonus (Max 15 pts) - (Baseline: 12mph = 0, 20mph = 15)
+  // Max Speed / MPH (Max 10 pts) - Youth Age 8-13 Scale (8mph = 0, 15.5mph = 10)
   if (mph > 0) {
-    maxPossiblePoints += 15;
-    let mphScore = ((mph - 12) / (20 - 12)) * 15;
-    earnedPoints += Math.max(0, Math.min(15, mphScore));
+    maxPossiblePoints += 10;
+    let mphScore = ((mph - 8.0) / (15.5 - 8.0)) * 10;
+    earnedPoints += Math.max(0, Math.min(10, mphScore));
   }
 
-  // 3. Agility (Max 20 pts total)
+  // 2. AGILITY & CHANGE OF DIRECTION (Total 30 pts - Weighted Equal to Speed)
+  // 5-10-5 Shuttle (Max 15 pts) - Youth Age 8-13 Scale (7.5s = 0, 4.8s = 15)
   if (shuttle > 0) {
-    maxPossiblePoints += 10;
-    let shuttleScore = ((6.5 - shuttle) / (6.5 - 4.5)) * 10;
-    earnedPoints += Math.max(0, Math.min(10, shuttleScore));
+    maxPossiblePoints += 15;
+    let shuttleScore = ((7.5 - shuttle) / (7.5 - 4.8)) * 15;
+    earnedPoints += Math.max(0, Math.min(15, shuttleScore));
   }
+  
+  // L-Drill (Max 15 pts) - Youth Age 8-13 Scale (11.0s = 0, 7.5s = 15)
   if (lDrill > 0) {
-    maxPossiblePoints += 10;
-    let lDrillScore = ((9.5 - lDrill) / (9.5 - 7.0)) * 10;
-    earnedPoints += Math.max(0, Math.min(10, lDrillScore));
+    maxPossiblePoints += 15;
+    let lDrillScore = ((11.0 - lDrill) / (11.0 - 7.5)) * 15;
+    earnedPoints += Math.max(0, Math.min(15, lDrillScore));
   }
 
-  // 4. Power (Max 20 pts total)
+  // 3. LOWER BODY POWER (Total 20 pts)
+  // Broad Jump (Max 10 pts) - Youth Scale (42 inches = 0, 90 inches = 10)
   if (broadInches > 0) {
     maxPossiblePoints += 10;
-    let broadScore = ((broadInches - 60) / (110 - 60)) * 10; // 5ft = 0, 9ft+ = 10
+    let broadScore = ((broadInches - 42) / (90 - 42)) * 10; 
     earnedPoints += Math.max(0, Math.min(10, broadScore));
   }
+  
+  // Vertical Jump (Max 10 pts) - Youth Scale (10 inches = 0, 26 inches = 10)
   if (vertical > 0) {
     maxPossiblePoints += 10;
-    let vertScore = ((vertical - 15) / (35 - 15)) * 10; // 15in = 0, 35in+ = 10
+    let vertScore = ((vertical - 10) / (26 - 10)) * 10; 
     earnedPoints += Math.max(0, Math.min(10, vertScore));
   }
 
-  // 5. Technical Skills (Max 20 pts total)
+  // 4. TECHNICAL SKILLS (Total 20 pts)
   if (catchingPct > 0 || throwingPct > 0 || flagPullingPct > 0) {
     maxPossiblePoints += 20;
     let activeSkillCount = 0;
@@ -76,16 +81,15 @@ exports.calculateDNAScore = onCall((request) => {
     earnedPoints += Math.max(0, Math.min(20, skillScore));
   }
 
-  // Handle edge case where no data was submitted
   if (maxPossiblePoints === 0) {
     return { dnaScore: "0.0" };
   }
 
-  // Calculate final percentage based ONLY on completed events
-  let finalRawScore = (earnedPoints / maxPossiblePoints) * 100;
+  // Final 10.0 Scale Output
+  let finalRawScore = (earnedPoints / maxPossiblePoints) * 10;
   let formattedScore = (Math.round(finalRawScore * 10) / 10).toFixed(1);
 
-  logger.info(`Calculated DNA Score: ${formattedScore} (Earned: ${earnedPoints} / Max Possible: ${maxPossiblePoints})`);
+  logger.info(`Youth DNA Score: ${formattedScore} (Earned: ${earnedPoints} / Max Possible: ${maxPossiblePoints})`);
 
   return {
     dnaScore: formattedScore
