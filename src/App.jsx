@@ -138,7 +138,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
         <div className="flex gap-1.5 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
           <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
           <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
-          <button onClick={() => {setMode('family_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('family') ? 'bg-white shadow-sm text-[#059669]' : 'text-slate-500 hover:text-slate-700'}`}>Family</button>
+          <button onClick={() => {setMode('family_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('family') ? 'bg-white shadow-sm text-[#059669]' : 'text-slate-500 hover:text-slate-700'}`}>Parent / Athlete</button>
         </div>
 
         <div className="text-center mb-8">
@@ -146,7 +146,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
             {mode === 'admin' ? <Lock size={24} /> : (mode.includes('recruiter') ? <Building size={24} /> : <Users size={24} />)}
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>
-            {mode === 'admin' ? 'Coach Portal' : (mode.includes('recruiter') ? 'Scout / Recruiter' : 'Family Portal')}
+            {mode === 'admin' ? 'Coach Portal' : (mode.includes('recruiter') ? 'Scout / Recruiter' : 'Parent Dashboard')}
           </h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">
             {mode === 'admin' ? 'Authorized Staff Only' : (mode.includes('recruiter') ? 'Verified .EDU Coaches Only' : 'Athlete Parents & Guardians')}
@@ -846,9 +846,11 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, o
       <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.metrics?.sprint || '-'}</td>
       <td className="p-4 md:p-5 text-center text-xs font-semibold text-slate-600">{player.gpa || '-'}</td>
       <td className="p-4 md:p-5 text-center">
-         <div className="flex flex-col items-center gap-1.5">
-           {player.guardianEmail && <button onClick={() => onMessageClick(player)} title="Secure Message via DNA" className="text-slate-400 hover:text-[#1c7ed6] transition-colors bg-white p-1.5 rounded-full border border-slate-200 shadow-sm"><MessageSquare size={14}/></button>}
-           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" title="Twitter" className="text-slate-400 hover:text-[#1c7ed6] transition-colors"><AtSign size={16}/></a>}
+         <div className="flex flex-col items-center gap-2 w-full max-w-[100px] mx-auto">
+           <button onClick={() => onMessageClick(player)} className="bg-[#1c7ed6] hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 w-full shadow-sm shadow-blue-500/20 transition-colors">
+             <MessageSquare size={12}/> Message
+           </button>
+           {player.twitter && <a href={`https://twitter.com/${player.twitter.replace('@', '')}`} target="_blank" rel="noreferrer" className="text-[10px] text-slate-400 hover:text-[#1c7ed6] font-bold transition-colors uppercase tracking-widest flex items-center gap-1"><AtSign size={10}/> Twitter</a>}
          </div>
       </td>
       <td className="p-4 md:p-5 text-center">
@@ -937,6 +939,10 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!messageContent.trim()) return;
+    if (!messageTarget.guardianEmail) {
+      alert("Cannot send message: This athlete does not have a Parent/Guardian email on file. The admin must add one first.");
+      return;
+    }
     setSendingMessage(true);
     try {
       const sendRecruitingMessage = httpsCallable(getFunctions(app), 'sendRecruitingMessage');
@@ -1341,7 +1347,7 @@ export default function App() {
             <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
             <div className="flex gap-2 sm:gap-4 items-center">
                {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-4 py-2.5 rounded-full shadow-md shadow-blue-500/20 hover:bg-[#155a9e] flex items-center gap-1.5 transition-colors"><Building size={14}/> Portal</button>}
-               {authRole === 'family' && <button onClick={() => { setView('family'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#059669] px-4 py-2.5 rounded-full shadow-md hover:bg-emerald-700 flex items-center gap-1.5 transition-colors"><Shield size={14}/> Inbox</button>}
+               {authRole === 'family' && <button onClick={() => { setView('family'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#059669] px-4 py-2.5 rounded-full shadow-md hover:bg-emerald-700 flex items-center gap-1.5 transition-colors"><Shield size={14}/> Family Dashboard</button>}
                <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full text-slate-500 hover:text-[#1c7ed6] hover:bg-slate-50 border border-slate-200/50"><QrCode size={14}/> Rosters</button>
                
                <div className="relative" ref={dropdownRef}>
@@ -1354,7 +1360,7 @@ export default function App() {
                      <div className="h-px bg-slate-100 my-1 mx-2"></div>
                      <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Building size={16}/> Scout Portal</button>
                      <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                     <button onClick={() => openModal('family_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Users size={16}/> Family Portal</button>
+                     <button onClick={() => openModal('family_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Users size={16}/> Parent / Athlete Portal</button>
                    </div>
                  )}
                </div>
