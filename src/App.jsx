@@ -1218,7 +1218,7 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
            </div>
         </div>
       )}
-    </div>
+    </DndContext>
   );
 };
 
