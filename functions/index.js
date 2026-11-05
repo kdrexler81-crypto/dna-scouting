@@ -9,6 +9,7 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 
 // --- 1. DNA SCORING ENGINE (Youth 8-13 Scale) ---
+// (Kept exactly as your original code)
 exports.calculateDNAScore = onCall((request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Only authorized coaches can calculate scores.');
 
@@ -47,55 +48,107 @@ exports.calculateDNAScore = onCall((request) => {
   return { dnaScore: formattedScore };
 });
 
-// --- 2. SCOUT MESSAGING (Intercept & Hold) ---
-exports.sendScoutMessage = onCall(async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in.');
-
-  const { playerId, messageText, appId } = request.data;
-  if (!playerId || !messageText) throw new HttpsError('invalid-argument', 'Missing payload.');
-
-  const senderUid = request.auth.uid;
-  const recruiterRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('recruiters').doc(senderUid);
-  const recruiterSnap = await recruiterRef.get();
-
-  if (!recruiterSnap.exists || !recruiterSnap.data().approved) {
-    throw new HttpsError('permission-denied', 'Unverified scouts cannot send messages.');
+// --- 2. SEND RECRUITING MESSAGE (Secure Backend Write) ---
+exports.sendRecruitingMessage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in.");
   }
 
+  const { athleteId, athleteName, content, appId } = request.data;
+
+  // Fetch the scout's profile securely on the server to prevent spoofing
+  const scoutRef = db.doc(`artifacts/${appId}/public/data/recruiters/${request.auth.uid}`);
+  const scoutSnap = await scoutRef.get();
+  
+  if (!scoutSnap.exists || scoutSnap.data().approved !== true) {
+    throw new HttpsError("permission-denied", "Your scout account is pending approval.");
+  }
+  const scoutData = scoutSnap.data();
+
+  // Fetch the athlete's profile to securely get the actual guardian email
+  const athleteRef = db.doc(`artifacts/${appId}/public/data/players/${athleteId}`);
+  const athleteSnap = await athleteRef.get();
+  
+  if (!athleteSnap.exists || !athleteSnap.data().guardianEmail) {
+    throw new HttpsError("failed-precondition", "Athlete has no guardian email on file.");
+  }
+
+  // Write the message with server-enforced data
   const messageData = {
-    playerId,
-    scoutId: senderUid,
-    scoutName: recruiterSnap.data().name,
-    scoutSchool: recruiterSnap.data().school,
-    text: messageText,
-    status: 'pending_parent', // Gateway active
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    athleteId,
+    athleteName: athleteSnap.data().name, 
+    guardianEmail: athleteSnap.data().guardianEmail, 
+    senderName: scoutData.name, 
+    senderSchool: scoutData.school,
+    senderId: request.auth.uid,
+    content: content,
+    status: "pending",
+    timestamp: Date.now()
   };
 
-  await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('messages').add(messageData);
+  const result = await db.collection(`artifacts/${appId}/public/data/messages`).add(messageData);
 
-  return { success: true, status: 'pending_parent' };
-});
-
-// --- 3. PARENT APPROVAL (Release to Athlete) ---
-exports.reviewScoutMessage = onCall(async (request) => {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Must be logged in.');
-
-  const { messageId, appId, newStatus } = request.data;
-  if (!['approved', 'rejected'].includes(newStatus)) {
-    throw new HttpsError('invalid-argument', 'Invalid status.');
+  // --- NEW: TRIGGER EMAIL NOTIFICATION ---
+  // This writes to the 'mail' collection, which the Firebase Extension watches
+  try {
+    await admin.firestore().collection('mail').add({
+      to: athleteSnap.data().guardianEmail,
+      message: {
+        subject: `New Recruiting Message for ${athleteSnap.data().name}`,
+        html: `
+          <div style="font-family: 'Inter', sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+            <h2 style="color: #0f172a; margin-top: 0; text-transform: uppercase; font-weight: 900; letter-spacing: -0.5px;">New Scout Message</h2>
+            <p style="color: #475569; line-height: 1.6; font-size: 15px;">
+              <strong>Coach ${scoutData.name}</strong> from <strong style="color: #1c7ed6;">${scoutData.school}</strong> has sent a secure recruiting message to <strong>${athleteSnap.data().name}</strong>.
+            </p>
+            <div style="background-color: #f8fafc; border-left: 4px solid #059669; padding: 16px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #334155; margin: 0; font-size: 13px; font-weight: 600; line-height: 1.5;">
+                Per NCAA compliance guidelines, this message is being held in the Family Dashboard for your review and approval.
+              </p>
+            </div>
+            <a href="https://dnaflagfootball.com" style="display: inline-block; padding: 14px 24px; background-color: #1c7ed6; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">Log in to Family Dashboard</a>
+            <p style="margin-top: 32px; font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
+              DNA Athletics • Official USA Football Partner
+            </p>
+          </div>
+        `
+      }
+    });
+  } catch (emailErr) {
+    console.error("Failed to queue email notification:", emailErr);
+    // We catch the error so the function still succeeds and sends the message even if the email queue fails
   }
 
-  const msgRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('messages').doc(messageId);
+  return { success: true, messageId: result.id };
+});
+
+// --- 3. MODERATE MESSAGE (Parent/Guardian Review) ---
+exports.moderateMessage = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be logged in.");
+  }
+
+  const { messageId, action, appId } = request.data;
+  if (!['approve', 'reject'].includes(action)) {
+    throw new HttpsError("invalid-argument", "Action must be approve or reject.");
+  }
+
+  const msgRef = db.doc(`artifacts/${appId}/public/data/messages/${messageId}`);
   const msgSnap = await msgRef.get();
 
-  if (!msgSnap.exists) throw new HttpsError('not-found', 'Message missing.');
+  if (!msgSnap.exists) {
+    throw new HttpsError("not-found", "Message not found.");
+  }
+
+  // Enforce that the logged-in user is actually the guardian for this specific message
+  if (msgSnap.data().guardianEmail !== request.auth.token.email) {
+    throw new HttpsError("permission-denied", "You are not authorized to moderate this message.");
+  }
 
   await msgRef.update({
-    status: newStatus,
-    reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
-    reviewedBy: request.auth.uid
+    status: action === 'approve' ? 'approved' : 'rejected',
+    moderatedAt: Date.now()
   });
 
-  return { success: true, status: newStatus };
+  return { success: true };
 });
