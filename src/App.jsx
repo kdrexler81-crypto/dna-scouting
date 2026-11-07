@@ -6,6 +6,7 @@ import {
   Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
   CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
 } from 'lucide-react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AdminPanel } from './pages/AdminPanel';
 import { RecruiterPortal } from './pages/RecruiterPortal';
 import { FamilyDashboard } from './pages/FamilyDashboard';
@@ -203,6 +204,15 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
 
 // --- MASTER APP CONTROLLER ---
 export default function App() {
+  const navigate = useNavigate();
+
+// Example of how your login handler changes:
+const handleLogin = async (credentials) => {
+  // ... your existing login logic ...
+  if (role === 'admin') {
+    navigate('/admin'); // Replaces setView('admin')
+  }
+};
   const [view, setView] = useState('home'); 
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [players, setPlayers] = useState(INITIAL_SEED.players);
@@ -280,44 +290,43 @@ export default function App() {
   const openModal = (mode) => { setLoginModalMode(mode); setIsDropdownOpen(false); setIsLoginModalOpen(true); };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased flex flex-col justify-between" style={bodyFont}>
-      <div>
-        <div className="bg-white/80 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-50 shadow-sm print:hidden">
-          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-            <div className="cursor-pointer hover:scale-105 transition-transform" onClick={() => setView('home')}><DNALogo /></div>
-            <div className="flex gap-2 sm:gap-4 items-center">
-               {authRole === 'recruiter' && <button onClick={() => { setView('recruiter'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#1c7ed6] px-4 py-2.5 rounded-full shadow-md shadow-blue-500/20 hover:bg-[#155a9e] flex items-center gap-1.5 transition-colors"><Building size={14}/> Portal</button>}
-               {authRole === 'family' && <button onClick={() => { setView('family'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest text-white bg-[#059669] px-4 py-2.5 rounded-full shadow-md hover:bg-emerald-700 flex items-center gap-1.5 transition-colors"><Shield size={14}/> Family Dashboard</button>}
-               <button onClick={() => { setView('rosters'); window.scrollTo(0,0); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full text-slate-500 hover:text-[#1c7ed6] hover:bg-slate-50 border border-slate-200/50"><QrCode size={14}/> Rosters</button>
-               
-               <div className="relative" ref={dropdownRef}>
-                 <button onClick={() => { authRole ? setView(authRole) : setIsDropdownOpen(!isDropdownOpen); }} className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-colors flex items-center gap-1.5 px-4 py-2.5 rounded-full shadow-sm" style={{ color: authRole === 'admin' ? '#059669' : (authRole === 'recruiter' ? '#1c7ed6' : (authRole === 'family' ? '#059669' : '#d6336c')), border: `1px solid ${authRole ? 'rgba(0,0,0,0.1)' : 'rgba(214,51,108,0.3)'}`, backgroundColor: authRole ? 'white' : 'rgba(214,51,108,0.05)' }}>
-                   <Lock size={14}/> <span className="hidden sm:inline">{authRole ? 'Active Session' : 'Portal Login'}</span><span className="sm:hidden">Login</span>
-                 </button>
-                 {isDropdownOpen && !authRole && (
-                   <div className="absolute right-0 mt-3 w-56 bg-white border border-slate-100 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] p-2 z-50 animate-in fade-in slide-in-from-top-2">
-                     <button onClick={() => openModal('admin')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#d6336c] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Shield size={16}/> Admin Portal</button>
-                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                     <button onClick={() => openModal('recruiter_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-[#1c7ed6] rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Building size={16}/> Scout Portal</button>
-                     <div className="h-px bg-slate-100 my-1 mx-2"></div>
-                     <button onClick={() => openModal('family_login')} className="w-full text-left px-4 py-3 text-[11px] font-bold text-slate-700 hover:bg-slate-50 hover:text-emerald-600 rounded-xl uppercase tracking-wider flex items-center gap-2.5 transition-colors"><Users size={16}/> Parent / Athlete Portal</button>
-                   </div>
-                 )}
-               </div>
-            </div>
-          </div>
-        </div>
-        <main className="min-h-[calc(100vh-260px)]">
-          {view === 'home' && <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />}
-          {view === 'profile' && <ProfilePage player={selectedPlayer} onBack={() => { if(authRole==='recruiter'){setView('recruiter')} else if (authRole==='family'){setView('family')} else {setView('home')} }} />}
-          {view === 'rosters' && <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => setView('home')} />}
-          {view === 'admin' && authRole === 'admin' && <AdminPanel app={app} appId={appId} db={db} storage={storage} players={players} scouts={scouts} dbConfigured={isFirebaseActive} onBack={() => setView('home')} onLogout={handleLogout} />}
-          {view === 'recruiter' && authRole === 'recruiter' && <RecruiterPortal app={app} appId={appId} db={db} players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} />}
-          {view === 'family' && authRole === 'family' && <FamilyDashboard app={app} appId={appId} db={db} user={familyData} onLogout={handleLogout} />}
-        </main>
-      </div>
-      <SanctionedFooter />
-      <LoginModal isOpen={isLoginModalOpen} initialMode={loginModalMode} onClose={() => setIsLoginModalOpen(false)} onLoginSuccess={handleLoginSuccess} />
-    </div>
-  );
+  <div className="min-h-screen bg-slate-50">
+    {/* Your Header/Navigation Bar stays outside <Routes> so it always shows */}
+    <Header /> 
+
+    <main>
+      <Routes>
+        {/* PUBLIC ROUTES */}
+        <Route path="/" element={
+          <PublicHub players={players} news={news} onSelect={(p) => navigate(`/player/${p.id}`)} />
+        } />
+        
+        <Route path="/roster" element={
+          <RosterPage players={players} onSelect={(p) => navigate(`/player/${p.id}`)} onBack={() => navigate('/')} />
+        } />
+
+        {/* PROTECTED ROUTES */}
+        <Route path="/admin" element={
+          authRole === 'admin' 
+            ? <AdminPanel app={app} appId={appId} db={db} players={players} scouts={scouts} onLogout={handleLogout} onBack={() => navigate('/')} />
+            : <Navigate to="/" replace />
+        } />
+
+        <Route path="/scout" element={
+          authRole === 'scout'
+            ? <RecruiterPortal app={app} appId={appId} db={db} players={players} recruiterData={recruiterData} onLogout={handleLogout} />
+            : <Navigate to="/" replace />
+        } />
+        <Route path="/player/:id" element={
+          <ProfilePage players={players} onBack={() => navigate(-1)} />
+        } />
+        <Route path="/family" element={
+          authRole === 'family'
+            ? <FamilyDashboard app={app} appId={appId} db={db} user={familyData} onLogout={handleLogout} />
+            : <Navigate to="/" replace />
+        } />
+      </Routes>
+    </main>
+  </div>
+);
 }

@@ -1,11 +1,27 @@
 // src/pages/ProfilePage.jsx
 import React from 'react';
+import { useParams } from 'react-router-dom';
 import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtSign, Mail, Eye } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-export const ProfilePage = ({ player, onBack }) => {
-  if (!player) return null;
+export const ProfilePage = ({ players, onBack }) => {
+  // 1. Extract the ID from the URL bar (e.g., /player/123 -> id = '123')
+  const { id } = useParams();
+
+  // 2. Find the specific athlete in the database array
+  const player = players.find(p => p.id === id);
+
+  // 3. Graceful fallback if the ID is invalid
+  if (!player) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 text-center animate-in fade-in">
+        <h2 className="text-2xl font-extrabold text-slate-800 mb-4" style={displayFont}>Athlete Not Found</h2>
+        <button onClick={onBack} className="text-[#1c7ed6] font-bold hover:underline">Go Back</button>
+      </div>
+    );
+  }
+
   const getEmbedUrl = (url) => { if (!url || typeof url !== 'string') return null; if (url.includes('youtube.com') || url.includes('youtu.be')) { let videoId = ''; if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0]; else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; } return videoId ? `https://www.youtube.com/embed/${videoId}` : null; } return null; };
   const getMetricStyle = (val, label) => { try { if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' }; const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }; const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }; const num = parseFloat(String(val).replace(/[^0-9.]/g, '')); if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red; if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red; if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red; if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red; return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } };
   const MetricRow = ({ icon: Icon, label, playerStat, verifyStatus }) => { const statStyle = getMetricStyle(playerStat, label); const hasData = playerStat && playerStat !== "N/A" && playerStat !== ""; return ( <div className="flex items-center justify-between py-3 border-b border-slate-100/60 group hover:bg-slate-50/50 transition-colors px-2 rounded-xl gap-2 print:py-1.5"> <div className="flex items-center gap-3 flex-1 min-w-0"> <div className="p-2.5 bg-slate-50 rounded-xl group-hover:bg-white border border-slate-100 transition-colors shrink-0 print:hidden"> {Icon && <Icon size={16} className="text-slate-500" />} </div> <div className="flex flex-col justify-center gap-1"> <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide leading-tight whitespace-normal">{label}</span> {hasData && verifyStatus === 'laser' && <span title="Hardware Laser Verified" className="w-fit bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Award size={10}/> LASER</span>} {hasData && verifyStatus === 'stopwatch' && <span title="Stopwatch Verified" className="w-fit bg-slate-100 text-slate-500 text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Activity size={10}/> MANUAL</span>} {hasData && verifyStatus === 'standard' && <span title="DNA Staff Verified" className="w-fit bg-slate-800 text-white text-[9px] px-2 py-0.5 rounded-full font-bold tracking-widest flex items-center gap-1"><Shield size={10}/> DNA VERIFIED</span>} </div> </div> <div className="w-24 shrink-0 text-right pr-2"> <span className={`text-sm px-4 py-1.5 rounded-full font-semibold ${statStyle.bg} ${statStyle.text} border ${statStyle.border} shadow-sm whitespace-nowrap`}> {playerStat || "N/A"} </span> </div> </div> ); };
