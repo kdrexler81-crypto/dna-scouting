@@ -4,12 +4,8 @@ import { Search, Trophy, ChevronLeft, Video } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-export const PublicHub = ({ players, news: localNews, onSelect }) => {
-  // ... [PASTED CODE] ...
-};
-
 // --- PUBLIC HUB ---
-const PublicHub = ({ players, news: localNews, onSelect }) => {
+export const PublicHub = ({ players, news: localNews, onSelect }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');

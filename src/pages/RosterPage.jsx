@@ -6,11 +6,6 @@ import { ChevronLeft, FileText } from 'lucide-react';
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 export const RosterPage = ({ players, onSelect, onBack }) => {
-  // ... [PASTED CODE] ...
-};
-
-// --- ROSTER PAGE ---
-const RosterPage = ({ players, onSelect, onBack }) => {
   const rosteredPlayers = players.filter(p => p.dnaTeam && p.dnaTeam !== 'None');
   const teams = [...new Set(rosteredPlayers.map(p => p.dnaTeam))].sort();
 

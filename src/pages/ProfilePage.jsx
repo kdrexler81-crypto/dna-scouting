@@ -5,11 +5,6 @@ import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtS
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 export const ProfilePage = ({ player, onBack }) => {
-  // ... [PASTED CODE] ...
-};
-
-// --- PROFILE PAGE ---
-const ProfilePage = ({ player, onBack }) => {
   if (!player) return null;
   const getEmbedUrl = (url) => { if (!url || typeof url !== 'string') return null; if (url.includes('youtube.com') || url.includes('youtu.be')) { let videoId = ''; if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0]; else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; } return videoId ? `https://www.youtube.com/embed/${videoId}` : null; } return null; };
   const getMetricStyle = (val, label) => { try { if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' }; const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }; const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }; const num = parseFloat(String(val).replace(/[^0-9.]/g, '')); if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red; if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red; if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red; if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red; return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } };
