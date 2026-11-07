@@ -6,20 +6,13 @@ import { Shield, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-// NOTICE: Added 'export' and the Firebase props (app, appId, db)
 export const FamilyDashboard = ({ app, appId, db, user, onLogout }) => {
-  
-  // ... [THE REST OF YOUR PASTED FamilyDashboard CODE] ...
-
-};
-
-// --- FAMILY DASHBOARD ---
-const FamilyDashboard = ({ user, onLogout }) => {
   const [messages, setMessages] = useState([]);
   const [loadingAction, setLoadingAction] = useState(null);
 
   useEffect(() => {
-    if (!user?.email || !isFirebaseActive) return;
+    // We now check if 'db' exists instead of the old 'isFirebaseActive' variable
+    if (!user?.email || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("guardianEmail", "==", user.email));
     const unsub = onSnapshot(q, (snap) => {
       const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
@@ -27,7 +20,7 @@ const FamilyDashboard = ({ user, onLogout }) => {
       setMessages(msgs);
     });
     return () => unsub();
-  }, [user]);
+  }, [user, db, appId]);
 
   const handleModerate = async (msgId, action) => {
     setLoadingAction(msgId);

@@ -3,20 +3,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
-import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield } from 'lucide-react';
+import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-// [YOUR PASTED DatabaseRow GOES HERE]
-// [YOUR PASTED DraggableCard GOES HERE]
-// [YOUR PASTED DroppableColumn GOES HERE]
-
-// NOTICE: We added app, appId, and db to these props!
-export const RecruiterPortal = ({ app, appId, db, players, recruiterData, onSelect, onLogout }) => {
-  // ... [THE REST OF YOUR PASTED RecruiterPortal CODE] ...
-};
-
-// --- RECRUITER PORTAL COMPONENTS ---
 const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, onToggleSelect, onMessageClick }) => {
   let currentStatus = '';
   if (boardData.priority.includes(player.id)) currentStatus = 'priority';
@@ -56,6 +46,7 @@ const DatabaseRow = ({ player, onSelect, boardData, onMoveToBoard, isSelected, o
     </tr>
   );
 };
+
 const DraggableCard = ({ player, onClick }) => {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: player.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 999, position: 'relative' } : undefined;
@@ -75,6 +66,7 @@ const DraggableCard = ({ player, onClick }) => {
     </div>
   );
 };
+
 const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
   const { isOver, setNodeRef } = useDroppable({ id });
   return (
@@ -89,7 +81,8 @@ const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
     </div>
   );
 };
-const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
+
+export const RecruiterPortal = ({ app, appId, db, players, recruiterData, onSelect, onLogout }) => {
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
   const [compareIds, setCompareIds] = useState([]);
@@ -104,12 +97,13 @@ const RecruiterPortal = ({ players, recruiterData, onSelect, onLogout }) => {
   const [minDna, setMinDna] = useState(0); const [minGpa, setMinGpa] = useState(0); const [maxSprint, setMaxSprint] = useState(10); const [maxShuttle, setMaxShuttle] = useState(10); const [maxLDrill, setMaxLDrill] = useState(10); const [minBroad, setMinBroad] = useState(0); const [minVert, setMinVert] = useState(0); const [posFilter, setPosFilter] = useState('All'); const [yearFilter, setYearFilter] = useState('All');
 
   useEffect(() => {
-    if (!recruiterData?.uid || !isFirebaseActive) return;
+    // Replaced isFirebaseActive with checking for db
+    if (!recruiterData?.uid || !db) return;
     const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), (docSnap) => {
       if (docSnap.exists() && docSnap.data().board) setBoardData(docSnap.data().board);
     });
     return () => unsub();
-  }, [recruiterData]);
+  }, [recruiterData, db, appId]);
 
   const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
   const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);

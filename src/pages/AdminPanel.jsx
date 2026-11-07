@@ -10,21 +10,7 @@ import { AdminScoutApproval } from '../components/admin/AdminScoutApproval';
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-widest">{children}</label>;
 const FormInput = (props) => <input {...props} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all ${props.className || ''}`} />;
 
-// NOTICE: We added app, appId, db, and storage to these props!
 export const AdminPanel = ({ app, appId, db, storage, onBack, dbConfigured, players, scouts, onLogout }) => {
-  
-  // ... [PASTE THE REST OF YOUR AdminPanel COMPONENT CODE HERE] ...
-
-  // Important: Scroll down to where AdminScoutApproval is inside this file, 
-  // and make sure it looks like this so it passes the db and appId along:
-  // <AdminScoutApproval db={db} appId={appId} />
-
-};
-// --- ADMIN PANEL ---
-const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-widest">{children}</label>;
-const FormInput = (props) => <input {...props} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all ${props.className || ''}`} />;
-
-const AdminPanel = ({ onBack, dbConfigured, players, scouts, onLogout }) => {
   const [activeTab, setActiveTab] = useState('athlete');
   const [savingAthlete, setSavingAthlete] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
