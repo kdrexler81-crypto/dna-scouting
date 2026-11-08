@@ -7,6 +7,7 @@ import {
   CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Header } from './components/Header';
 import { AdminPanel } from './pages/AdminPanel';
 import { RecruiterPortal } from './pages/RecruiterPortal';
 import { FamilyDashboard } from './pages/FamilyDashboard';
