@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+// src/App.jsx
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
   Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
@@ -6,8 +7,7 @@ import {
   Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
   CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
 } from 'lucide-react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { Header } from './components/Header';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AdminPanel } from './pages/AdminPanel';
 import { RecruiterPortal } from './pages/RecruiterPortal';
 import { FamilyDashboard } from './pages/FamilyDashboard';
@@ -16,11 +16,8 @@ import { PublicHub } from './pages/PublicHub';
 import { RosterPage } from './pages/RosterPage';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc, arrayUnion, query, where } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { QRCodeSVG } from 'qrcode.react';
-import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // --- FIREBASE INITIALIZATION ---
 let app, auth, db, appId, storage;
@@ -77,7 +74,7 @@ const SanctionedFooter = () => (
   </footer>
 );
 
-// --- MODALS & PAGES ---
+// --- LOGIN MODAL ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   const [mode, setMode] = useState(initialMode || 'admin');
   const [username, setUsername] = useState('');
@@ -174,14 +171,14 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="email" placeholder="Enter email" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all`} style={{ borderColor: activeColor }} value={username} onChange={e => setUsername(e.target.value)} />
+              <input required type="email" placeholder="Enter email" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: activeColor }} value={username} onChange={e => setUsername(e.target.value)} />
             </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="password" placeholder="Enter password" className={`w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all`} style={{ borderColor: activeColor }} value={password} onChange={e => setPassword(e.target.value)} />
+              <input required type="password" placeholder="Enter password" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: activeColor }} value={password} onChange={e => setPassword(e.target.value)} />
             </div>
           </div>
           
@@ -202,20 +199,11 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   );
 };
 
-
 // --- MASTER APP CONTROLLER ---
 export default function App() {
   const navigate = useNavigate();
+  const location = useLocation();
 
-// Example of how your login handler changes:
-const handleLogin = async (credentials) => {
-  // ... your existing login logic ...
-  if (role === 'admin') {
-    navigate('/admin'); // Replaces setView('admin')
-  }
-};
-  const [view, setView] = useState('home'); 
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [players, setPlayers] = useState(INITIAL_SEED.players);
   const [news, setNews] = useState(INITIAL_SEED.news);
   const [scouts, setScouts] = useState(INITIAL_SEED.scouts);
@@ -243,14 +231,14 @@ const handleLogin = async (credentials) => {
     onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'recruiters'), (snapshot) => { const scoutItems = []; snapshot.forEach(doc => scoutItems.push({ id: doc.id, ...doc.data() })); setScouts(scoutItems); });
   }, []);
 
+  // Support legacy QR code links (?p=playerId) by routing directly to /player/:id
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const targetPlayerId = params.get('p');
-    if (targetPlayerId && players.length > 0) {
-      const p = players.find(p => p.id === targetPlayerId);
-      if (p) { setSelectedPlayer(p); setView('profile'); window.history.replaceState(null, '', window.location.pathname); }
+    if (targetPlayerId) {
+      navigate(`/player/${targetPlayerId}`, { replace: true });
     }
-  }, [players]);
+  }, [navigate]);
 
   useEffect(() => {
     const handleClickOutside = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false); };
@@ -263,18 +251,21 @@ const handleLogin = async (credentials) => {
     if (role === 'recruiter') { setRecruiterData(data); sessionStorage.setItem('dna_recruiter_data', JSON.stringify(data)); }
     if (role === 'family') { setFamilyData(data); sessionStorage.setItem('dna_family_data', JSON.stringify(data)); }
     setIsLoginModalOpen(false); 
-    setView(role === 'admin' ? 'admin' : (role === 'recruiter' ? 'recruiter' : 'family')); 
+    navigate(role === 'admin' ? '/admin' : (role === 'recruiter' ? '/scout' : '/family')); 
     window.scrollTo(0, 0); 
   };
   
   const handleLogout = async () => { 
     if (auth) await signOut(auth); 
     setAuthRole(null); setRecruiterData(null); setFamilyData(null);
-    sessionStorage.clear(); setView('home'); window.scrollTo(0, 0); 
+    sessionStorage.clear(); 
+    navigate('/'); 
+    window.scrollTo(0, 0); 
   };
 
   const handlePlayerSelect = async (p) => {
-    setSelectedPlayer(p); setView('profile'); window.scrollTo(0,0);
+    navigate(`/player/${p.id}`);
+    window.scrollTo(0, 0);
     if (isFirebaseActive && db && p.id && dbStatus === "LIVE SYNC") { 
       try { 
         let updates = {};
@@ -291,43 +282,125 @@ const handleLogin = async (credentials) => {
   const openModal = (mode) => { setLoginModalMode(mode); setIsDropdownOpen(false); setIsLoginModalOpen(true); };
 
   return (
-  <div className="min-h-screen bg-slate-50">
-    {/* Your Header/Navigation Bar stays outside <Routes> so it always shows */}
-    <Header /> 
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between" style={bodyFont}>
+      {/* --- ORIGINAL RESTORED HEADER --- */}
+      <nav className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-40 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
+          <div className="cursor-pointer flex items-center gap-4" onClick={() => navigate('/')}>
+            <DNALogo />
+            <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold tracking-widest uppercase flex items-center gap-1.5 ${dbStatus === "LIVE SYNC" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${dbStatus === "LIVE SYNC" ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}></span>
+              {dbStatus}
+            </span>
+          </div>
 
-    <main>
-      <Routes>
-        {/* PUBLIC ROUTES */}
-        <Route path="/" element={
-          <PublicHub players={players} news={news} onSelect={(p) => navigate(`/player/${p.id}`)} />
-        } />
-        
-        <Route path="/roster" element={
-          <RosterPage players={players} onSelect={(p) => navigate(`/player/${p.id}`)} onBack={() => navigate('/')} />
-        } />
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button 
+              onClick={() => navigate('/roster')} 
+              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/roster' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+            >
+              <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
+            </button>
 
-        {/* PROTECTED ROUTES */}
-        <Route path="/admin" element={
-          authRole === 'admin' 
-            ? <AdminPanel app={app} appId={appId} db={db} players={players} scouts={scouts} onLogout={handleLogout} onBack={() => navigate('/')} />
-            : <Navigate to="/" replace />
-        } />
+            {authRole ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate(authRole === 'admin' ? '/admin' : (authRole === 'recruiter' ? '/scout' : '/family'))}
+                  className="text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full text-white shadow-sm flex items-center gap-1.5 transition-all hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+                >
+                  <LayoutDashboard size={15} /> Dashboard
+                </button>
+              </div>
+            ) : (
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
+                  className="text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-full text-white shadow-md hover:opacity-95 transition-all flex items-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+                >
+                  <Lock size={14} /> Portal Login
+                </button>
 
-        <Route path="/scout" element={
-          authRole === 'scout'
-            ? <RecruiterPortal app={app} appId={appId} db={db} players={players} recruiterData={recruiterData} onLogout={handleLogout} />
-            : <Navigate to="/" replace />
-        } />
-        <Route path="/player/:id" element={
-          <ProfilePage players={players} onBack={() => navigate(-1)} />
-        } />
-        <Route path="/family" element={
-          authRole === 'family'
-            ? <FamilyDashboard app={app} appId={appId} db={db} user={familyData} onLogout={handleLogout} />
-            : <Navigate to="/" replace />
-        } />
-      </Routes>
-    </main>
-  </div>
-);
+                {isDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
+                    <button onClick={() => openModal('family_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><Users size={16} /></div>
+                      <div>
+                        <div className="text-slate-900">Parent / Athlete</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Manage Profile & Views</div>
+                      </div>
+                    </button>
+                    <button onClick={() => openModal('recruiter_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-blue-50 text-[#1c7ed6]"><Building size={16} /></div>
+                      <div>
+                        <div className="text-slate-900">College Scout</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Verified .EDU Portal</div>
+                      </div>
+                    </button>
+                    <div className="my-1 border-t border-slate-100"></div>
+                    <button onClick={() => openModal('admin')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-pink-50 text-[#d6336c]"><Lock size={16} /></div>
+                      <div>
+                        <div className="text-slate-900">Coach / Admin</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Combine & Roster Entry</div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </nav>
+
+      {/* --- LOGIN MODAL --- */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        onLoginSuccess={handleLoginSuccess} 
+        initialMode={loginModalMode} 
+      />
+
+      {/* --- MAIN ROUTED CONTENT --- */}
+      <main className="flex-grow">
+        <Routes>
+          {/* PUBLIC ROUTES */}
+          <Route path="/" element={
+            <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />
+          } />
+          
+          <Route path="/roster" element={
+            <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => navigate('/')} />
+          } />
+
+          <Route path="/player/:id" element={
+            <ProfilePage players={players} onBack={() => navigate(-1)} />
+          } />
+
+          {/* PROTECTED ROUTES */}
+          <Route path="/admin" element={
+            authRole === 'admin' 
+              ? <AdminPanel app={app} appId={appId} db={db} storage={storage} dbConfigured={isFirebaseActive} players={players} scouts={scouts} onLogout={handleLogout} onBack={() => navigate('/')} />
+              : <Navigate to="/" replace />
+          } />
+
+          <Route path="/scout" element={
+            (authRole === 'recruiter' || authRole === 'scout')
+              ? <RecruiterPortal app={app} appId={appId} db={db} dbConfigured={isFirebaseActive} players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
+              : <Navigate to="/" replace />
+          } />
+
+          <Route path="/family" element={
+            authRole === 'family'
+              ? <FamilyDashboard app={app} appId={appId} db={db} dbConfigured={isFirebaseActive} players={players} user={familyData} onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
+              : <Navigate to="/" replace />
+          } />
+        </Routes>
+      </main>
+
+      {/* --- FOOTER --- */}
+      <SanctionedFooter />
+    </div>
+  );
 }

@@ -1,7 +1,7 @@
 // src/pages/ProfilePage.jsx
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtSign, Mail, Eye } from 'lucide-react';
+import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtSign, Mail, Eye, GraduationCap } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
