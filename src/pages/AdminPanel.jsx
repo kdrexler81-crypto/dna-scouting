@@ -4,7 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { doc, updateDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { Activity, Megaphone, Building, Search, Camera, Users, GraduationCap, Trophy, MapPin, Zap, Ruler, ChevronLeft } from 'lucide-react';
+import { Activity, Megaphone, Building, Search, Camera, Users, GraduationCap, Trophy, MapPin, Zap, Ruler, ChevronLeft, Key } from 'lucide-react';
 import { AdminScoutApproval } from '../components/admin/AdminScoutApproval';
 import { useApp } from '../context/AppContext';
 
@@ -24,6 +24,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
   const [newsCategory, setNewsCategory] = useState('ANNOUNCEMENT');
 
   const today = new Date().toISOString().split('T')[0];
+  const generateAccessCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
   const defaultMetrics = {
     name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None', externalClub: '',
@@ -31,7 +32,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
     broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
     hudlLink: '', stat1Label: 'Touchdowns', stat1Value: '', stat2Label: 'Interceptions', stat2Value: '', stat3Label: 'Yards / Rec', stat3Value: '',
-    combineLocation: '', combineDate: today
+    combineLocation: '', combineDate: today, accessCode: generateAccessCode()
   };
   const [metrics, setMetrics] = useState(defaultMetrics);
 
@@ -49,7 +50,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
       setMetrics({
         name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None', externalClub: p.externalClub || '',
         gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', 
-        guardianEmail: p.guardianEmail || '', athleteEmail: p.athleteEmail || '', // ADDED ATHLETE EMAIL
+        guardianEmail: p.guardianEmail || '', athleteEmail: p.athleteEmail || '',
         scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', 
         stat1Label: p.seasonStats?.stat1Label || 'Touchdowns', stat1Value: p.seasonStats?.stat1Value || '',
         stat2Label: p.seasonStats?.stat2Label || 'Interceptions', stat2Value: p.seasonStats?.stat2Value || '',
@@ -62,7 +63,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
         verticalInches: p.metrics?.vertical ? p.metrics.vertical.replace('"', '') : '',
         heightFeet: p.height?.includes("'") ? p.height.split("'")[0] : '', heightInches: p.height?.includes("'") ? p.height.split("'")[1].replace('"', '') : '',
         broadFeet: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[0] : '', broadInches: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '',
-        catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '', throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '', flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : ''
+        catchingPct: p.metrics?.catching ? p.metrics.catching.replace('%', '') : '', throwingPct: p.metrics?.throwing ? p.metrics.throwing.replace('%', '') : '', flagPullingPct: p.metrics?.flag ? p.metrics.flag.replace('%', '') : '',
+        accessCode: p.accessCode || generateAccessCode() // Ensure older profiles get a code assigned
       });
       setPhotoPreview(p.avatar || null);
     }
@@ -113,7 +115,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
       const playerData = {
         name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam, externalClub: metrics.externalClub,
         gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, 
-        guardianEmail: metrics.guardianEmail, athleteEmail: metrics.athleteEmail, // ADDED ATHLETE EMAIL
+        guardianEmail: metrics.guardianEmail, athleteEmail: metrics.athleteEmail,
+        accessCode: metrics.accessCode, // Save the access code!
         scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, 
         seasonStats: { stat1Label: metrics.stat1Label, stat1Value: metrics.stat1Value, stat2Label: metrics.stat2Label, stat2Value: metrics.stat2Value, stat3Label: metrics.stat3Label, stat3Value: metrics.stat3Value },
         height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
@@ -170,10 +173,6 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     catch (err) { alert("Error posting news: " + err.message); }
   };
 
-  const toggleScoutApproval = async (scoutId, currentStatus) => {
-    if (dbConfigured && db) { try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', scoutId), { approved: !currentStatus }); } catch (e) { alert("Failed to update status: " + e.message); } }
-  };
-
   return (
     <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
       <div className="flex justify-between items-center mb-8">
@@ -199,6 +198,18 @@ export const AdminPanel = ({ onBack, onLogout }) => {
               </div>
 
               <form onSubmit={submitCombineData} className="space-y-8">
+                
+                {/* BRAND NEW FIELD: SECURE ACCESS CODE */}
+                <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-emerald-900 flex items-center gap-2 uppercase tracking-tight"><Key size={16}/> Identity Verification Code</h3>
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest mt-1">Provide this code to the family so they can create an account and claim this profile.</p>
+                  </div>
+                  <div className="bg-white border-2 border-emerald-300 rounded-xl px-6 py-3 text-2xl font-black text-emerald-600 tracking-widest">
+                    {metrics.accessCode}
+                  </div>
+                </div>
+
                 <div className="flex flex-col sm:flex-row items-center gap-8 bg-slate-50/80 p-6 rounded-2xl border border-slate-100">
                   <div className="relative w-36 h-36 bg-white rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden shrink-0 group hover:border-[#1c7ed6] transition-colors cursor-pointer">
                      {photoPreview ? <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" /> : <div className="text-center p-2"><Camera className="w-8 h-8 mx-auto text-slate-300 mb-2 group-hover:text-[#1c7ed6] transition-colors" /></div>}
@@ -297,7 +308,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
               </form>
            </div>
         )}
-
+        
+        {/* ... (news and scout tabs remain identical) ... */}
         {activeTab === 'news' && (
           <div className="animate-in fade-in slide-in-from-right-4 max-w-2xl mx-auto">
             <form onSubmit={submitNews} className="space-y-6">
