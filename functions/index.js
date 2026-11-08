@@ -1,3 +1,4 @@
+// functions/index.js
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
@@ -9,7 +10,6 @@ if (admin.apps.length === 0) {
 const db = admin.firestore();
 
 // --- 1. DNA SCORING ENGINE (Youth 8-13 Scale) ---
-// (Kept exactly as your original code)
 exports.calculateDNAScore = onCall((request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Only authorized coaches can calculate scores.');
 
@@ -88,10 +88,10 @@ exports.sendRecruitingMessage = onCall(async (request) => {
 
   const result = await db.collection(`artifacts/${appId}/public/data/messages`).add(messageData);
 
-  // --- NEW: TRIGGER EMAIL NOTIFICATION ---
+  // --- TRIGGER EMAIL NOTIFICATION ---
   // This writes to the 'mail' collection, which the Firebase Extension watches
   try {
-    await admin.firestore().collection('mail').add({
+    await db.collection('mail').add({
       to: athleteSnap.data().guardianEmail,
       message: {
         subject: `New Recruiting Message for ${athleteSnap.data().name}`,
@@ -106,7 +106,7 @@ exports.sendRecruitingMessage = onCall(async (request) => {
                 Per NCAA compliance guidelines, this message is being held in the Family Dashboard for your review and approval.
               </p>
             </div>
-            <a href="https://dnaflagfootball.com" style="display: inline-block; padding: 14px 24px; background-color: #1c7ed6; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">Log in to Family Dashboard</a>
+            <a href="https://dnaflagratings.com" style="display: inline-block; padding: 14px 24px; background-color: #1c7ed6; color: white; text-decoration: none; font-weight: bold; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 13px;">Log in to Family Dashboard</a>
             <p style="margin-top: 32px; font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;">
               DNA Athletics • Official USA Football Partner
             </p>
@@ -115,8 +115,7 @@ exports.sendRecruitingMessage = onCall(async (request) => {
       }
     });
   } catch (emailErr) {
-    console.error("Failed to queue email notification:", emailErr);
-    // We catch the error so the function still succeeds and sends the message even if the email queue fails
+    logger.error("Failed to queue email notification:", emailErr);
   }
 
   return { success: true, messageId: result.id };
@@ -129,8 +128,9 @@ exports.moderateMessage = onCall(async (request) => {
   }
 
   const { messageId, action, appId } = request.data;
-  if (!['approve', 'reject'].includes(action)) {
-    throw new HttpsError("invalid-argument", "Action must be approve or reject.");
+  
+  if (!messageId || !['approve', 'reject'].includes(action)) {
+    throw new HttpsError("invalid-argument", "Invalid message ID or action.");
   }
 
   const msgRef = db.doc(`artifacts/${appId}/public/data/messages/${messageId}`);
@@ -145,10 +145,16 @@ exports.moderateMessage = onCall(async (request) => {
     throw new HttpsError("permission-denied", "You are not authorized to moderate this message.");
   }
 
-  await msgRef.update({
-    status: action === 'approve' ? 'approved' : 'rejected',
-    moderatedAt: Date.now()
-  });
+  // Update status (or delete it if rejected to completely hide it from the platform)
+  if (action === 'approve') {
+    await msgRef.update({
+      status: 'approved',
+      moderatedAt: Date.now()
+    });
+  } else {
+    // We physically delete rejected messages so they are permanently erased
+    await msgRef.delete();
+  }
 
   return { success: true };
 });
