@@ -1,9 +1,9 @@
 // src/pages/RecruiterPortal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
-import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download } from 'lucide-react';
+import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download, Check, CheckCheck, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
@@ -84,7 +84,6 @@ const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
 };
 
 export const RecruiterPortal = ({ onSelect, onLogout }) => {
-  // Grab everything directly from Context!
   const { app, appId, db, players, recruiterData } = useApp();
 
   const [activeTab, setActiveTab] = useState('database');
@@ -92,8 +91,11 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
   const [compareIds, setCompareIds] = useState([]);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState([]);
   
-  // Messaging State
-  const [messageTarget, setMessageTarget] = useState(null);
+  // Threaded Messaging State
+  const [threads, setThreads] = useState([]);
+  const [activeThreadId, setActiveThreadId] = useState(null);
+  const [activeAthlete, setActiveAthlete] = useState(null);
+  const [threadMessages, setThreadMessages] = useState([]);
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
 
@@ -102,11 +104,43 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
 
   useEffect(() => {
     if (!recruiterData?.uid || !db) return;
-    const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), (docSnap) => {
+    
+    // 1. Listen to Board Data
+    const unsubBoard = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), (docSnap) => {
       if (docSnap.exists() && docSnap.data().board) setBoardData(docSnap.data().board);
     });
-    return () => unsub();
+
+    // 2. Listen to active Threads for this scout
+    const threadsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'threads'), where("scoutId", "==", recruiterData.uid));
+    const unsubThreads = onSnapshot(threadsQuery, (snap) => {
+      const th = []; snap.forEach(doc => th.push({ id: doc.id, ...doc.data() }));
+      th.sort((a,b) => b.lastUpdate - a.lastUpdate);
+      setThreads(th);
+    });
+
+    return () => { unsubBoard(); unsubThreads(); };
   }, [recruiterData, db, appId]);
+
+  useEffect(() => {
+    if (!activeThreadId || !db) return;
+    
+    // 3. Listen to messages for the currently selected thread
+    const msgQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("threadId", "==", activeThreadId));
+    const unsubMsg = onSnapshot(msgQuery, (snap) => {
+      const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
+      msgs.sort((a,b) => a.timestamp - b.timestamp);
+      setThreadMessages(msgs);
+
+      // Instantly mark incoming athlete messages as "read" if the scout is viewing the thread
+      msgs.forEach(m => {
+        if (m.senderRole === 'athlete' && m.status === 'approved' && !m.readAt) {
+          httpsCallable(getFunctions(app), 'markMessageRead')({ messageId: m.id, appId }).catch(console.error);
+        }
+      });
+    });
+    
+    return () => unsubMsg();
+  }, [activeThreadId, db, appId, app]);
 
   const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
   const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);
@@ -120,23 +154,33 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
 
   const getBoardStatus = (playerId) => { if (boardData.priority.includes(playerId)) return 'priority'; if (boardData.interested.includes(playerId)) return 'interested'; if (boardData.pass.includes(playerId)) return 'pass'; return ''; };
   const handleMoveToBoard = async (playerId, destCol) => { const newBoard = { priority: boardData.priority.filter(id => id !== playerId), interested: boardData.interested.filter(id => id !== playerId), pass: boardData.pass.filter(id => id !== playerId) }; if (destCol) newBoard[destCol].push(playerId); setBoardData(newBoard); try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } catch (err) { console.error("Error saving board", err); } };
-  const handleBatchMoveToBoard = async (destCol) => { if (selectedPlayerIds.length === 0) return; const newBoard = { priority: boardData.priority.filter(id => !selectedPlayerIds.includes(id)), interested: boardData.interested.filter(id => !selectedPlayerIds.includes(id)), pass: boardData.pass.filter(id => !selectedPlayerIds.includes(id)) }; if (destCol) newBoard[destCol].push(...selectedPlayerIds); setBoardData(newBoard); setSelectedPlayerIds([]); try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } catch (err) { console.error("Error saving batch board update", err); } };
+  const handleBatchMoveToBoard = async (destCol) => { if (selectedPlayerIds.length === 0) return; const newBoard = { priority: boardData.priority.filter(id => !selectedPlayerIds.includes(id)), interested: boardData.interested.filter(id => !selectedPlayerIds.includes(id)), pass: boardData.pass.filter(id => !selectedPlayerIds.includes(id)) }; if (destCol) newBoard[destCol].push(...selectedPlayerIds); setBoardData(newBoard); setSelectedPlayerIds([]); try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), { board: newBoard }); } catch (err) { console.error("Error saving batch update", err); } };
   const toggleSelectPlayer = (id) => setSelectedPlayerIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   const toggleSelectAll = () => { const allFilteredIds = filteredPlayers.map(p => p.id); const areAllSelected = allFilteredIds.every(id => selectedPlayerIds.includes(id)); if (areAllSelected) setSelectedPlayerIds(prev => prev.filter(id => !allFilteredIds.includes(id))); else setSelectedPlayerIds(prev => [...new Set([...prev, ...allFilteredIds])]); };
 
+  const handleOpenChat = (player) => {
+    setActiveAthlete(player);
+    setActiveThreadId(`${recruiterData.uid}_${player.id}`);
+    setActiveTab('inbox');
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageContent.trim()) return;
-    if (!messageTarget.guardianEmail) {
-      alert("Cannot send message: This athlete does not have a Parent/Guardian email on file. The admin must add one first.");
-      return;
-    }
+    if (!messageContent.trim() || !activeAthlete) return;
+    if (!activeAthlete.guardianEmail) { alert("Cannot send message: Athlete has no Parent/Guardian email on file."); return; }
+    
     setSendingMessage(true);
     try {
-      const sendRecruitingMessage = httpsCallable(getFunctions(app), 'sendRecruitingMessage');
-      await sendRecruitingMessage({ athleteId: messageTarget.id, athleteName: messageTarget.name, content: messageContent, appId });
-      alert("Message securely sent to family for review.");
-      setMessageTarget(null); setMessageContent('');
+      const sendMessage = httpsCallable(getFunctions(app), 'sendMessage');
+      await sendMessage({ 
+        athleteId: activeAthlete.id, 
+        scoutId: recruiterData.uid, 
+        content: messageContent, 
+        senderRole: 'scout',
+        appId 
+      });
+      setMessageContent('');
+      setActiveThreadId(`${recruiterData.uid}_${activeAthlete.id}`);
     } catch (err) { alert("Failed to send message: " + err.message); }
     setSendingMessage(false);
   };
@@ -146,13 +190,9 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
     return (
       <select 
         className={`text-[10px] font-extrabold uppercase tracking-wider rounded-lg px-3 py-2 border cursor-pointer focus:outline-none transition-colors ${status ? 'bg-[#1c7ed6] text-white border-[#1c7ed6] shadow-md shadow-blue-500/20' : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'} ${className}`}
-        value={status}
-        onChange={(e) => handleMoveToBoard(playerId, e.target.value)}
+        value={status} onChange={(e) => handleMoveToBoard(playerId, e.target.value)}
       >
-         <option value="">+ Add to Board</option>
-         <option value="priority">⭐ Priority</option>
-         <option value="interested">👀 Interested</option>
-         <option value="pass">🚫 Pass</option>
+         <option value="">+ Add to Board</option><option value="priority">⭐ Priority</option><option value="interested">👀 Interested</option><option value="pass">🚫 Pass</option>
       </select>
     );
   };
@@ -189,9 +229,10 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-           <button onClick={() => setActiveTab('database')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'database' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'database' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Search size={16} /> Prospect Database</button>
-           <button onClick={() => setActiveTab('board')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'board' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'board' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><LayoutDashboard size={16} /> My Recruiting Board</button>
-           <button onClick={() => setActiveTab('compare')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'compare' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'compare' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><GitCompare size={16} /> Compare Mode</button>
+           <button onClick={() => setActiveTab('database')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'database' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'database' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><Search size={16} className="hidden sm:block"/> Database</button>
+           <button onClick={() => setActiveTab('inbox')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'inbox' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'inbox' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><MessageSquare size={16} className="hidden sm:block"/> Inbox</button>
+           <button onClick={() => setActiveTab('board')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'board' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'board' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><LayoutDashboard size={16} className="hidden sm:block"/> Board</button>
+           <button onClick={() => setActiveTab('compare')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${activeTab === 'compare' ? 'text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`} style={activeTab === 'compare' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}><GitCompare size={16} className="hidden sm:block"/> Compare</button>
         </div>
 
         {activeTab === 'database' && (
@@ -202,38 +243,14 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
                    <button onClick={exportDatabaseCSV} className="text-[10px] font-bold text-white bg-slate-900 px-4 py-2 rounded-full flex items-center gap-2 uppercase tracking-wider hover:bg-[#1c7ed6] transition-colors shadow-sm"><Download size={14}/> Export CSV</button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-5">
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Pos</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select>
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Class</label>
-                     <select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select>
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min DNA ({minDna})</label>
-                     <input type="range" min="0" max="10" step="0.1" value={minDna} onChange={e=>setMinDna(e.target.value)} className="w-full accent-[#d6336c]" />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min GPA ({minGpa})</label>
-                     <input type="range" min="0" max="4.5" step="0.1" value={minGpa} onChange={e=>setMinGpa(e.target.value)} className="w-full accent-[#1c7ed6]" />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max 40-Yd ({maxSprint >= 10 ? 'Any' : maxSprint + 's'})</label>
-                     <input type="range" min="4.5" max="10" step="0.1" value={maxSprint} onChange={e=>setMaxSprint(e.target.value)} className="w-full accent-emerald-500" />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max Shuttle ({maxShuttle >= 10 ? 'Any' : maxShuttle + 's'})</label>
-                     <input type="range" min="4.0" max="10" step="0.1" value={maxShuttle} onChange={e=>setMaxShuttle(e.target.value)} className="w-full accent-emerald-500" />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max L-Drill ({maxLDrill >= 10 ? 'Any' : maxLDrill + 's'})</label>
-                     <input type="range" min="4.0" max="10" step="0.1" value={maxLDrill} onChange={e=>setMaxLDrill(e.target.value)} className="w-full accent-emerald-500" />
-                   </div>
-                   <div>
-                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label>
-                     <input type="range" min="0" max="120" step="1" value={minBroad} onChange={e=>setMinBroad(e.target.value)} className="w-full accent-amber-500" />
-                   </div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Pos</label><select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={posFilter} onChange={e=>setPosFilter(e.target.value)}>{uniquePositions.map(pos => <option key={pos} value={pos}>{pos}</option>)}</select></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Class</label><select className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-[#1c7ed6] transition-all" value={yearFilter} onChange={e=>setYearFilter(e.target.value)}>{uniqueYears.map(yr => <option key={yr} value={yr}>{yr}</option>)}</select></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min DNA ({minDna})</label><input type="range" min="0" max="10" step="0.1" value={minDna} onChange={e=>setMinDna(e.target.value)} className="w-full accent-[#d6336c]" /></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min GPA ({minGpa})</label><input type="range" min="0" max="4.5" step="0.1" value={minGpa} onChange={e=>setMinGpa(e.target.value)} className="w-full accent-[#1c7ed6]" /></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max 40-Yd ({maxSprint >= 10 ? 'Any' : maxSprint + 's'})</label><input type="range" min="4.5" max="10" step="0.1" value={maxSprint} onChange={e=>setMaxSprint(e.target.value)} className="w-full accent-emerald-500" /></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max Shuttle ({maxShuttle >= 10 ? 'Any' : maxShuttle + 's'})</label><input type="range" min="4.0" max="10" step="0.1" value={maxShuttle} onChange={e=>setMaxShuttle(e.target.value)} className="w-full accent-emerald-500" /></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Max L-Drill ({maxLDrill >= 10 ? 'Any' : maxLDrill + 's'})</label><input type="range" min="4.0" max="10" step="0.1" value={maxLDrill} onChange={e=>setMaxLDrill(e.target.value)} className="w-full accent-emerald-500" /></div>
+                   <div><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Min Broad ({minBroad <= 0 ? 'Any' : minBroad + '"'})</label><input type="range" min="0" max="120" step="1" value={minBroad} onChange={e=>setMinBroad(e.target.value)} className="w-full accent-amber-500" /></div>
                 </div>
              </div>
              {selectedPlayerIds.length > 0 && (
@@ -266,12 +283,103 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {filteredPlayers.length === 0 ? <tr><td colSpan="9" className="p-16 text-center text-sm font-medium text-slate-400">No athletes match criteria.</td></tr> : 
-                          filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} isSelected={selectedPlayerIds.includes(p.id)} onToggleSelect={toggleSelectPlayer} onMessageClick={setMessageTarget} />)
+                          filteredPlayers.map(p => <DatabaseRow key={p.id} player={p} onSelect={onSelect} boardData={boardData} onMoveToBoard={handleMoveToBoard} isSelected={selectedPlayerIds.includes(p.id)} onToggleSelect={toggleSelectPlayer} onMessageClick={handleOpenChat} />)
                         }
                       </tbody>
                    </table>
                 </div>
              </div>
+          </div>
+        )}
+
+        {activeTab === 'inbox' && (
+          <div className="animate-in fade-in slide-in-from-right-4 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row overflow-hidden h-[700px]">
+            {/* THREAD LIST (LEFT SIDEBAR) */}
+            <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col h-1/3 md:h-full">
+              <div className="p-5 border-b border-slate-100 bg-white">
+                <h3 className="font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Active Conversations</h3>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {threads.length === 0 ? (
+                   <p className="text-center text-xs font-bold text-slate-400 uppercase tracking-widest p-6">No messages yet.</p>
+                ) : (
+                   threads.map(t => (
+                     <div key={t.threadId} onClick={() => { setActiveThreadId(t.threadId); setActiveAthlete(players.find(p=>p.id===t.athleteId)); }} className={`p-4 rounded-2xl cursor-pointer transition-all border ${activeThreadId === t.threadId ? 'bg-white border-[#1c7ed6] shadow-sm' : 'border-transparent hover:bg-slate-100'}`}>
+                       <div className="flex justify-between items-start mb-1">
+                         <p className="font-extrabold text-sm text-slate-900 truncate pr-2" style={displayFont}>{t.athleteName}</p>
+                         <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{new Date(t.lastUpdate).toLocaleDateString()}</span>
+                       </div>
+                       <p className="text-xs text-slate-500 truncate">{t.lastMessagePreview}</p>
+                     </div>
+                   ))
+                )}
+              </div>
+            </div>
+
+            {/* CHAT WINDOW (RIGHT PANE) */}
+            <div className="w-full md:w-2/3 flex flex-col bg-white h-2/3 md:h-full">
+               {activeAthlete ? (
+                 <>
+                   <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
+                     <div className="flex items-center gap-4">
+                       <img src={activeAthlete.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeAthlete.name}`} className="w-12 h-12 rounded-full border border-slate-200 object-cover cursor-pointer hover:border-[#1c7ed6] transition-colors" onClick={() => onSelect(activeAthlete)} />
+                       <div>
+                         <h3 className="font-extrabold text-lg text-slate-900 uppercase cursor-pointer hover:text-[#1c7ed6] transition-colors" style={displayFont} onClick={() => onSelect(activeAthlete)}>{activeAthlete.name}</h3>
+                         <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest">{activeAthlete.primaryPos} • Class of {activeAthlete.gradYear}</p>
+                       </div>
+                     </div>
+                     <span className="hidden md:block font-black text-xl text-[#d6336c] bg-slate-50 px-4 py-1.5 rounded-xl border border-slate-100 shadow-sm" style={displayFont}>{activeAthlete.dnaScore}</span>
+                   </div>
+                   
+                   <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 flex flex-col gap-4">
+                     {threadMessages.filter(m => m.senderRole === 'scout' || m.status === 'approved').length === 0 ? (
+                       <div className="m-auto text-center">
+                         <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-slate-100"><Shield className="text-emerald-500" size={20} /></div>
+                         <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">NCAA Compliance Engine Active</p>
+                         <p className="text-[11px] text-slate-500 mt-2 max-w-[250px] mx-auto">Messages sent will be routed to the athlete's Parent/Guardian Dashboard for approval before delivery.</p>
+                       </div>
+                     ) : (
+                       threadMessages.filter(m => m.senderRole === 'scout' || m.status === 'approved').map(msg => {
+                          const isScout = msg.senderRole === 'scout';
+                          return (
+                            <div key={msg.id} className={`flex flex-col max-w-[80%] md:max-w-[70%] ${isScout ? 'self-end items-end' : 'self-start items-start'}`}>
+                              <div className={`p-4 rounded-2xl ${isScout ? 'bg-[#1c7ed6] text-white rounded-tr-sm shadow-md' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm'}`}>
+                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1.5 px-1">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                  {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                                {isScout && (
+                                  <span className="text-slate-400">
+                                    {msg.readAt ? <CheckCheck size={12} className="text-[#1c7ed6]" /> : (msg.status === 'pending' ? <Clock size={10} /> : <Check size={12} />)}
+                                  </span>
+                                )}
+                              </div>
+                              {isScout && msg.status === 'pending' && <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest pr-1 mt-0.5">Delivered to Parent</span>}
+                            </div>
+                          )
+                       })
+                     )}
+                   </div>
+                   
+                   <div className="p-4 bg-white border-t border-slate-100">
+                     <form onSubmit={handleSendMessage} className="flex gap-3 relative">
+                       <input type="text" placeholder={`Secure message to ${activeAthlete.name}...`} className="flex-1 bg-slate-50 border border-slate-200 rounded-full pl-5 pr-14 py-3 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-1 focus:ring-[#1c7ed6] transition-all" value={messageContent} onChange={e => setMessageContent(e.target.value)} />
+                       <button type="submit" disabled={sendingMessage || !messageContent.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-[#1c7ed6] hover:bg-blue-600 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors shadow-sm">
+                         {sendingMessage ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
+                       </button>
+                     </form>
+                   </div>
+                 </>
+               ) : (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
+                   <MessageSquare size={48} className="text-slate-200 mb-4" />
+                   <h3 className="font-extrabold text-slate-400 uppercase tracking-tight text-xl" style={displayFont}>No Conversation Selected</h3>
+                   <p className="text-sm font-medium text-slate-400 mt-2">Select a thread from the sidebar, or start a new conversation from the Database tab.</p>
+                 </div>
+               )}
+            </div>
           </div>
         )}
 
@@ -383,29 +491,6 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
           </div>
         )}
       </div>
-
-      {/* MESSAGE MODAL */}
-      {messageTarget && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-           <div className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative overflow-hidden border-t-4 border-[#1c7ed6]">
-              <button onClick={() => { setMessageTarget(null); setMessageContent(''); }} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 bg-slate-50 p-1.5 rounded-full transition-colors"><X size={18}/></button>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-blue-50 rounded-2xl border border-blue-100"><MessageSquare size={24} className="text-[#1c7ed6]" /></div>
-                <div><h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Secure Message</h3><p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">To: <span className="text-[#1c7ed6]">{messageTarget.name}</span></p></div>
-              </div>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-6 flex items-start gap-3">
-                 <Shield size={16} className="text-slate-400 shrink-0 mt-0.5" />
-                 <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-relaxed">NCAA Compliance Notice: This message will be securely routed to the athlete's parent/guardian dashboard for review before delivery.</p>
-              </div>
-              <form onSubmit={handleSendMessage}>
-                <textarea required placeholder={`Type your message to ${messageTarget.name}...`} className="w-full bg-white border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none min-h-[150px] mb-4" value={messageContent} onChange={(e) => setMessageContent(e.target.value)} />
-                <button type="submit" disabled={sendingMessage} className="w-full flex justify-center items-center gap-2 hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg bg-[#1c7ed6]">
-                  {sendingMessage ? <Loader2 size={18} className="animate-spin" /> : <><Send size={16}/> Send to Family Dashboard</>}
-                </button>
-              </form>
-           </div>
-        </div>
-      )}
     </DndContext>
   );
 };

@@ -2,29 +2,70 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy } from 'lucide-react';
+import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy, Send, Check, CheckCheck, AlertCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-export const FamilyDashboard = ({ onLogout }) => {
-  const { app, appId, db, familyData: user } = useApp();
+export const FamilyDashboard = ({ viewMode, onLogout }) => {
+  const { app, appId, db, familyData: user, players } = useApp();
 
-  const [messages, setMessages] = useState([]);
+  // --- PARENT STATE ---
+  const [parentMessages, setParentMessages] = useState([]);
   const [loadingAction, setLoadingAction] = useState(null);
-  const [viewMode, setViewMode] = useState('parent'); // 'parent' or 'athlete'
 
+  // --- ATHLETE STATE ---
+  const activeAthlete = players.find(p => p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase());
+  const [threads, setThreads] = useState([]);
+  const [activeThread, setActiveThread] = useState(null);
+  const [threadMessages, setThreadMessages] = useState([]);
+  const [replyContent, setReplyContent] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+
+  // 1. DATA FETCHING: PARENT MODERATION QUEUE
   useEffect(() => {
-    if (!user?.email || !db) return;
+    if (viewMode !== 'parent' || !user?.email || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("guardianEmail", "==", user.email));
     const unsub = onSnapshot(q, (snap) => {
       const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
       msgs.sort((a,b) => b.timestamp - a.timestamp);
-      setMessages(msgs);
+      setParentMessages(msgs);
     });
     return () => unsub();
-  }, [user, db, appId]);
+  }, [viewMode, user, db, appId]);
 
+  // 2. DATA FETCHING: ATHLETE THREADS
+  useEffect(() => {
+    if (viewMode !== 'athlete' || !activeAthlete || !db) return;
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'threads'), where("athleteId", "==", activeAthlete.id));
+    const unsub = onSnapshot(q, (snap) => {
+      const th = []; snap.forEach(doc => th.push({ id: doc.id, ...doc.data() }));
+      th.sort((a,b) => b.lastUpdate - a.lastUpdate);
+      setThreads(th);
+    });
+    return () => unsub();
+  }, [viewMode, activeAthlete, db, appId]);
+
+  // 3. DATA FETCHING: ATHLETE ACTIVE THREAD MESSAGES
+  useEffect(() => {
+    if (viewMode !== 'athlete' || !activeThread || !db) return;
+    const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("threadId", "==", activeThread.threadId));
+    const unsub = onSnapshot(q, (snap) => {
+      const msgs = []; snap.forEach(doc => msgs.push({ id: doc.id, ...doc.data() }));
+      msgs.sort((a,b) => a.timestamp - b.timestamp);
+      setThreadMessages(msgs);
+
+      // Instantly mark inbound approved scout messages as "read"
+      msgs.forEach(m => {
+        if (m.senderRole === 'scout' && m.status === 'approved' && !m.readAt) {
+          httpsCallable(getFunctions(app), 'markMessageRead')({ messageId: m.id, appId }).catch(console.error);
+        }
+      });
+    });
+    return () => unsub();
+  }, [viewMode, activeThread, db, appId, app]);
+
+  // PARENT ACTION: APPROVE/REJECT
   const handleModerate = async (msgId, action) => {
     setLoadingAction(msgId);
     try {
@@ -34,23 +75,44 @@ export const FamilyDashboard = ({ onLogout }) => {
     setLoadingAction(null);
   };
 
-  const pendingMessages = messages.filter(m => m.status === 'pending');
-  const approvedMessages = messages.filter(m => m.status === 'approved');
+  // ATHLETE ACTION: SEND REPLY
+  const handleSendReply = async (e) => {
+    e.preventDefault();
+    if (!replyContent.trim() || !activeThread || !activeAthlete) return;
+    setSendingReply(true);
+    try {
+      const sendMessage = httpsCallable(getFunctions(app), 'sendMessage');
+      await sendMessage({ 
+        athleteId: activeAthlete.id, 
+        scoutId: activeThread.scoutId, 
+        content: replyContent, 
+        senderRole: 'athlete',
+        appId 
+      });
+      setReplyContent('');
+    } catch (err) { alert("Failed to send message: " + err.message); }
+    setSendingReply(false);
+  };
+
+  // PARENT QUEUES
+  const pendingInbound = parentMessages.filter(m => m.status === 'pending' && m.senderRole === 'scout');
+  const pendingOutbound = parentMessages.filter(m => m.status === 'draft' && m.senderRole === 'athlete');
+  const approvedHistory = parentMessages.filter(m => m.status === 'approved');
 
   return (
-    <div className="max-w-4xl mx-auto p-4 py-8 animate-in fade-in">
+    <div className="max-w-7xl mx-auto p-4 py-8 animate-in fade-in">
       
       {/* GLOBAL HEADER */}
-      <div className={`rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-8 border transition-colors ${viewMode === 'parent' ? 'bg-slate-900 border-slate-800 border-t-4 border-t-[#059669]' : 'bg-white border-slate-100 border-t-4 border-t-[#1c7ed6]'}`}>
+      <div className={`rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-8 border transition-colors ${viewMode === 'parent' ? 'bg-slate-900 border-slate-800 border-t-4 border-t-[#059669]' : 'bg-white border-slate-100 border-t-4 border-t-[#8b5cf6]'}`}>
         <div className="flex items-center gap-5">
-          <div className={`p-4 rounded-2xl ${viewMode === 'parent' ? 'bg-white/10' : 'bg-blue-50 border border-blue-100'}`}>
-            {viewMode === 'parent' ? <Shield size={28} className="text-emerald-400" /> : <User size={28} className="text-[#1c7ed6]" />}
+          <div className={`p-4 rounded-2xl ${viewMode === 'parent' ? 'bg-white/10' : 'bg-violet-50 border border-violet-100'}`}>
+            {viewMode === 'parent' ? <Shield size={28} className="text-emerald-400" /> : <User size={28} className="text-violet-500" />}
           </div>
           <div>
             <h2 className={`text-2xl font-extrabold uppercase tracking-tight ${viewMode === 'parent' ? 'text-white' : 'text-slate-900'}`} style={displayFont}>
               {viewMode === 'parent' ? 'Family Inbox' : 'Athlete Locker Room'}
             </h2>
-            <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${viewMode === 'parent' ? 'text-emerald-400' : 'text-slate-400'}`}>
+            <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${viewMode === 'parent' ? 'text-emerald-400' : 'text-violet-500'}`}>
               Account: {user?.email}
             </p>
           </div>
@@ -60,43 +122,69 @@ export const FamilyDashboard = ({ onLogout }) => {
         </button>
       </div>
 
-      {/* VIEW TOGGLE */}
-      <div className="flex bg-white rounded-full p-1.5 shadow-sm border border-slate-100 mb-8 max-w-sm mx-auto">
-        <button onClick={() => setViewMode('parent')} className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${viewMode === 'parent' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
-          <Shield size={14} /> Parent Mode
-        </button>
-        <button onClick={() => setViewMode('athlete')} className={`flex-1 py-2.5 px-4 rounded-full text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${viewMode === 'athlete' ? 'bg-[#1c7ed6] text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>
-          <Trophy size={14} /> Athlete Mode
-        </button>
-      </div>
-
-      {/* PARENT VIEW (MODERATION HUB) */}
+      {/* ---------------------------------------------------- */}
+      {/* PARENT VIEW (MODERATION HUB)                           */}
+      {/* ---------------------------------------------------- */}
       {viewMode === 'parent' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-left-4">
+        <div className="space-y-8 animate-in fade-in slide-in-from-left-4 max-w-4xl mx-auto">
+          
+          {/* QUEUE 1: INBOUND FROM SCOUTS */}
           <div className="bg-white rounded-3xl border border-amber-200 shadow-md overflow-hidden">
             <div className="bg-amber-50 border-b border-amber-100 p-5 flex items-center gap-3">
               <Clock className="text-amber-500" size={20} />
-              <h3 className="font-extrabold text-amber-900 uppercase tracking-widest text-sm">Action Required: Pending Approvals</h3>
-              <span className="ml-auto bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded-full text-xs">{pendingMessages.length}</span>
+              <h3 className="font-extrabold text-amber-900 uppercase tracking-widest text-sm">Action Required: Inbound Scout Messages</h3>
+              <span className="ml-auto bg-amber-200 text-amber-800 font-bold px-3 py-1 rounded-full text-xs">{pendingInbound.length}</span>
             </div>
             <div className="p-6">
-              {pendingMessages.length === 0 ? <p className="text-sm text-slate-500 italic">No pending messages from recruiters.</p> : 
-                pendingMessages.map(msg => (
+              {pendingInbound.length === 0 ? <p className="text-sm text-slate-500 italic">No pending inbound messages from recruiters.</p> : 
+                pendingInbound.map(msg => (
                   <div key={msg.id} className="mb-4 last:mb-0 border border-slate-200 rounded-2xl p-5 bg-slate-50">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} <span className="text-slate-400 lowercase font-medium">from</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Message for: {msg.athleteName}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mt-1 tracking-widest">Message to: {msg.athleteName}</p>
                       </div>
                       <span className="text-[10px] text-slate-400 font-semibold">{new Date(msg.timestamp).toLocaleDateString()}</span>
                     </div>
-                    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 text-sm text-slate-700 leading-relaxed italic">"{msg.content}"</div>
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 text-sm text-slate-700 leading-relaxed italic whitespace-pre-wrap">"{msg.content}"</div>
                     <div className="flex gap-3">
                       <button onClick={() => handleModerate(msg.id, 'approve')} disabled={loadingAction === msg.id} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
-                        {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><CheckCircle2 size={16}/> Approve Message</>}
+                        {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><CheckCircle2 size={16}/> Approve & Forward to Athlete</>}
                       </button>
                       <button onClick={() => handleModerate(msg.id, 'reject')} disabled={loadingAction === msg.id} className="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
                         {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><XCircle size={16}/> Reject & Block</>}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
+
+          {/* QUEUE 2: OUTBOUND FROM ATHLETE */}
+          <div className="bg-white rounded-3xl border border-[#1c7ed6]/30 shadow-md overflow-hidden">
+            <div className="bg-blue-50 border-b border-blue-100 p-5 flex items-center gap-3">
+              <AlertCircle className="text-[#1c7ed6]" size={20} />
+              <h3 className="font-extrabold text-blue-900 uppercase tracking-widest text-sm">Action Required: Athlete Draft Replies</h3>
+              <span className="ml-auto bg-blue-200 text-blue-800 font-bold px-3 py-1 rounded-full text-xs">{pendingOutbound.length}</span>
+            </div>
+            <div className="p-6">
+              {pendingOutbound.length === 0 ? <p className="text-sm text-slate-500 italic">No drafted replies pending approval.</p> : 
+                pendingOutbound.map(msg => (
+                  <div key={msg.id} className="mb-4 last:mb-0 border border-slate-200 rounded-2xl p-5 bg-slate-50">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} <span className="text-slate-400 lowercase font-medium">replying to</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-semibold">{new Date(msg.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-xl p-4 mb-5 text-sm text-slate-700 leading-relaxed italic whitespace-pre-wrap">"{msg.content}"</div>
+                    <div className="flex gap-3">
+                      <button onClick={() => handleModerate(msg.id, 'approve')} disabled={loadingAction === msg.id} className="flex-1 bg-[#1c7ed6] hover:bg-blue-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
+                        {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><Send size={14}/> Approve & Send to College</>}
+                      </button>
+                      <button onClick={() => handleModerate(msg.id, 'reject')} disabled={loadingAction === msg.id} className="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-colors">
+                        {loadingAction === msg.id ? <Loader2 size={14} className="animate-spin"/> : <><XCircle size={16}/> Delete Draft</>}
                       </button>
                     </div>
                   </div>
@@ -111,15 +199,18 @@ export const FamilyDashboard = ({ onLogout }) => {
               <h3 className="font-extrabold text-slate-700 uppercase tracking-widest text-sm">Approved Messages History</h3>
             </div>
             <div className="p-6">
-              {approvedMessages.length === 0 ? <p className="text-sm text-slate-500 italic">No approved messages yet.</p> : 
-                approvedMessages.map(msg => (
-                  <div key={msg.id} className="mb-4 last:mb-0 border border-slate-100 rounded-2xl p-5">
-                    <div className="flex justify-between items-start mb-2">
-                      <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
-                      <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Approved</span>
+              {approvedHistory.length === 0 ? <p className="text-sm text-slate-500 italic">No approved messages yet.</p> : 
+                approvedHistory.map(msg => (
+                  <div key={msg.id} className="mb-4 last:mb-0 border border-slate-100 rounded-2xl p-5 flex flex-col gap-2">
+                    <div className="flex justify-between items-start">
+                      <p className="font-extrabold text-slate-900 text-sm uppercase">
+                        {msg.senderRole === 'athlete' ? <span className="text-violet-500">Outbound:</span> : <span className="text-emerald-500">Inbound:</span>} {msg.senderName} 
+                        {msg.senderRole === 'scout' && <><span className="text-slate-400 lowercase font-medium mx-1">from</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></>}
+                        {msg.senderRole === 'athlete' && <><span className="text-slate-400 lowercase font-medium mx-1">to</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></>}
+                      </p>
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(msg.moderatedAt).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">For: {msg.athleteName}</p>
-                    <p className="text-sm text-slate-700 leading-relaxed">"{msg.content}"</p>
+                    <p className="text-sm text-slate-700 leading-relaxed italic">"{msg.content}"</p>
                   </div>
                 ))
               }
@@ -128,43 +219,105 @@ export const FamilyDashboard = ({ onLogout }) => {
         </div>
       )}
 
-      {/* ATHLETE VIEW (CLEAN INBOX) */}
+
+      {/* ---------------------------------------------------- */}
+      {/* ATHLETE VIEW (SPLIT-PANE THREADED INBOX)               */}
+      {/* ---------------------------------------------------- */}
       {viewMode === 'athlete' && (
         <div className="animate-in fade-in slide-in-from-right-4">
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100 mb-8 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-[#1c7ed6]"></div>
-            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-5 border border-blue-100">
-              <Mail className="text-[#1c7ed6]" size={28}/>
+          {!activeAthlete ? (
+            <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm max-w-lg mx-auto mt-12">
+              <AlertCircle size={48} className="mx-auto text-amber-400 mb-4" />
+              <h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Profile Not Found</h3>
+              <p className="text-sm font-medium text-slate-500 mt-2">Your email ({user?.email}) is not linked to an active athlete roster spot. Please contact your coach to add this email to your profile.</p>
             </div>
-            <h3 className="text-2xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>My Recruiting Inbox</h3>
-            <p className="text-slate-500 text-[11px] font-bold uppercase tracking-widest mt-2">Only messages approved by your guardian appear here.</p>
-          </div>
-
-          <div className="space-y-5">
-             {approvedMessages.length === 0 ? (
-                <div className="text-center p-12 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                  <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4"><Building className="text-slate-300" size={24}/></div>
-                  <p className="text-slate-900 font-extrabold uppercase tracking-tight text-lg" style={displayFont}>Inbox Empty</p>
-                  <p className="text-slate-500 text-sm font-medium mt-2 max-w-sm mx-auto">Keep grinding on the field! When college scouts reach out through the DNA network, your approved messages will appear here.</p>
+          ) : (
+            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row overflow-hidden h-[700px]">
+              
+              {/* THREAD LIST (LEFT SIDEBAR) */}
+              <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col h-1/3 md:h-full">
+                <div className="p-5 border-b border-slate-100 bg-white">
+                  <h3 className="font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>My Inbox</h3>
                 </div>
-             ) : (
-                approvedMessages.map(msg => (
-                  <div key={msg.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:border-[#1c7ed6]/40 hover:shadow-md transition-all group">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 pb-5 border-b border-slate-50 gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center border border-blue-100 shrink-0 group-hover:bg-[#1c7ed6] transition-colors"><Building className="text-[#1c7ed6] group-hover:text-white transition-colors" size={20}/></div>
-                        <div>
-                          <p className="font-extrabold text-slate-900 text-lg uppercase tracking-tight" style={displayFont}>{msg.senderSchool}</p>
-                          <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mt-0.5">Coach {msg.senderName}</p>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-full border border-slate-100">{new Date(msg.timestamp).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-slate-700 leading-relaxed text-sm font-medium whitespace-pre-wrap">"{msg.content}"</p>
-                  </div>
-                ))
-             )}
-          </div>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                  {threads.length === 0 ? (
+                     <div className="text-center p-6 mt-4">
+                       <Mail size={32} className="mx-auto text-slate-300 mb-3" />
+                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inbox Empty</p>
+                       <p className="text-[10px] text-slate-500 mt-2">When colleges message you, they will appear here.</p>
+                     </div>
+                  ) : (
+                     threads.map(t => (
+                       <div key={t.threadId} onClick={() => setActiveThread(t)} className={`p-4 rounded-2xl cursor-pointer transition-all border ${activeThread?.threadId === t.threadId ? 'bg-white border-violet-300 shadow-sm' : 'border-transparent hover:bg-slate-100'}`}>
+                         <div className="flex justify-between items-start mb-1">
+                           <p className="font-extrabold text-sm text-slate-900 truncate pr-2 uppercase" style={displayFont}>{t.scoutSchool}</p>
+                           <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{new Date(t.lastUpdate).toLocaleDateString()}</span>
+                         </div>
+                         <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mb-1.5">Coach {t.scoutName}</p>
+                         <p className="text-xs text-slate-500 truncate">{t.lastMessagePreview}</p>
+                       </div>
+                     ))
+                  )}
+                </div>
+              </div>
+
+              {/* CHAT WINDOW (RIGHT PANE) */}
+              <div className="w-full md:w-2/3 flex flex-col bg-white h-2/3 md:h-full">
+                 {activeThread ? (
+                   <>
+                     <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
+                       <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center border border-blue-100"><Building className="text-[#1c7ed6]" size={20}/></div>
+                         <div>
+                           <h3 className="font-extrabold text-lg text-slate-900 uppercase" style={displayFont}>{activeThread.scoutSchool}</h3>
+                           <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest">Coach {activeThread.scoutName}</p>
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 flex flex-col gap-4">
+                       {threadMessages.filter(m => m.senderRole === 'athlete' || m.status === 'approved').map(msg => {
+                          const isAthlete = msg.senderRole === 'athlete';
+                          return (
+                            <div key={msg.id} className={`flex flex-col max-w-[85%] md:max-w-[75%] ${isAthlete ? 'self-end items-end' : 'self-start items-start'}`}>
+                              <div className={`p-4 rounded-2xl ${isAthlete ? (msg.status === 'draft' ? 'bg-violet-400' : 'bg-violet-600') + ' text-white rounded-tr-sm shadow-md' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm'}`}>
+                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1.5 px-1">
+                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                  {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </span>
+                                {isAthlete && (
+                                  <span className="text-slate-400">
+                                    {msg.readAt ? <CheckCheck size={12} className="text-violet-500" /> : (msg.status === 'draft' ? <Clock size={10} /> : <Check size={12} />)}
+                                  </span>
+                                )}
+                              </div>
+                              {isAthlete && msg.status === 'draft' && <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest pr-1 mt-0.5">Pending Parent Approval</span>}
+                            </div>
+                          )
+                       })}
+                     </div>
+                     
+                     <div className="p-4 bg-white border-t border-slate-100">
+                       <form onSubmit={handleSendReply} className="flex gap-3 relative">
+                         <input type="text" placeholder={`Draft reply to Coach ${activeThread.scoutName}...`} className="flex-1 bg-slate-50 border border-slate-200 rounded-full pl-5 pr-14 py-3 text-sm font-medium focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all" value={replyContent} onChange={e => setReplyContent(e.target.value)} />
+                         <button type="submit" disabled={sendingReply || !replyContent.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors shadow-sm">
+                           {sendingReply ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
+                         </button>
+                       </form>
+                     </div>
+                   </>
+                 ) : (
+                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
+                     <Mail size={48} className="text-slate-200 mb-4" />
+                     <h3 className="font-extrabold text-slate-400 uppercase tracking-tight text-xl" style={displayFont}>Select a Conversation</h3>
+                     <p className="text-sm font-medium text-slate-400 mt-2 max-w-sm">Select an active recruiting thread from the sidebar to view messages and draft replies.</p>
+                   </div>
+                 )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
