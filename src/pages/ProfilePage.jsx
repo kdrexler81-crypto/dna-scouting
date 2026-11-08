@@ -6,15 +6,15 @@ import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtS
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-// Look! No more props passed in from App.jsx!
-export const ProfilePage = () => {
+// FIX: Add { onBack } back inside the parentheses!
+export const ProfilePage = ({ onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Instantly grab the live database players array from the global context
   const { players } = useApp(); 
 
   const player = players.find(p => p.id === id);
+  // ... rest of the file stays the same
 
   if (!player) {
     return (
