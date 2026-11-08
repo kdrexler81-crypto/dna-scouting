@@ -1,26 +1,31 @@
 // src/pages/ProfilePage.jsx
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext'; 
 import { ChevronLeft, FileText, Award, Activity, Shield, Zap, Target, Video, AtSign, Mail, Eye, GraduationCap } from 'lucide-react';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-export const ProfilePage = ({ players, onBack }) => {
-  // 1. Extract the ID from the URL bar (e.g., /player/123 -> id = '123')
+// Look! No more props passed in from App.jsx!
+export const ProfilePage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  
+  // Instantly grab the live database players array from the global context
+  const { players } = useApp(); 
 
-  // 2. Find the specific athlete in the database array
   const player = players.find(p => p.id === id);
 
-  // 3. Graceful fallback if the ID is invalid
   if (!player) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center animate-in fade-in">
         <h2 className="text-2xl font-extrabold text-slate-800 mb-4" style={displayFont}>Athlete Not Found</h2>
-        <button onClick={onBack} className="text-[#1c7ed6] font-bold hover:underline">Go Back</button>
+        <button onClick={() => navigate(-1)} className="text-[#1c7ed6] font-bold hover:underline">Go Back</button>
       </div>
     );
   }
+  
+  // ... the rest of the file stays exactly the same!
 
   const getEmbedUrl = (url) => { if (!url || typeof url !== 'string') return null; if (url.includes('youtube.com') || url.includes('youtu.be')) { let videoId = ''; if (url.includes('youtu.be')) videoId = url.split('/').pop().split('?')[0]; else try { const urlObj = new URL(url); videoId = urlObj.searchParams.get('v'); } catch (e) { videoId = ''; } return videoId ? `https://www.youtube.com/embed/${videoId}` : null; } return null; };
   const getMetricStyle = (val, label) => { try { if (!val || val === "N/A" || label === 'Height' || label === 'Weight') return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; const green = { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' }; const yellow = { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' }; const red = { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' }; const num = parseFloat(String(val).replace(/[^0-9.]/g, '')); if (isNaN(num)) return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; if (label.includes('Sprint')) return num <= 6.0 ? green : num <= 6.5 ? yellow : red; if (label.includes('Shuttle')) return num <= 5.25 ? green : num <= 5.5 ? yellow : red; if (label.includes('Drill')) return num <= 5.2 ? green : num <= 6.0 ? yellow : red; if (label.includes('MPH')) return num >= 14.0 ? green : num >= 12.0 ? yellow : red; return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } catch (e) { return { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200' }; } };
