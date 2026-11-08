@@ -12,7 +12,6 @@ const InputLabel = ({ children }) => <label className="text-[10px] font-bold tex
 const FormInput = (props) => <input {...props} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all ${props.className || ''}`} />;
 
 export const AdminPanel = ({ onBack, onLogout }) => {
-  // Grab everything directly from Context!
   const { app, appId, db, storage, isFirebaseActive: dbConfigured, players, scouts } = useApp();
 
   const [activeTab, setActiveTab] = useState('athlete');
@@ -28,7 +27,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
 
   const defaultMetrics = {
     name: '', primaryPos: 'QB', secondaryPos: '', gradYear: '', city: '', state: '', dnaTeam: 'None', externalClub: '',
-    gpa: '', sat: '', twitter: '', guardianEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
+    gpa: '', sat: '', twitter: '', guardianEmail: '', athleteEmail: '', scoutNotes: '', heightFeet: '', heightInches: '', weight: '',
     sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
     broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
     hudlLink: '', stat1Label: 'Touchdowns', stat1Value: '', stat2Label: 'Interceptions', stat2Value: '', stat3Label: 'Yards / Rec', stat3Value: '',
@@ -49,7 +48,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     if (p) {
       setMetrics({
         name: p.name || '', primaryPos: p.primaryPos || p.pos || 'QB', secondaryPos: p.secondaryPos || '', dnaTeam: p.dnaTeam || 'None', externalClub: p.externalClub || '',
-        gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', guardianEmail: p.guardianEmail || '', 
+        gradYear: p.gradYear || '', city: p.city || '', state: p.state || '', gpa: p.gpa || '', sat: p.sat || '', twitter: p.twitter || '', 
+        guardianEmail: p.guardianEmail || '', athleteEmail: p.athleteEmail || '', // ADDED ATHLETE EMAIL
         scoutNotes: p.scoutNotes || '', weight: p.weight || '', hudlLink: p.hudlLink || '', 
         stat1Label: p.seasonStats?.stat1Label || 'Touchdowns', stat1Value: p.seasonStats?.stat1Value || '',
         stat2Label: p.seasonStats?.stat2Label || 'Interceptions', stat2Value: p.seasonStats?.stat2Value || '',
@@ -112,7 +112,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
 
       const playerData = {
         name: metrics.name, primaryPos: metrics.primaryPos, secondaryPos: metrics.secondaryPos, gradYear: Number(metrics.gradYear), city: metrics.city, state: metrics.state, dnaTeam: metrics.dnaTeam, externalClub: metrics.externalClub,
-        gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, guardianEmail: metrics.guardianEmail, scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, 
+        gpa: metrics.gpa, sat: metrics.sat, twitter: metrics.twitter, 
+        guardianEmail: metrics.guardianEmail, athleteEmail: metrics.athleteEmail, // ADDED ATHLETE EMAIL
+        scoutNotes: metrics.scoutNotes, hudlLink: metrics.hudlLink, 
         seasonStats: { stat1Label: metrics.stat1Label, stat1Value: metrics.stat1Value, stat2Label: metrics.stat2Label, stat2Value: metrics.stat2Value, stat3Label: metrics.stat3Label, stat3Value: metrics.stat3Value },
         height: newCombineRecord.height, weight: newCombineRecord.weight, dnaScore: overallResult.data.dnaScore, combineEvent: { location: newCombineRecord.location, date: newCombineRecord.date },
         speedVerifications: newCombineRecord.speedVerifications, metrics: newCombineRecord.metrics, updatedAt: Date.now()
@@ -230,7 +232,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
                     <div><InputLabel>GPA</InputLabel><FormInput type="number" step="0.1" value={metrics.gpa} onChange={e => setMetrics({...metrics, gpa: e.target.value})} /></div>
                     <div><InputLabel>SAT/ACT</InputLabel><FormInput type="text" value={metrics.sat} onChange={e => setMetrics({...metrics, sat: e.target.value})} /></div>
                     <div><InputLabel>Twitter</InputLabel><FormInput type="text" value={metrics.twitter} onChange={e => setMetrics({...metrics, twitter: e.target.value})} /></div>
-                    <div><InputLabel>Guardian Email</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
+                    <div className="hidden md:block"></div>
+                    <div><InputLabel>Guardian Email (Parent)</InputLabel><FormInput type="email" value={metrics.guardianEmail} onChange={e => setMetrics({...metrics, guardianEmail: e.target.value})} /></div>
+                    <div><InputLabel>Athlete Email (Player)</InputLabel><FormInput type="email" value={metrics.athleteEmail} onChange={e => setMetrics({...metrics, athleteEmail: e.target.value})} /></div>
                   </div>
                   <div><InputLabel>Scout Notes</InputLabel><textarea className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none min-h-[100px]" value={metrics.scoutNotes} onChange={e => setMetrics({...metrics, scoutNotes: e.target.value})} /></div>
                 </div>

@@ -1,18 +1,12 @@
 // src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ChevronLeft, Lock, Camera, Ruler, Zap, Target, Newspaper, Trophy, 
-  Activity, Loader2, Video, ExternalLink, Shield, MapPin, Eye, Search, 
-  X, User, GraduationCap, Mail, AtSign, FileText, Award, Users, QrCode, 
-  Download, LayoutDashboard, Star, GripVertical, Building, Megaphone,
-  CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
-} from 'lucide-react';
+import { Lock, Loader2, X, User, Users, Building, LayoutDashboard, Trophy, Shield } from 'lucide-react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 // --- PAGES ---
 import { AdminPanel } from './pages/AdminPanel';
 import { RecruiterPortal } from './pages/RecruiterPortal';
-import { FamilyDashboard } from './pages/FamilyDashboard';
+import { FamilyDashboard } from './pages/FamilyDashboard'; // This will become ParentDashboard
 import { ProfilePage } from './pages/ProfilePage';
 import { PublicHub } from './pages/PublicHub';
 import { RosterPage } from './pages/RosterPage';
@@ -52,7 +46,7 @@ const SanctionedFooter = () => (
   </footer>
 );
 
-// --- LOGIN MODAL ---
+// --- SEPARATED LOGIN MODAL ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   const { auth, db, appId } = useApp(); 
 
@@ -88,13 +82,16 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
         await signOut(auth);
         setError("Account created successfully. It is currently pending Admin approval.");
         setMode('recruiter_login');
-      } else if (mode === 'family_signup') {
+      } else if (mode === 'parent_signup' || mode === 'athlete_signup') {
+        const userRole = mode === 'parent_signup' ? 'parent' : 'athlete';
+        const collectionName = userRole === 'parent' ? 'parents' : 'athletes';
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'families', userCred.user.uid), { email: username, role: 'family', createdAt: Date.now() });
-        onLoginSuccess('family', { email: username, uid: userCred.user.uid });
-      } else if (mode === 'family_login') {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', collectionName, userCred.user.uid), { email: username, role: userRole, createdAt: Date.now() });
+        onLoginSuccess(userRole, { email: username, uid: userCred.user.uid });
+      } else if (mode === 'parent_login' || mode === 'athlete_login') {
+        const userRole = mode === 'parent_login' ? 'parent' : 'athlete';
         const userCred = await signInWithEmailAndPassword(auth, username, password);
-        onLoginSuccess('family', { email: username, uid: userCred.user.uid });
+        onLoginSuccess(userRole, { email: username, uid: userCred.user.uid });
       } else {
         const userCred = await signInWithEmailAndPassword(auth, username, password);
         if (mode === 'recruiter_login') {
@@ -112,29 +109,45 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
     setLoading(false);
   };
 
-  const activeColor = mode === 'admin' ? '#d6336c' : (mode.includes('recruiter') ? '#1c7ed6' : '#059669');
+  const getActiveColor = () => {
+    if (mode.includes('admin')) return '#d6336c';
+    if (mode.includes('recruiter')) return '#1c7ed6';
+    if (mode.includes('parent')) return '#059669'; // Emerald
+    if (mode.includes('athlete')) return '#8b5cf6'; // Violet
+    return '#334155';
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
       <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-md p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: activeColor }}></div>
+        <div className="absolute top-0 left-0 w-full h-1.5" style={{ background: getActiveColor() }}></div>
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 transition-colors bg-slate-50 p-1.5 rounded-full"><X size={18} /></button>
         
-        <div className="flex gap-1.5 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
-          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
-          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
-          <button onClick={() => {setMode('family_login'); setError('');}} className={`flex-1 py-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('family') ? 'bg-white shadow-sm text-[#059669]' : 'text-slate-500 hover:text-slate-700'}`}>Parent / Athlete</button>
+        <div className="flex flex-wrap gap-1.5 mb-8 bg-slate-50 p-1.5 rounded-xl border border-slate-100">
+          <button onClick={() => {setMode('admin'); setError('');}} className={`flex-1 py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode === 'admin' ? 'bg-white shadow-sm text-[#d6336c]' : 'text-slate-500 hover:text-slate-700'}`}>Admin</button>
+          <button onClick={() => {setMode('recruiter_login'); setError('');}} className={`flex-1 py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('recruiter') ? 'bg-white shadow-sm text-[#1c7ed6]' : 'text-slate-500 hover:text-slate-700'}`}>Scout</button>
+          <button onClick={() => {setMode('parent_login'); setError('');}} className={`flex-1 py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('parent') ? 'bg-white shadow-sm text-[#059669]' : 'text-slate-500 hover:text-slate-700'}`}>Parent</button>
+          <button onClick={() => {setMode('athlete_login'); setError('');}} className={`flex-1 py-2 text-[9px] sm:text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${mode.includes('athlete') ? 'bg-white shadow-sm text-[#8b5cf6]' : 'text-slate-500 hover:text-slate-700'}`}>Athlete</button>
         </div>
 
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4" style={{ color: activeColor }}>
-            {mode === 'admin' ? <Lock size={24} /> : (mode.includes('recruiter') ? <Building size={24} /> : <Users size={24} />)}
+          <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto mb-4" style={{ color: getActiveColor() }}>
+            {mode === 'admin' && <Lock size={24} />}
+            {mode.includes('recruiter') && <Building size={24} />}
+            {mode.includes('parent') && <Shield size={24} />}
+            {mode.includes('athlete') && <Trophy size={24} />}
           </div>
           <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>
-            {mode === 'admin' ? 'Coach Portal' : (mode.includes('recruiter') ? 'Scout / Recruiter' : 'Parent Dashboard')}
+            {mode === 'admin' && 'Coach Portal'}
+            {mode.includes('recruiter') && 'Scout / Recruiter'}
+            {mode.includes('parent') && 'Parent Dashboard'}
+            {mode.includes('athlete') && 'Athlete Locker Room'}
           </h2>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">
-            {mode === 'admin' ? 'Authorized Staff Only' : (mode.includes('recruiter') ? 'Verified .EDU Coaches Only' : 'Athlete Parents & Guardians')}
+            {mode === 'admin' && 'Authorized Staff Only'}
+            {mode.includes('recruiter') && 'Verified .EDU Coaches Only'}
+            {mode.includes('parent') && 'Parent/Guardian Inbox'}
+            {mode.includes('athlete') && 'Approved Athlete Inbox'}
           </p>
         </div>
         
@@ -148,26 +161,28 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
             </div>
           )}
           <div>
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">
+              {mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}
+            </label>
             <div className="relative">
               <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="email" placeholder="Enter email" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: activeColor }} value={username} onChange={e => setUsername(e.target.value)} />
+              <input required type="email" placeholder="Enter email" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: getActiveColor() }} value={username} onChange={e => setUsername(e.target.value)} />
             </div>
           </div>
           <div>
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1.5">Password</label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-              <input required type="password" placeholder="Enter password" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: activeColor }} value={password} onChange={e => setPassword(e.target.value)} />
+              <input required type="password" placeholder="Enter password" className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-11 pr-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all" style={{ borderColor: getActiveColor() }} value={password} onChange={e => setPassword(e.target.value)} />
             </div>
           </div>
           
-          <button type="submit" disabled={loading} className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg mt-4 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : activeColor }}>
+          <button type="submit" disabled={loading} className="w-full hover:-translate-y-0.5 transition-all text-white font-bold py-4 rounded-xl uppercase tracking-wider text-sm shadow-lg mt-4 flex justify-center items-center gap-2" style={{ background: mode === 'admin' ? 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' : getActiveColor() }}>
             {loading ? <Loader2 size={18} className="animate-spin" /> : (mode.includes('signup') ? 'Create Account' : 'Authenticate & Enter')}
           </button>
         </form>
 
-        {(mode.includes('recruiter') || mode.includes('family')) && (
+        {(mode.includes('recruiter') || mode.includes('parent') || mode.includes('athlete')) && (
            <div className="mt-5 text-center">
              <button type="button" onClick={() => setMode(mode.includes('login') ? mode.replace('login', 'signup') : mode.replace('signup', 'login'))} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 transition-colors">
                {mode.includes('login') ? "Don't have an account? Create one." : "Already registered? Sign In."}
@@ -189,7 +204,7 @@ export default function App() {
     players, news, scouts, dbStatus,
     authRole, setAuthRole,
     recruiterData, setRecruiterData,
-    familyData, setFamilyData 
+    familyData, setFamilyData // We'll keep this generic naming for now so we don't break AppContext
   } = useApp();
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -220,9 +235,16 @@ export default function App() {
   const handleLoginSuccess = (role, data) => { 
     setAuthRole(role); sessionStorage.setItem('dna_auth_role', role);
     if (role === 'recruiter') { setRecruiterData(data); sessionStorage.setItem('dna_recruiter_data', JSON.stringify(data)); }
-    if (role === 'family') { setFamilyData(data); sessionStorage.setItem('dna_family_data', JSON.stringify(data)); }
+    // Save both Parent and Athlete to the same generic familyData state object for now
+    if (role === 'parent' || role === 'athlete') { setFamilyData(data); sessionStorage.setItem('dna_family_data', JSON.stringify(data)); }
+    
     setIsLoginModalOpen(false); 
-    navigate(role === 'admin' ? '/admin' : (role === 'recruiter' ? '/scout' : '/family')); 
+    
+    if (role === 'admin') navigate('/admin');
+    else if (role === 'recruiter') navigate('/scout');
+    else if (role === 'parent') navigate('/parent');
+    else if (role === 'athlete') navigate('/athlete');
+    
     window.scrollTo(0, 0); 
   };
   
@@ -252,6 +274,14 @@ export default function App() {
 
   const openModal = (mode) => { setLoginModalMode(mode); setIsDropdownOpen(false); setIsLoginModalOpen(true); };
 
+  const getDashboardRoute = () => {
+    if (authRole === 'admin') return '/admin';
+    if (authRole === 'recruiter') return '/scout';
+    if (authRole === 'parent') return '/parent';
+    if (authRole === 'athlete') return '/athlete';
+    return '/';
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between" style={bodyFont}>
       <nav className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-40 print:hidden">
@@ -275,7 +305,7 @@ export default function App() {
             {authRole ? (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => navigate(authRole === 'admin' ? '/admin' : (authRole === 'recruiter' ? '/scout' : '/family'))}
+                  onClick={() => navigate(getDashboardRoute())}
                   className="text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full text-white shadow-sm flex items-center gap-1.5 transition-all hover:opacity-90"
                   style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
                 >
@@ -294,11 +324,18 @@ export default function App() {
 
                 {isDropdownOpen && (
                   <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <button onClick={() => openModal('family_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                      <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><Users size={16} /></div>
+                    <button onClick={() => openModal('athlete_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-violet-50 text-violet-500"><Trophy size={16} /></div>
                       <div>
-                        <div className="text-slate-900">Parent / Athlete</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Manage Profile & Views</div>
+                        <div className="text-slate-900">Athlete Locker Room</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Approved Messages</div>
+                      </div>
+                    </button>
+                    <button onClick={() => openModal('parent_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
+                      <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><Shield size={16} /></div>
+                      <div>
+                        <div className="text-slate-900">Parent Dashboard</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Inbox Moderation</div>
                       </div>
                     </button>
                     <button onClick={() => openModal('recruiter_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
@@ -313,7 +350,7 @@ export default function App() {
                       <div className="p-1.5 rounded-lg bg-pink-50 text-[#d6336c]"><Lock size={16} /></div>
                       <div>
                         <div className="text-slate-900">Coach / Admin</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Combine & Roster Entry</div>
+                        <div className="text-[9px] text-slate-400 font-semibold">Combine Data Entry</div>
                       </div>
                     </button>
                   </div>
@@ -333,36 +370,18 @@ export default function App() {
 
       <main className="flex-grow">
         <Routes>
-          {/* PUBLIC ROUTES */}
-          <Route path="/" element={
-            <PublicHub onSelect={handlePlayerSelect} />
-          } />
+          <Route path="/" element={<PublicHub onSelect={handlePlayerSelect} />} />
+          <Route path="/roster" element={<RosterPage onSelect={handlePlayerSelect} onBack={() => navigate('/')} />} />
+          <Route path="/player/:id" element={<ProfilePage onBack={() => navigate(-1)} />} />
+
+          <Route path="/admin" element={authRole === 'admin' ? <AdminPanel onLogout={handleLogout} onBack={() => navigate('/')} /> : <Navigate to="/" replace />} />
           
-          <Route path="/roster" element={
-          <RosterPage onSelect={handlePlayerSelect} onBack={() => navigate('/')} />
-          } />
+          <Route path="/scout" element={(authRole === 'recruiter' || authRole === 'scout') ? <RecruiterPortal onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} /> : <Navigate to="/" replace />} />
 
-          <Route path="/player/:id" element={
-            <ProfilePage onBack={() => navigate(-1)} />
-          } />
-
-          <Route path="/admin" element={
-            authRole === 'admin' 
-            ? <AdminPanel onLogout={handleLogout} onBack={() => navigate('/')} />
-            : <Navigate to="/" replace />
-          } />
-
-          <Route path="/scout" element={
-            (authRole === 'recruiter' || authRole === 'scout')
-            ? <RecruiterPortal onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
-            : <Navigate to="/" replace />
-          } />
-
-          <Route path="/family" element={
-            authRole === 'family'
-            ? <FamilyDashboard onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
-            : <Navigate to="/" replace />
-          } />
+          {/* PARENT AND ATHLETE ROUTES ARE NOW SPLIT */}
+          <Route path="/parent" element={authRole === 'parent' ? <FamilyDashboard viewMode="parent" onLogout={handleLogout} /> : <Navigate to="/" replace />} />
+          
+          <Route path="/athlete" element={authRole === 'athlete' ? <FamilyDashboard viewMode="athlete" onLogout={handleLogout} /> : <Navigate to="/" replace />} />
         </Routes>
       </main>
 
