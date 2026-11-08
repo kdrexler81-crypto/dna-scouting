@@ -333,12 +333,13 @@ export default function App() {
 
       <main className="flex-grow">
         <Routes>
+          {/* PUBLIC ROUTES */}
           <Route path="/" element={
-            <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />
+            <PublicHub onSelect={handlePlayerSelect} />
           } />
           
           <Route path="/roster" element={
-            <RosterPage players={players} onSelect={handlePlayerSelect} onBack={() => navigate('/')} />
+          <RosterPage onSelect={handlePlayerSelect} onBack={() => navigate('/')} />
           } />
 
           <Route path="/player/:id" element={
@@ -347,20 +348,20 @@ export default function App() {
 
           <Route path="/admin" element={
             authRole === 'admin' 
-              ? <AdminPanel app={app} appId={appId} db={db} storage={storage} dbConfigured={isFirebaseActive} players={players} scouts={scouts} onLogout={handleLogout} onBack={() => navigate('/')} />
-              : <Navigate to="/" replace />
+            ? <AdminPanel onLogout={handleLogout} onBack={() => navigate('/')} />
+            : <Navigate to="/" replace />
           } />
 
           <Route path="/scout" element={
             (authRole === 'recruiter' || authRole === 'scout')
-              ? <RecruiterPortal app={app} appId={appId} db={db} dbConfigured={isFirebaseActive} players={players} recruiterData={recruiterData} onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
-              : <Navigate to="/" replace />
+            ? <RecruiterPortal onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
+            : <Navigate to="/" replace />
           } />
 
           <Route path="/family" element={
             authRole === 'family'
-              ? <FamilyDashboard app={app} appId={appId} db={db} dbConfigured={isFirebaseActive} players={players} user={familyData} onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
-              : <Navigate to="/" replace />
+            ? <FamilyDashboard onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} />
+            : <Navigate to="/" replace />
           } />
         </Routes>
       </main>

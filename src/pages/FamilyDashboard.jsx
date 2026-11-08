@@ -3,15 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Shield, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-export const FamilyDashboard = ({ app, appId, db, user, onLogout }) => {
+export const FamilyDashboard = ({ onLogout }) => {
+  // Grab everything directly from Context! (Alias familyData to user)
+  const { app, appId, db, familyData: user } = useApp();
+
   const [messages, setMessages] = useState([]);
   const [loadingAction, setLoadingAction] = useState(null);
 
   useEffect(() => {
-    // We now check if 'db' exists instead of the old 'isFirebaseActive' variable
     if (!user?.email || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("guardianEmail", "==", user.email));
     const unsub = onSnapshot(q, (snap) => {
@@ -90,7 +93,7 @@ export const FamilyDashboard = ({ app, appId, db, user, onLogout }) => {
               approvedMessages.map(msg => (
                 <div key={msg.id} className="mb-4 last:mb-0 border border-slate-100 rounded-2xl p-5">
                   <div className="flex justify-between items-start mb-2">
-                    <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} • <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
+                    <p className="font-extrabold text-slate-900 text-sm uppercase">{msg.senderName} <span className="text-[#1c7ed6]">{msg.senderSchool}</span></p>
                     <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full font-bold uppercase tracking-wider">Approved</span>
                   </div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-widest">For: {msg.athleteName}</p>

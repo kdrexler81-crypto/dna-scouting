@@ -6,11 +6,15 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { Activity, Megaphone, Building, Search, Camera, Users, GraduationCap, Trophy, MapPin, Zap, Ruler, ChevronLeft } from 'lucide-react';
 import { AdminScoutApproval } from '../components/admin/AdminScoutApproval';
+import { useApp } from '../context/AppContext';
 
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-widest">{children}</label>;
 const FormInput = (props) => <input {...props} className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 text-sm font-medium focus:outline-none focus:border-[#1c7ed6] focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all ${props.className || ''}`} />;
 
-export const AdminPanel = ({ app, appId, db, storage, onBack, dbConfigured, players, scouts, onLogout }) => {
+export const AdminPanel = ({ onBack, onLogout }) => {
+  // Grab everything directly from Context!
+  const { app, appId, db, storage, isFirebaseActive: dbConfigured, players, scouts } = useApp();
+
   const [activeTab, setActiveTab] = useState('athlete');
   const [savingAthlete, setSavingAthlete] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);

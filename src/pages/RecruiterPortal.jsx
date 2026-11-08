@@ -4,6 +4,7 @@ import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
@@ -82,7 +83,10 @@ const DroppableColumn = ({ id, title, players, onPlayerClick }) => {
   );
 };
 
-export const RecruiterPortal = ({ app, appId, db, players, recruiterData, onSelect, onLogout }) => {
+export const RecruiterPortal = ({ onSelect, onLogout }) => {
+  // Grab everything directly from Context!
+  const { app, appId, db, players, recruiterData } = useApp();
+
   const [activeTab, setActiveTab] = useState('database');
   const [boardData, setBoardData] = useState({ priority: [], interested: [], pass: [] });
   const [compareIds, setCompareIds] = useState([]);
@@ -97,7 +101,6 @@ export const RecruiterPortal = ({ app, appId, db, players, recruiterData, onSele
   const [minDna, setMinDna] = useState(0); const [minGpa, setMinGpa] = useState(0); const [maxSprint, setMaxSprint] = useState(10); const [maxShuttle, setMaxShuttle] = useState(10); const [maxLDrill, setMaxLDrill] = useState(10); const [minBroad, setMinBroad] = useState(0); const [minVert, setMinVert] = useState(0); const [posFilter, setPosFilter] = useState('All'); const [yearFilter, setYearFilter] = useState('All');
 
   useEffect(() => {
-    // Replaced isFirebaseActive with checking for db
     if (!recruiterData?.uid || !db) return;
     const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', recruiterData.uid), (docSnap) => {
       if (docSnap.exists() && docSnap.data().board) setBoardData(docSnap.data().board);

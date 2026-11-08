@@ -1,11 +1,15 @@
 // src/pages/PublicHub.jsx
 import React, { useState, useMemo } from 'react';
 import { Search, Trophy, ChevronLeft, Video } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 // --- PUBLIC HUB ---
-export const PublicHub = ({ players, news: localNews, onSelect }) => {
+export const PublicHub = ({ onSelect }) => {
+  // Grab players directly from Context!
+  const { players } = useApp();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [posFilter, setPosFilter] = useState('All');
   const [yearFilter, setYearFilter] = useState('All');
