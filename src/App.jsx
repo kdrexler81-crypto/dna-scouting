@@ -8,43 +8,21 @@ import {
   CheckCircle, Clock, Globe, GitCompare, MessageSquare, Send, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+
+// --- PAGES ---
 import { AdminPanel } from './pages/AdminPanel';
 import { RecruiterPortal } from './pages/RecruiterPortal';
 import { FamilyDashboard } from './pages/FamilyDashboard';
 import { ProfilePage } from './pages/ProfilePage';
 import { PublicHub } from './pages/PublicHub';
 import { RosterPage } from './pages/RosterPage';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, increment, deleteDoc, setDoc, getDoc } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
-// --- FIREBASE INITIALIZATION ---
-let app, auth, db, appId, storage;
-let isFirebaseActive = false;
+// --- GLOBAL STATE ---
+import { useApp } from './context/AppContext';
 
-try {
-  const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID
-  };
-  if (firebaseConfig.apiKey) {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    appId = firebaseConfig.appId || 'default-app-id';
-    isFirebaseActive = true;
-  }
-} catch (e) {
-  console.error("Firebase offline", e);
-}
-
-const INITIAL_SEED = { players: [], news: [], scouts: [] };
+// --- FIREBASE ACTIONS ---
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 
 // --- TYPOGRAPHY HELPERS ---
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
@@ -76,6 +54,8 @@ const SanctionedFooter = () => (
 
 // --- LOGIN MODAL ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
+  const { auth, db, appId } = useApp(); 
+
   const [mode, setMode] = useState(initialMode || 'admin');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -204,18 +184,18 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [players, setPlayers] = useState(INITIAL_SEED.players);
-  const [news, setNews] = useState(INITIAL_SEED.news);
-  const [scouts, setScouts] = useState(INITIAL_SEED.scouts);
-  const [dbStatus, setDbStatus] = useState("OFFLINE");
+  const { 
+    app, auth, db, storage, appId, isFirebaseActive,
+    players, news, scouts, dbStatus,
+    authRole, setAuthRole,
+    recruiterData, setRecruiterData,
+    familyData, setFamilyData 
+  } = useApp();
+
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState('admin');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
-  
-  const [authRole, setAuthRole] = useState(() => sessionStorage.getItem('dna_auth_role') || null);
-  const [recruiterData, setRecruiterData] = useState(() => JSON.parse(sessionStorage.getItem('dna_recruiter_data')) || null);
-  const [familyData, setFamilyData] = useState(() => JSON.parse(sessionStorage.getItem('dna_family_data')) || null);
 
   useEffect(() => {
     if (!document.getElementById('dna-fonts')) {
@@ -223,15 +203,6 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (!isFirebaseActive || !db) return;
-    setDbStatus("CONNECTING...");
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'players'), (snapshot) => { const items = []; snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() })); setPlayers(items); });
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'news'), (snapshot) => { const newsItems = []; snapshot.forEach(doc => newsItems.push({ id: doc.id, ...doc.data() })); setNews(newsItems); setDbStatus("LIVE SYNC"); }, (err) => { console.error("Firebase News Error:", err); });
-    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'recruiters'), (snapshot) => { const scoutItems = []; snapshot.forEach(doc => scoutItems.push({ id: doc.id, ...doc.data() })); setScouts(scoutItems); });
-  }, []);
-
-  // Support legacy QR code links (?p=playerId) by routing directly to /player/:id
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const targetPlayerId = params.get('p');
@@ -283,7 +254,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between" style={bodyFont}>
-      {/* --- ORIGINAL RESTORED HEADER --- */}
       <nav className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-40 print:hidden">
         <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
           <div className="cursor-pointer flex items-center gap-4" onClick={() => navigate('/')}>
@@ -354,7 +324,6 @@ export default function App() {
         </div>
       </nav>
 
-      {/* --- LOGIN MODAL --- */}
       <LoginModal 
         isOpen={isLoginModalOpen} 
         onClose={() => setIsLoginModalOpen(false)} 
@@ -362,10 +331,8 @@ export default function App() {
         initialMode={loginModalMode} 
       />
 
-      {/* --- MAIN ROUTED CONTENT --- */}
       <main className="flex-grow">
         <Routes>
-          {/* PUBLIC ROUTES */}
           <Route path="/" element={
             <PublicHub players={players} news={news} onSelect={handlePlayerSelect} />
           } />
@@ -375,10 +342,9 @@ export default function App() {
           } />
 
           <Route path="/player/:id" element={
-            <ProfilePage players={players} onBack={() => navigate(-1)} />
+            <ProfilePage onBack={() => navigate(-1)} />
           } />
 
-          {/* PROTECTED ROUTES */}
           <Route path="/admin" element={
             authRole === 'admin' 
               ? <AdminPanel app={app} appId={appId} db={db} storage={storage} dbConfigured={isFirebaseActive} players={players} scouts={scouts} onLogout={handleLogout} onBack={() => navigate('/')} />
@@ -399,7 +365,6 @@ export default function App() {
         </Routes>
       </main>
 
-      {/* --- FOOTER --- */}
       <SanctionedFooter />
     </div>
   );
