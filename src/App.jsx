@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Lock, Loader2, X, User, Users, Building, LayoutDashboard, Trophy, Shield, Key } from 'lucide-react';
+import { Lock, Loader2, X, User, Users, Building, LayoutDashboard, Trophy, Shield, Key, Sparkles } from 'lucide-react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -11,6 +11,7 @@ import { FamilyDashboard } from './pages/FamilyDashboard';
 import { ProfilePage } from './pages/ProfilePage';
 import { PublicHub } from './pages/PublicHub';
 import { RosterPage } from './pages/RosterPage';
+import { AboutPage } from './pages/AboutPage';
 
 // --- GLOBAL STATE ---
 import { useApp } from './context/AppContext';
@@ -368,6 +369,12 @@ export default function App() {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button 
+              onClick={() => navigate('/about')} 
+              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/about' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+            >
+              <Sparkles size={15} /> <span className="hidden sm:inline">Platform</span> Features
+            </button>
+            <button 
               onClick={() => navigate('/roster')} 
               className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/roster' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
             >
@@ -444,6 +451,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<PublicHub onSelect={handlePlayerSelect} />} />
           <Route path="/roster" element={<RosterPage onSelect={handlePlayerSelect} onBack={() => navigate('/')} />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/player/:id" element={<ProfilePage onBack={() => navigate(-1)} />} />
           <Route path="/admin" element={authRole === 'admin' ? <AdminPanel onLogout={handleLogout} onBack={() => navigate('/')} /> : <Navigate to="/" replace />} />
           <Route path="/scout" element={(authRole === 'recruiter' || authRole === 'scout') ? <RecruiterPortal onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} /> : <Navigate to="/" replace />} />

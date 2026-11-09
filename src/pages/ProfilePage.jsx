@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, ExternalLink, PlayCircle, BookOpen } from 'lucide-react';
+import { ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, ExternalLink, PlayCircle, BookOpen, Shield, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
