@@ -29,6 +29,8 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
   // OUTBOUND ENGINE STATE
   const [collegeSearch, setCollegeSearch] = useState('');
   const [collegeDivision, setCollegeDivision] = useState('All'); 
+  const [emailModalCollege, setEmailModalCollege] = useState(null); // NEW
+  const [copiedField, setCopiedField] = useState(null); // NEW
 
   // DATA FETCHING: PARENT MODERATION QUEUE
   useEffect(() => {
@@ -97,17 +99,9 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     setSendingReply(false);
   };
 
-  // ATHLETE ACTION: AUTO-GENERATE OUTBOUND EMAIL
-  const generateOutboundEmail = (college) => {
-    if (!activeAthlete) return;
-
-    // Smart Fallback: If no email is available, run a Google search for their staff directory
-    if (!college.email) {
-      const searchQuery = `${college.name} women's flag football coach email staff directory`;
-      window.open(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`, '_blank');
-      return;
-    }
-
+  // ATHLETE ACTION: BUILD & LAUNCH OUTBOUND EMAIL
+  const buildEmailPayload = (college) => {
+    if (!activeAthlete || !college) return { to: '', subject: '', body: '' };
     const coachLastName = college.coach && college.coach !== 'TBA' ? college.coach.split(' ').pop() : 'Coach';
     const subject = `${activeAthlete.gradYear} Prospect - ${activeAthlete.name} - ${activeAthlete.primaryPos} - DNA Score: ${activeAthlete.dnaScore}`;
     const body = `Coach ${coachLastName},\n\n` +
@@ -121,8 +115,52 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       `Verified Profile: https://www.dnaflagratings.com/player/${activeAthlete.id}\n\n` +
       `I would love to connect to discuss how I could be a fit for your program.\n\n` +
       `Best regards,\n${activeAthlete.name}\n${activeAthlete.athletePhone || ''}\n${activeAthlete.athleteEmail}`;
-    
-    window.open(`mailto:${college.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+
+    return { to: college.email, subject, body };
+  };
+
+  const generateOutboundEmail = (college) => {
+    if (!activeAthlete) return;
+
+    // Smart Fallback: If no email is available, run a Google search for their staff directory
+    if (!college.email) {
+      const searchQuery = `${college.name} women's flag football coach email staff directory`;
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`, '_blank');
+      return;
+    }
+
+    // Open the Webmail Launcher Modal instead of forcing mailto:
+    setEmailModalCollege(college);
+  };
+
+  const launchEmailClient = (provider) => {
+    if (!emailModalCollege) return;
+    const { to, subject, body } = buildEmailPayload(emailModalCollege);
+    const encTo = encodeURIComponent(to);
+    const encSub = encodeURIComponent(subject);
+    const encBody = encodeURIComponent(body);
+
+    let url = '';
+    if (provider === 'gmail') {
+      url = `https://mail.google.com/mail/?view=cm&fs=1&to=${encTo}&su=${encSub}&body=${encBody}`;
+    } else if (provider === 'outlook') {
+      url = `https://outlook.live.com/mail/0/deeplink/compose?to=${encTo}&subject=${encSub}&body=${encBody}`;
+    } else if (provider === 'yahoo') {
+      url = `https://compose.mail.yahoo.com/?to=${encTo}&subj=${encSub}&body=${encBody}`;
+    } else if (provider === 'default') {
+      window.location.href = `mailto:${to}?subject=${encSub}&body=${encBody}`;
+      setEmailModalCollege(null);
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setEmailModalCollege(null);
+  };
+
+  const handleCopyText = (text, label) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(label);
+    setTimeout(() => setCopiedField(null), 2000);
   };
 
   // SMART FILTERING ALGORITHM
@@ -405,7 +443,86 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
           )}
         </div>
       )}
+{/* WEBMAIL LAUNCHER MODAL */}
+      {emailModalCollege && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center border-b-4 border-violet-500">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-violet-400">Outbound Recruiting Engine</span>
+                <h3 className="text-xl font-extrabold uppercase tracking-tight mt-0.5" style={displayFont}>
+                  Email {emailModalCollege.name}
+                </h3>
+              </div>
+              <button onClick={() => setEmailModalCollege(null)} className="text-slate-400 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                <XCircle size={20} />
+              </button>
+            </div>
 
+            <div className="p-6 space-y-5">
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+                Choose how you want to send your pre-written recruiting pitch to <span className="font-bold text-slate-900">Coach {emailModalCollege.coach}</span> ({emailModalCollege.email}):
+              </p>
+
+              {/* BROWSER EMAIL BUTTONS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  onClick={() => launchEmailClient('gmail')}
+                  className="bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 font-bold py-3.5 px-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <Mail size={16} /> Open in Gmail (Web)
+                </button>
+
+                <button
+                  onClick={() => launchEmailClient('outlook')}
+                  className="bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 font-bold py-3.5 px-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <Mail size={16} /> Open in Outlook (Web)
+                </button>
+
+                <button
+                  onClick={() => launchEmailClient('yahoo')}
+                  className="bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white border border-purple-200 font-bold py-3.5 px-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <Mail size={16} /> Open in Yahoo (Web)
+                </button>
+
+                <button
+                  onClick={() => launchEmailClient('default')}
+                  className="bg-slate-100 hover:bg-slate-800 text-slate-700 hover:text-white border border-slate-200 font-bold py-3.5 px-4 rounded-2xl uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                >
+                  <ExternalLink size={16} /> Apple / Phone Mail App
+                </button>
+              </div>
+
+              {/* PREVIEW & COPY FALLBACK */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Or Copy & Paste Manually</span>
+                  <button
+                    onClick={() => {
+                      const { to, subject, body } = buildEmailPayload(emailModalCollege);
+                      handleCopyText(`To: ${to}\nSubject: ${subject}\n\n${body}`, 'all');
+                    }}
+                    className="text-[10px] font-bold uppercase tracking-wider bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-full transition-colors flex items-center gap-1"
+                  >
+                    {copiedField === 'all' ? <><Check size={12} /> Copied!</> : 'Copy Full Email'}
+                  </button>
+                </div>
+                <p className="text-[11px] font-bold text-slate-700 truncate mb-1">
+                  To: <span className="font-medium text-slate-600">{emailModalCollege.email}</span>
+                </p>
+                <p className="text-[11px] font-bold text-slate-700 truncate mb-2">
+                  Subject: <span className="font-medium text-slate-600">{buildEmailPayload(emailModalCollege).subject}</span>
+                </p>
+                <pre className="text-[11px] text-slate-600 bg-white border border-slate-200 rounded-xl p-3 max-h-36 overflow-y-auto whitespace-pre-wrap font-sans leading-relaxed">
+                  {buildEmailPayload(emailModalCollege).body}
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
