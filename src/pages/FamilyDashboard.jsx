@@ -5,19 +5,10 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy, Send, Check, CheckCheck, AlertCircle, Search, ExternalLink, GraduationCap, MapPin, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
+// 1. IMPORT THE NEW DATABASE (This replaces the old hardcoded array)
+import COLLEGES_DB from '../data/colleges.json';
 
-// Hardcoded NAIA Seed Data (Can be moved to Firebase later)
-const NAIA_COLLEGES = [
-  { id: 1, name: "Keiser University", division: "NAIA", coach: "Justin Hilliker", email: "jhilliker@keiseruniversity.edu", state: "FL" },
-  { id: 2, name: "Thomas University", division: "NAIA", coach: "Chelsea Parmer", email: "cparmer@thomasu.edu", state: "GA" },
-  { id: 3, name: "Campbellsville University", division: "NAIA", coach: "Chris Kidko", email: "ckidko@campbellsville.edu", state: "KY" },
-  { id: 4, name: "Florida Memorial University", division: "NAIA", coach: "Twan Russell", email: "twan.russell@fmuniv.edu", state: "FL" },
-  { id: 5, name: "Ottawa University", division: "NAIA", coach: "Katie Sowers", email: "katie.sowers@ottawa.edu", state: "KS" },
-  { id: 6, name: "Warner University", division: "NAIA", coach: "Meghan Peyton", email: "meghan.peyton@warner.edu", state: "FL" },
-  { id: 7, name: "St. Thomas University", division: "NAIA", coach: "Brie Smith", email: "bsmith@stu.edu", state: "FL" },
-  { id: 8, name: "Midland University", division: "NAIA", coach: "Jaison Jones", email: "jones@midlandu.edu", state: "NE" }
-];
+const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 export const FamilyDashboard = ({ viewMode, onLogout }) => {
   const { app, appId, db, familyData: user, players } = useApp();
@@ -28,15 +19,18 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
 
   // --- ATHLETE STATE ---
   const activeAthlete = players.find(p => p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase());
-  const [athleteTab, setAthleteTab] = useState('inbox'); // 'inbox' or 'directory'
+  const [athleteTab, setAthleteTab] = useState('inbox'); 
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
   const [threadMessages, setThreadMessages] = useState([]);
   const [replyContent, setReplyContent] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  
+  // OUTBOUND ENGINE STATE
   const [collegeSearch, setCollegeSearch] = useState('');
+  const [collegeDivision, setCollegeDivision] = useState('All'); 
 
-  // 1. DATA FETCHING: PARENT MODERATION QUEUE
+  // DATA FETCHING: PARENT MODERATION QUEUE
   useEffect(() => {
     if (viewMode !== 'parent' || !user?.email || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("guardianEmail", "==", user.email));
@@ -48,7 +42,7 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     return () => unsub();
   }, [viewMode, user, db, appId]);
 
-  // 2. DATA FETCHING: ATHLETE THREADS
+  // DATA FETCHING: ATHLETE THREADS
   useEffect(() => {
     if (viewMode !== 'athlete' || !activeAthlete || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'threads'), where("athleteId", "==", activeAthlete.id));
@@ -60,7 +54,7 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     return () => unsub();
   }, [viewMode, activeAthlete, db, appId]);
 
-  // 3. DATA FETCHING: ATHLETE ACTIVE THREAD MESSAGES
+  // DATA FETCHING: ATHLETE ACTIVE THREAD MESSAGES
   useEffect(() => {
     if (viewMode !== 'athlete' || !activeThread || !db) return;
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'), where("threadId", "==", activeThread.threadId));
@@ -106,25 +100,40 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
   // ATHLETE ACTION: AUTO-GENERATE OUTBOUND EMAIL
   const generateOutboundEmail = (college) => {
     if (!activeAthlete) return;
+
+    // Smart Fallback: If no email is available, run a Google search for their staff directory
+    if (!college.email) {
+      const searchQuery = `${college.name} women's flag football coach email staff directory`;
+      window.open(`https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`, '_blank');
+      return;
+    }
+
+    const coachLastName = college.coach && college.coach !== 'TBA' ? college.coach.split(' ').pop() : 'Coach';
     const subject = `${activeAthlete.gradYear} Prospect - ${activeAthlete.name} - ${activeAthlete.primaryPos} - DNA Score: ${activeAthlete.dnaScore}`;
-    const body = `Coach ${college.coach.split(' ').pop()},\n\n` +
+    const body = `Coach ${coachLastName},\n\n` +
       `My name is ${activeAthlete.name} and I am a ${activeAthlete.gradYear} ${activeAthlete.primaryPos} from ${activeAthlete.state}. I am very interested in ${college.name}'s women's flag football program and would love to learn more about your recruiting process.\n\n` +
       `Here are my verified DNA Athletics metrics:\n` +
       `- DNA Score: ${activeAthlete.dnaScore}/10.0\n` +
       `- 40-Yd Dash: ${activeAthlete.metrics?.sprint || 'N/A'}\n` +
       `- Shuttle: ${activeAthlete.metrics?.shuttle || 'N/A'}\n` +
       `- GPA: ${activeAthlete.gpa || 'N/A'}\n\n` +
-      `Highlight Film: ${activeAthlete.hudlLink || '[Insert Hudl Link Here]'}\n\n` +
+      `Highlight Film: ${activeAthlete.hudlLink || '[Insert Hudl Link Here]'}\n` +
+      `Verified Profile: https://www.dnaflagratings.com/player/${activeAthlete.id}\n\n` +
       `I would love to connect to discuss how I could be a fit for your program.\n\n` +
       `Best regards,\n${activeAthlete.name}\n${activeAthlete.athletePhone || ''}\n${activeAthlete.athleteEmail}`;
     
-    // Trigger native mail client
     window.open(`mailto:${college.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
   };
 
+  // SMART FILTERING ALGORITHM
   const filteredColleges = useMemo(() => {
-    return NAIA_COLLEGES.filter(c => c.name.toLowerCase().includes(collegeSearch.toLowerCase()) || c.state.toLowerCase().includes(collegeSearch.toLowerCase()));
-  }, [collegeSearch]);
+    return COLLEGES_DB.filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(collegeSearch.toLowerCase()) || 
+                            c.state.toLowerCase().includes(collegeSearch.toLowerCase());
+      const matchesDiv = collegeDivision === 'All' || c.division.includes(collegeDivision);
+      return matchesSearch && matchesDiv;
+    });
+  }, [collegeSearch, collegeDivision]);
 
   const pendingInbound = parentMessages.filter(m => m.status === 'pending' && m.senderRole === 'scout');
   const pendingOutbound = parentMessages.filter(m => m.status === 'draft' && m.senderRole === 'athlete');
@@ -327,14 +336,34 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
               {/* OUTBOUND COLLEGE DIRECTORY TAB */}
               {athleteTab === 'directory' && (
                 <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6 md:p-8 animate-in fade-in">
+                  
+                  {/* NEW DIRECTORY HEADER W/ DROPDOWN */}
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-slate-100 pb-6">
                     <div>
                       <h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>NCAA & NAIA Directory</h3>
                       <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Take control of your recruiting. Reach out directly.</p>
                     </div>
-                    <div className="relative w-full md:w-72">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-                      <input type="text" placeholder="Search colleges..." className="w-full bg-slate-50 border border-slate-200 rounded-full pl-11 pr-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-violet-500/20 transition-all focus:outline-none" value={collegeSearch} onChange={(e) => setCollegeSearch(e.target.value)} />
+                    
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                      <select 
+                        className="bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-violet-500/20 transition-all focus:outline-none cursor-pointer"
+                        value={collegeDivision} 
+                        onChange={(e) => setCollegeDivision(e.target.value)}
+                      >
+                        <option value="All">All Divisions</option>
+                        <option value="NCAA DI">NCAA Division I</option>
+                        <option value="NCAA DII">NCAA Division II</option>
+                        <option value="NCAA DIII">NCAA Division III</option>
+                        <option value="NAIA">NAIA</option>
+                        <option value="NJCAA">NJCAA (JuCo)</option>
+                        <option value="3C2A">3C2A (Cali JuCo)</option>
+                        <option value="USCAA">USCAA</option>
+                      </select>
+
+                      <div className="relative w-full sm:w-72">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+                        <input type="text" placeholder="Search by name or state..." className="w-full bg-slate-50 border border-slate-200 rounded-full pl-11 pr-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-violet-500/20 transition-all focus:outline-none" value={collegeSearch} onChange={(e) => setCollegeSearch(e.target.value)} />
+                      </div>
                     </div>
                   </div>
 
@@ -351,8 +380,17 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                         </div>
                         <div className="mt-auto pt-4 border-t border-slate-200/60">
                           <p className="text-[11px] font-semibold text-slate-500 mb-3">Head Coach: <span className="font-bold text-slate-900">{college.coach}</span></p>
-                          <button onClick={() => generateOutboundEmail(college)} className="w-full bg-violet-100 hover:bg-violet-600 text-violet-700 hover:text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-all shadow-sm">
-                            <FileText size={14} /> Auto-Generate Email <ExternalLink size={12} className="ml-1 opacity-50"/>
+                          <button 
+                            onClick={() => generateOutboundEmail(college)} 
+                            className={`w-full font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-all shadow-sm ${
+                              college.email 
+                                ? 'bg-violet-600 hover:bg-violet-700 text-white' 
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            <FileText size={14} /> 
+                            {college.email ? 'Auto-Generate Email' : 'Lookup Staff Directory'} 
+                            <ExternalLink size={12} className="ml-1 opacity-50"/>
                           </button>
                         </div>
                       </div>
