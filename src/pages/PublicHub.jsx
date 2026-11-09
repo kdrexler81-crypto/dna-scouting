@@ -208,7 +208,7 @@ export const PublicHub = ({ onSelect }) => {
               
               <div className="p-4 bg-slate-800/50">
                 <button onClick={() => window.location.href = '/roster'} className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[10px] flex justify-center items-center gap-2 transition-colors">
-                  View Full Database <ChevronRight size={14} />
+                  View Official Roster <ChevronRight size={14} />
                 </button>
               </div>
             </div>
