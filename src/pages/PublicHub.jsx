@@ -1,10 +1,35 @@
 // src/pages/PublicHub.jsx
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { Trophy, Search, Activity, Megaphone, ArrowRight, ExternalLink, Globe, Calendar, Star, ChevronRight, Zap } from 'lucide-react';
+import { Trophy, Activity, Megaphone, ExternalLink, Globe, Calendar, ChevronRight, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
+
+// HELPER FUNCTIONS (Moved outside the JSX to prevent Vite parsing errors)
+const getCategoryColor = (category) => {
+  switch (category) {
+    case 'ANNOUNCEMENT': return 'bg-[#1c7ed6] text-white';
+    case 'COMBINE': return 'bg-[#d6336c] text-white';
+    case 'RECRUITING': return 'bg-violet-500 text-white';
+    case 'GLOBAL': return 'bg-emerald-500 text-white';
+    case 'COLLEGE': return 'bg-amber-500 text-white';
+    default: return 'bg-slate-800 text-white';
+  }
+};
+
+const getRankColorClass = (index) => {
+  if (index === 0) return 'text-amber-400';
+  if (index === 1) return 'text-slate-300';
+  if (index === 2) return 'text-amber-700';
+  return 'text-slate-600';
+};
+
+const getNewsIcon = (news) => {
+  if (news.source === 'web') return <Globe size={20} />;
+  if (news.category === 'COMBINE') return <Zap size={20} className="text-[#d6336c]" />;
+  return <Megaphone size={20} />;
+};
 
 export const PublicHub = ({ onSelect }) => {
   const { db, appId, players, isFirebaseActive } = useApp();
@@ -25,9 +50,6 @@ export const PublicHub = ({ onSelect }) => {
   }, [db, appId, isFirebaseActive]);
 
   // 2. MIX IN EXTERNAL WEB NEWS
-  // Note: Since browser CORS prevents direct web scraping without a backend, 
-  // we combine your live Firebase news with these global industry headlines. 
-  // You can replace these with a real API (like NewsAPI) if you add a Cloud Function later.
   const webNews = [
     { id: 'web1', title: "Flag Football Officially Added to the 2028 LA Olympic Games", category: "GLOBAL", timestamp: Date.now() - 86400000, source: 'web', link: "https://olympics.com" },
     { id: 'web2', title: "NAIA Announces Continued Expansion of Women's Flag Football Programs", category: "COLLEGE", timestamp: Date.now() - 172800000, source: 'web', link: "https://naia.org" },
@@ -42,17 +64,6 @@ export const PublicHub = ({ onSelect }) => {
     .filter(p => Number(p.dnaScore) > 0)
     .sort((a, b) => Number(b.dnaScore) - Number(a.dnaScore))
     .slice(0, 10);
-
-  const getCategoryColor = (category) => {
-    switch (category) {
-      case 'ANNOUNCEMENT': return 'bg-[#1c7ed6] text-white';
-      case 'COMBINE': return 'bg-[#d6336c] text-white';
-      case 'RECRUITING': return 'bg-violet-500 text-white';
-      case 'GLOBAL': return 'bg-emerald-500 text-white';
-      case 'COLLEGE': return 'bg-amber-500 text-white';
-      default: return 'bg-slate-800 text-white';
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] animate-in fade-in">
@@ -123,7 +134,7 @@ export const PublicHub = ({ onSelect }) => {
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-sm ${
                         news.source === 'web' ? 'bg-slate-900 text-white' : 'bg-blue-50 text-[#1c7ed6]'
                       }`}>
-                        {news.source === 'web' ? <Globe size={20} /> : (news.category === 'COMBINE' ? <Zap size={20} className="text-[#d6336c]" /> : <Megaphone size={20} />)}
+                        {getNewsIcon(news)}
                       </div>
                     </div>
 
@@ -168,3 +179,55 @@ export const PublicHub = ({ onSelect }) => {
                 ) : (
                   topProspects.map((player, index) => (
                     <div key={player.id} onClick={() => onSelect(player)} className="p-4 flex items-center gap-4 hover:bg-white/5 cursor-pointer transition-colors group">
+                      
+                      {/* RANK NUMBER */}
+                      <div className="shrink-0 w-8 text-center">
+                        <span className={`text-lg font-black ${getRankColorClass(index)}`} style={displayFont}>
+                          #{index + 1}
+                        </span>
+                      </div>
+
+                      {/* AVATAR */}
+                      <img src={player.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} className="w-10 h-10 rounded-full border border-slate-700 object-cover" alt={player.name} />
+                      
+                      {/* DETAILS */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">{player.primaryPos} • {player.state}</p>
+                      </div>
+
+                      {/* SCORE */}
+                      <div className="text-right shrink-0">
+                        <span className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Score</span>
+                        <span className="text-sm font-black text-[#d6336c]" style={displayFont}>{player.dnaScore}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              <div className="p-4 bg-slate-800/50">
+                <button onClick={() => window.location.href = '/roster'} className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[10px] flex justify-center items-center gap-2 transition-colors">
+                  View Full Database <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper Icon Component
+function UsersIcon(props) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
