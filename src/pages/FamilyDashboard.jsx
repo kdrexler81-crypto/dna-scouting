@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy, Send, Check, CheckCheck, AlertCircle, Search, ExternalLink, GraduationCap, MapPin, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useNavigate } from 'react-router-dom';
 
 // 1. IMPORT THE NEW DATABASE (This replaces the old hardcoded array)
 import COLLEGES_DB from '../data/colleges.json';
@@ -12,6 +13,12 @@ const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 export const FamilyDashboard = ({ viewMode, onLogout }) => {
   const { app, appId, db, familyData: user, players } = useApp();
+
+  const navigate = useNavigate();
+  const myLinkedAthlete = players.find(p => 
+    p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+    p.guardianEmail?.toLowerCase() === user?.email?.toLowerCase()
+  );
 
   // --- PARENT STATE ---
   const [parentMessages, setParentMessages] = useState([]);
@@ -181,6 +188,19 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     <div className="max-w-7xl mx-auto p-4 py-8 animate-in fade-in">
       
       {/* GLOBAL HEADER */}
+      <div className="flex flex-wrap items-center gap-3">
+          {myLinkedAthlete && (
+            <button 
+              onClick={() => navigate(`/player/${myLinkedAthlete.id}`)} 
+              className="text-xs font-bold bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] text-white px-5 py-2.5 rounded-full uppercase tracking-wider shadow-md hover:opacity-95 transition-all flex items-center gap-2"
+            >
+              <User size={14} /> View & Customize Profile
+            </button>
+          )}
+          <button onClick={onLogout} className={`text-xs font-bold border px-5 py-2.5 rounded-full uppercase tracking-wider transition-colors ${viewMode === 'parent' ? 'text-rose-400 border-rose-400/30 bg-rose-400/10 hover:bg-rose-400 hover:text-white' : 'text-rose-500 border-rose-200 bg-rose-50 hover:bg-rose-100'}`}>
+            Sign Out
+          </button>
+        </div>
       <div className={`rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-8 border transition-colors ${viewMode === 'parent' ? 'bg-slate-900 border-slate-800 border-t-4 border-t-[#059669]' : 'bg-white border-slate-100 border-t-4 border-t-[#8b5cf6]'}`}>
         <div className="flex items-center gap-5">
           <div className={`p-4 rounded-2xl ${viewMode === 'parent' ? 'bg-white/10' : 'bg-violet-50 border border-violet-100'}`}>

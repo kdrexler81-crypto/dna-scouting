@@ -1,11 +1,12 @@
 // src/pages/ProfilePage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { 
   ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, 
   ExternalLink, PlayCircle, BookOpen, Shield, Zap, Users, 
-  Calendar, Mail, FileText, Eye, EyeOff, Share2, Target, Award 
+  Calendar, Mail, FileText, Eye, EyeOff, Target,
+  Edit3, Save, Upload, X, Loader2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -14,12 +15,17 @@ const displayFont = { fontFamily: "'Outfit', sans-serif" };
 export const ProfilePage = ({ onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { db, appId, isFirebaseActive, authRole, players } = useApp();
+  const { db, appId, isFirebaseActive, authRole, familyData, players } = useApp();
   
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [forceBlurPreview, setForceBlurPreview] = useState(false);
+
+  // --- FAMILY PROFILE EDITOR STATE ---
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -83,7 +89,111 @@ export const ProfilePage = ({ onBack }) => {
   const hasValidRole = ['admin', 'recruiter', 'scout', 'parent', 'athlete'].includes(authRole);
   const isLocked = !hasValidRole || forceBlurPreview;
 
-  // Helper to read nested metrics OR flat properties (compatible with all Admin Panel versions)
+  // Check if the logged-in Parent or Athlete owns this specific profile (or if user is Admin)
+  const userEmail = familyData?.email?.toLowerCase();
+  const isOwner = Boolean(
+    userEmail && (
+      player.athleteEmail?.toLowerCase() === userEmail ||
+      player.email?.toLowerCase() === userEmail ||
+      player.guardianEmail?.toLowerCase() === userEmail ||
+      player.parentEmail?.toLowerCase() === userEmail
+    )
+  );
+  const canCustomize = authRole === 'admin' || ((authRole === 'parent' || authRole === 'athlete') && isOwner);
+
+  // Open the modal and pre-fill with current non-verified fields
+  const openEditModal = () => {
+    const m = player.metrics || {};
+    setEditForm({
+      name: player.name || '',
+      avatar: player.avatar || player.photo || '',
+      primaryPos: player.primaryPos || 'WR',
+      secondaryPos: player.secondaryPos || '',
+      gradYear: player.gradYear || '',
+      state: player.state || '',
+      externalClub: player.externalClub || player.thirdPartyClub || '',
+      gpa: player.gpa || '',
+      satAct: player.satAct || player.sat || '',
+      twitter: player.twitter || player.social || '',
+      hudlLink: player.hudlLink || player.highlightUrl || '',
+      stat1Label: player.stat1Label || m.stat1Label || 'Touchdowns',
+      stat1Value: player.stat1Value || m.stat1Value || '',
+      stat2Label: player.stat2Label || m.stat2Label || 'All-Purpose Yds',
+      stat2Value: player.stat2Value || m.stat2Value || '',
+      stat3Label: player.stat3Label || m.stat3Label || 'Interceptions',
+      stat3Value: player.stat3Value || m.stat3Value || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Compress uploaded profile photo so it fits cleanly in Firestore
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_SIZE = 320;
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > MAX_SIZE) {
+          height *= MAX_SIZE / width;
+          width = MAX_SIZE;
+        } else if (height > MAX_SIZE) {
+          width *= MAX_SIZE / height;
+          height = MAX_SIZE;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        setEditForm(prev => ({ ...prev, avatar: dataUrl }));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Save only the non-verified fields to Firestore
+  const handleSaveCustomProfile = async (e) => {
+    e.preventDefault();
+    if (!db || !player?.id) return;
+    setSavingProfile(true);
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id);
+      const updatedFields = {
+        name: editForm.name.trim(),
+        avatar: editForm.avatar,
+        primaryPos: editForm.primaryPos,
+        secondaryPos: editForm.secondaryPos,
+        gradYear: editForm.gradYear,
+        state: editForm.state.toUpperCase(),
+        externalClub: editForm.externalClub,
+        gpa: editForm.gpa,
+        satAct: editForm.satAct,
+        twitter: editForm.twitter,
+        hudlLink: editForm.hudlLink,
+        stat1Label: editForm.stat1Label,
+        stat1Value: editForm.stat1Value,
+        stat2Label: editForm.stat2Label,
+        stat2Value: editForm.stat2Value,
+        stat3Label: editForm.stat3Label,
+        stat3Value: editForm.stat3Value
+      };
+      await updateDoc(docRef, updatedFields);
+      setPlayer(prev => ({ ...prev, ...updatedFields }));
+      setIsEditModalOpen(false);
+    } catch (err) {
+      alert("Failed to update profile: " + err.message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Helper to read nested metrics OR flat properties
   const m = player.metrics || {};
   const val = (key, altKey, suffix = '') => {
     const raw = m[key] !== undefined && m[key] !== '' ? m[key] 
@@ -117,19 +227,31 @@ export const ProfilePage = ({ onBack }) => {
               <ArrowLeft size={16} /> Back to Directory
             </button>
 
-            {/* Admin/Logged-In Preview Toggle so you can test the blur effect */}
-            {hasValidRole && (
-              <button 
-                onClick={() => setForceBlurPreview(!forceBlurPreview)}
-                className={`text-[10px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-full border flex items-center gap-2 transition-all ${
-                  forceBlurPreview 
-                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg' 
-                    : 'bg-white/10 text-slate-300 border-white/15 hover:bg-white/20'
-                }`}
-              >
-                {forceBlurPreview ? <><Eye size={14} /> Exit Guest Preview (Unlock)</> : <><EyeOff size={14} /> Preview Public Blur</>}
-              </button>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Customize Button for Linked Athlete, Parent, or Admin */}
+              {canCustomize && (
+                <button
+                  onClick={openEditModal}
+                  className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] text-white shadow-lg hover:opacity-95 flex items-center gap-2 transition-all"
+                >
+                  <Edit3 size={14} /> Customize My Profile
+                </button>
+              )}
+
+              {/* Admin/Logged-In Preview Toggle so you can test the blur effect */}
+              {hasValidRole && (
+                <button 
+                  onClick={() => setForceBlurPreview(!forceBlurPreview)}
+                  className={`text-[10px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-full border flex items-center gap-2 transition-all ${
+                    forceBlurPreview 
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg' 
+                      : 'bg-white/10 text-slate-300 border-white/15 hover:bg-white/20'
+                  }`}
+                >
+                  {forceBlurPreview ? <><Eye size={14} /> Exit Guest Preview (Unlock)</> : <><EyeOff size={14} /> Preview Public Blur</>}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
@@ -219,7 +341,7 @@ export const ProfilePage = ({ onBack }) => {
           className={`space-y-6 transition-all duration-300 ${isLocked ? 'select-none pointer-events-none opacity-60' : ''}`}
         >
           
-          {/* ROW 1: CLUB TEAM ASSIGNMENT & COMBINE DETAILS */}
+          {/* ROW 1: CLUB TEAM ASSIGNMENT & CLINIC DETAILS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Club Team Assignment */}
@@ -239,7 +361,7 @@ export const ProfilePage = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Combine Details */}
+            {/* Verification Clinic Details */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-5 flex items-center gap-2 border-b border-slate-100 pb-3.5" style={displayFont}>
                 <Calendar className="text-[#d6336c]" size={18} /> Verification Clinic Details
@@ -416,6 +538,158 @@ export const ProfilePage = ({ onBack }) => {
 
         </div>
       </div>
+
+      {/* 3. SELF-SERVICE CUSTOMIZATION MODAL (Non-Verified Fields Only) */}
+      {isEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-8">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-6 flex justify-between items-center border-b-4 border-[#1c7ed6]">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                  <Shield size={12} /> Verified Clinic Metrics Remain Protected
+                </span>
+                <h3 className="text-xl font-extrabold uppercase tracking-tight mt-1" style={displayFont}>
+                  Customize Athlete Profile
+                </h3>
+              </div>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-slate-400 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCustomProfile} className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto space-y-6">
+              
+              {/* Photo Upload & URL */}
+              <div className="flex flex-col sm:flex-row items-center gap-5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                <img 
+                  src={editForm.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${editForm.name}`} 
+                  alt="Preview" 
+                  className="w-20 h-20 rounded-full object-cover border-2 border-slate-300 bg-white shrink-0"
+                />
+                <div className="flex-1 w-full space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 block">Profile Picture</label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-colors">
+                      <Upload size={13} /> Upload Photo from Device
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                    </label>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">or paste image link below</span>
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="https://..." 
+                    value={editForm.avatar} 
+                    onChange={e => setEditForm({...editForm, avatar: e.target.value})}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:border-[#1c7ed6]"
+                  />
+                </div>
+              </div>
+
+              {/* Basic Identity */}
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
+                  1. Athlete Identity & Position
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Full Name</label>
+                    <input required type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">3rd Party / External Club</label>
+                    <input type="text" placeholder="Optional" value={editForm.externalClub} onChange={e => setEditForm({...editForm, externalClub: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Primary Pos</label>
+                      <select value={editForm.primaryPos} onChange={e => setEditForm({...editForm, primaryPos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold">
+                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Secondary Pos</label>
+                      <select value={editForm.secondaryPos} onChange={e => setEditForm({...editForm, secondaryPos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold">
+                        <option value="">None</option>
+                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Grad Year</label>
+                      <input type="number" placeholder="2027" value={editForm.gradYear} onChange={e => setEditForm({...editForm, gradYear: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">State (2-Letter)</label>
+                      <input type="text" maxLength="2" placeholder="NJ" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold uppercase" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Academics, Social & Film */}
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
+                  2. Academics, Social & Highlight Film
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Cumulative GPA</label>
+                    <input type="text" placeholder="e.g. 3.85" value={editForm.gpa} onChange={e => setEditForm({...editForm, gpa: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">SAT / ACT</label>
+                    <input type="text" placeholder="e.g. 1280" value={editForm.satAct} onChange={e => setEditForm({...editForm, satAct: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Twitter / X Handle</label>
+                    <input type="text" placeholder="@handle" value={editForm.twitter} onChange={e => setEditForm({...editForm, twitter: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Highlight Tape URL (Hudl / YouTube)</label>
+                  <input type="url" placeholder="https://www.hudl.com/..." value={editForm.hudlLink} onChange={e => setEditForm({...editForm, hudlLink: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                </div>
+              </div>
+
+              {/* In-Season Custom Stats */}
+              <div>
+                <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
+                  3. Custom In-Season Stats
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                    <input type="text" placeholder="Stat 1 Label (e.g. TDs)" value={editForm.stat1Label} onChange={e => setEditForm({...editForm, stat1Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
+                    <input type="text" placeholder="Value (e.g. 14)" value={editForm.stat1Value} onChange={e => setEditForm({...editForm, stat1Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                    <input type="text" placeholder="Stat 2 Label (e.g. Yards)" value={editForm.stat2Label} onChange={e => setEditForm({...editForm, stat2Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
+                    <input type="text" placeholder="Value (e.g. 950)" value={editForm.stat2Value} onChange={e => setEditForm({...editForm, stat2Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                    <input type="text" placeholder="Stat 3 Label (e.g. INTs)" value={editForm.stat3Label} onChange={e => setEditForm({...editForm, stat3Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
+                    <input type="text" placeholder="Value (e.g. 6)" value={editForm.stat3Value} onChange={e => setEditForm({...editForm, stat3Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Footer */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={savingProfile} className="px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-white bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] hover:opacity-95 transition-all shadow-lg flex items-center gap-2">
+                  {savingProfile ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Profile Updates</>}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
@@ -424,7 +698,7 @@ export const ProfilePage = ({ onBack }) => {
 function MetricCard({ label, value, highlight = false }) {
   return (
     <div className={`rounded-2xl p-4 border text-center ${highlight ? 'bg-slate-900 text-white border-slate-800' : 'bg-slate-50 border-slate-100 text-slate-900'}`}>
-      <span className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${highlight ? 'text-slate-400' : 'text-slate-400'}`}>{label}</span>
+      <span className="block text-[10px] font-black uppercase tracking-widest mb-1.5 text-slate-400">{label}</span>
       <span className={`text-xl md:text-2xl font-black ${highlight ? 'text-[#d6336c]' : 'text-slate-900'}`} style={displayFont}>{value}</span>
     </div>
   );
