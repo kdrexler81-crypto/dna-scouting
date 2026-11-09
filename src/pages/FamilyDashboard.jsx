@@ -1,11 +1,23 @@
 // src/pages/FamilyDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy, Send, Check, CheckCheck, AlertCircle } from 'lucide-react';
+import { Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, Building, Trophy, Send, Check, CheckCheck, AlertCircle, Search, ExternalLink, GraduationCap, MapPin, FileText } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
+
+// Hardcoded NAIA Seed Data (Can be moved to Firebase later)
+const NAIA_COLLEGES = [
+  { id: 1, name: "Keiser University", division: "NAIA", coach: "Justin Hilliker", email: "jhilliker@keiseruniversity.edu", state: "FL" },
+  { id: 2, name: "Thomas University", division: "NAIA", coach: "Chelsea Parmer", email: "cparmer@thomasu.edu", state: "GA" },
+  { id: 3, name: "Campbellsville University", division: "NAIA", coach: "Chris Kidko", email: "ckidko@campbellsville.edu", state: "KY" },
+  { id: 4, name: "Florida Memorial University", division: "NAIA", coach: "Twan Russell", email: "twan.russell@fmuniv.edu", state: "FL" },
+  { id: 5, name: "Ottawa University", division: "NAIA", coach: "Katie Sowers", email: "katie.sowers@ottawa.edu", state: "KS" },
+  { id: 6, name: "Warner University", division: "NAIA", coach: "Meghan Peyton", email: "meghan.peyton@warner.edu", state: "FL" },
+  { id: 7, name: "St. Thomas University", division: "NAIA", coach: "Brie Smith", email: "bsmith@stu.edu", state: "FL" },
+  { id: 8, name: "Midland University", division: "NAIA", coach: "Jaison Jones", email: "jones@midlandu.edu", state: "NE" }
+];
 
 export const FamilyDashboard = ({ viewMode, onLogout }) => {
   const { app, appId, db, familyData: user, players } = useApp();
@@ -16,11 +28,13 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
 
   // --- ATHLETE STATE ---
   const activeAthlete = players.find(p => p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase());
+  const [athleteTab, setAthleteTab] = useState('inbox'); // 'inbox' or 'directory'
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
   const [threadMessages, setThreadMessages] = useState([]);
   const [replyContent, setReplyContent] = useState('');
   const [sendingReply, setSendingReply] = useState(false);
+  const [collegeSearch, setCollegeSearch] = useState('');
 
   // 1. DATA FETCHING: PARENT MODERATION QUEUE
   useEffect(() => {
@@ -55,7 +69,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       msgs.sort((a,b) => a.timestamp - b.timestamp);
       setThreadMessages(msgs);
 
-      // Instantly mark inbound approved scout messages as "read"
       msgs.forEach(m => {
         if (m.senderRole === 'scout' && m.status === 'approved' && !m.readAt) {
           httpsCallable(getFunctions(app), 'markMessageRead')({ messageId: m.id, appId }).catch(console.error);
@@ -83,18 +96,36 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     try {
       const sendMessage = httpsCallable(getFunctions(app), 'sendMessage');
       await sendMessage({ 
-        athleteId: activeAthlete.id, 
-        scoutId: activeThread.scoutId, 
-        content: replyContent, 
-        senderRole: 'athlete',
-        appId 
+        athleteId: activeAthlete.id, scoutId: activeThread.scoutId, content: replyContent, senderRole: 'athlete', appId 
       });
       setReplyContent('');
     } catch (err) { alert("Failed to send message: " + err.message); }
     setSendingReply(false);
   };
 
-  // PARENT QUEUES
+  // ATHLETE ACTION: AUTO-GENERATE OUTBOUND EMAIL
+  const generateOutboundEmail = (college) => {
+    if (!activeAthlete) return;
+    const subject = `${activeAthlete.gradYear} Prospect - ${activeAthlete.name} - ${activeAthlete.primaryPos} - DNA Score: ${activeAthlete.dnaScore}`;
+    const body = `Coach ${college.coach.split(' ').pop()},\n\n` +
+      `My name is ${activeAthlete.name} and I am a ${activeAthlete.gradYear} ${activeAthlete.primaryPos} from ${activeAthlete.state}. I am very interested in ${college.name}'s women's flag football program and would love to learn more about your recruiting process.\n\n` +
+      `Here are my verified DNA Athletics metrics:\n` +
+      `- DNA Score: ${activeAthlete.dnaScore}/10.0\n` +
+      `- 40-Yd Dash: ${activeAthlete.metrics?.sprint || 'N/A'}\n` +
+      `- Shuttle: ${activeAthlete.metrics?.shuttle || 'N/A'}\n` +
+      `- GPA: ${activeAthlete.gpa || 'N/A'}\n\n` +
+      `Highlight Film: ${activeAthlete.hudlLink || '[Insert Hudl Link Here]'}\n\n` +
+      `I would love to connect to discuss how I could be a fit for your program.\n\n` +
+      `Best regards,\n${activeAthlete.name}\n${activeAthlete.athletePhone || ''}\n${activeAthlete.athleteEmail}`;
+    
+    // Trigger native mail client
+    window.open(`mailto:${college.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
+  };
+
+  const filteredColleges = useMemo(() => {
+    return NAIA_COLLEGES.filter(c => c.name.toLowerCase().includes(collegeSearch.toLowerCase()) || c.state.toLowerCase().includes(collegeSearch.toLowerCase()));
+  }, [collegeSearch]);
+
   const pendingInbound = parentMessages.filter(m => m.status === 'pending' && m.senderRole === 'scout');
   const pendingOutbound = parentMessages.filter(m => m.status === 'draft' && m.senderRole === 'athlete');
   const approvedHistory = parentMessages.filter(m => m.status === 'approved');
@@ -122,12 +153,9 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
         </button>
       </div>
 
-      {/* ---------------------------------------------------- */}
-      {/* PARENT VIEW (MODERATION HUB)                           */}
-      {/* ---------------------------------------------------- */}
+      {/* PARENT VIEW (MODERATION HUB) */}
       {viewMode === 'parent' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-left-4 max-w-4xl mx-auto">
-          
           {/* QUEUE 1: INBOUND FROM SCOUTS */}
           <div className="bg-white rounded-3xl border border-amber-200 shadow-md overflow-hidden">
             <div className="bg-amber-50 border-b border-amber-100 p-5 flex items-center gap-3">
@@ -192,131 +220,150 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
               }
             </div>
           </div>
-
-          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="bg-slate-50 border-b border-slate-100 p-5 flex items-center gap-3">
-              <CheckCircle2 className="text-emerald-500" size={20} />
-              <h3 className="font-extrabold text-slate-700 uppercase tracking-widest text-sm">Approved Messages History</h3>
-            </div>
-            <div className="p-6">
-              {approvedHistory.length === 0 ? <p className="text-sm text-slate-500 italic">No approved messages yet.</p> : 
-                approvedHistory.map(msg => (
-                  <div key={msg.id} className="mb-4 last:mb-0 border border-slate-100 rounded-2xl p-5 flex flex-col gap-2">
-                    <div className="flex justify-between items-start">
-                      <p className="font-extrabold text-slate-900 text-sm uppercase">
-                        {msg.senderRole === 'athlete' ? <span className="text-violet-500">Outbound:</span> : <span className="text-emerald-500">Inbound:</span>} {msg.senderName} 
-                        {msg.senderRole === 'scout' && <><span className="text-slate-400 lowercase font-medium mx-1">from</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></>}
-                        {msg.senderRole === 'athlete' && <><span className="text-slate-400 lowercase font-medium mx-1">to</span> <span className="text-[#1c7ed6]">{msg.senderSchool}</span></>}
-                      </p>
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{new Date(msg.moderatedAt).toLocaleDateString()}</span>
-                    </div>
-                    <p className="text-sm text-slate-700 leading-relaxed italic">"{msg.content}"</p>
-                  </div>
-                ))
-              }
-            </div>
-          </div>
         </div>
       )}
 
-
-      {/* ---------------------------------------------------- */}
-      {/* ATHLETE VIEW (SPLIT-PANE THREADED INBOX)               */}
-      {/* ---------------------------------------------------- */}
+      {/* ATHLETE VIEW */}
       {viewMode === 'athlete' && (
         <div className="animate-in fade-in slide-in-from-right-4">
           {!activeAthlete ? (
             <div className="bg-white rounded-3xl p-12 text-center border border-slate-100 shadow-sm max-w-lg mx-auto mt-12">
               <AlertCircle size={48} className="mx-auto text-amber-400 mb-4" />
               <h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>Profile Not Found</h3>
-              <p className="text-sm font-medium text-slate-500 mt-2">Your email ({user?.email}) is not linked to an active athlete roster spot. Please contact your coach to add this email to your profile.</p>
+              <p className="text-sm font-medium text-slate-500 mt-2">Your email ({user?.email}) is not linked to an active athlete roster spot.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row overflow-hidden h-[700px]">
-              
-              {/* THREAD LIST (LEFT SIDEBAR) */}
-              <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col h-1/3 md:h-full">
-                <div className="p-5 border-b border-slate-100 bg-white">
-                  <h3 className="font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>My Inbox</h3>
-                </div>
-                <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                  {threads.length === 0 ? (
-                     <div className="text-center p-6 mt-4">
-                       <Mail size={32} className="mx-auto text-slate-300 mb-3" />
-                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inbox Empty</p>
-                       <p className="text-[10px] text-slate-500 mt-2">When colleges message you, they will appear here.</p>
-                     </div>
-                  ) : (
-                     threads.map(t => (
-                       <div key={t.threadId} onClick={() => setActiveThread(t)} className={`p-4 rounded-2xl cursor-pointer transition-all border ${activeThread?.threadId === t.threadId ? 'bg-white border-violet-300 shadow-sm' : 'border-transparent hover:bg-slate-100'}`}>
-                         <div className="flex justify-between items-start mb-1">
-                           <p className="font-extrabold text-sm text-slate-900 truncate pr-2 uppercase" style={displayFont}>{t.scoutSchool}</p>
-                           <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{new Date(t.lastUpdate).toLocaleDateString()}</span>
-                         </div>
-                         <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mb-1.5">Coach {t.scoutName}</p>
-                         <p className="text-xs text-slate-500 truncate">{t.lastMessagePreview}</p>
-                       </div>
-                     ))
-                  )}
-                </div>
+            <>
+              {/* ATHLETE SUB-NAVIGATION */}
+              <div className="flex flex-wrap gap-2 sm:gap-4 mb-6 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
+                <button onClick={() => setAthleteTab('inbox')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${athleteTab === 'inbox' ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}><Mail size={16} /> My Inbox</button>
+                <button onClick={() => setAthleteTab('directory')} className={`flex-1 py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${athleteTab === 'directory' ? 'bg-violet-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}><Search size={16} /> College Directory</button>
               </div>
 
-              {/* CHAT WINDOW (RIGHT PANE) */}
-              <div className="w-full md:w-2/3 flex flex-col bg-white h-2/3 md:h-full">
-                 {activeThread ? (
-                   <>
-                     <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
-                       <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center border border-blue-100"><Building className="text-[#1c7ed6]" size={20}/></div>
-                         <div>
-                           <h3 className="font-extrabold text-lg text-slate-900 uppercase" style={displayFont}>{activeThread.scoutSchool}</h3>
-                           <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest">Coach {activeThread.scoutName}</p>
+              {athleteTab === 'inbox' && (
+                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row overflow-hidden h-[700px] animate-in fade-in">
+                  {/* THREAD LIST (LEFT SIDEBAR) */}
+                  <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col h-1/3 md:h-full">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                      {threads.length === 0 ? (
+                         <div className="text-center p-6 mt-4">
+                           <Mail size={32} className="mx-auto text-slate-300 mb-3" />
+                           <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inbox Empty</p>
+                           <p className="text-[10px] text-slate-500 mt-2">When colleges message you, they will appear here.</p>
                          </div>
+                      ) : (
+                         threads.map(t => (
+                           <div key={t.threadId} onClick={() => setActiveThread(t)} className={`p-4 rounded-2xl cursor-pointer transition-all border ${activeThread?.threadId === t.threadId ? 'bg-white border-violet-300 shadow-sm' : 'border-transparent hover:bg-slate-100'}`}>
+                             <div className="flex justify-between items-start mb-1">
+                               <p className="font-extrabold text-sm text-slate-900 truncate pr-2 uppercase" style={displayFont}>{t.scoutSchool}</p>
+                               <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">{new Date(t.lastUpdate).toLocaleDateString()}</span>
+                             </div>
+                             <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mb-1.5">Coach {t.scoutName}</p>
+                             <p className="text-xs text-slate-500 truncate">{t.lastMessagePreview}</p>
+                           </div>
+                         ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* CHAT WINDOW (RIGHT PANE) */}
+                  <div className="w-full md:w-2/3 flex flex-col bg-white h-2/3 md:h-full">
+                     {activeThread ? (
+                       <>
+                         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white shadow-sm z-10">
+                           <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center border border-blue-100"><Building className="text-[#1c7ed6]" size={20}/></div>
+                             <div>
+                               <h3 className="font-extrabold text-lg text-slate-900 uppercase" style={displayFont}>{activeThread.scoutSchool}</h3>
+                               <p className="text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest">Coach {activeThread.scoutName}</p>
+                             </div>
+                           </div>
+                         </div>
+                         
+                         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 flex flex-col gap-4">
+                           {threadMessages.filter(m => m.senderRole === 'athlete' || m.status === 'approved').map(msg => {
+                              const isAthlete = msg.senderRole === 'athlete';
+                              return (
+                                <div key={msg.id} className={`flex flex-col max-w-[85%] md:max-w-[75%] ${isAthlete ? 'self-end items-end' : 'self-start items-start'}`}>
+                                  <div className={`p-4 rounded-2xl ${isAthlete ? (msg.status === 'draft' ? 'bg-violet-400' : 'bg-violet-600') + ' text-white rounded-tr-sm shadow-md' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm'}`}>
+                                    <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-1.5 px-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                      {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </span>
+                                    {isAthlete && (
+                                      <span className="text-slate-400">
+                                        {msg.readAt ? <CheckCheck size={12} className="text-violet-500" /> : (msg.status === 'draft' ? <Clock size={10} /> : <Check size={12} />)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {isAthlete && msg.status === 'draft' && <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest pr-1 mt-0.5">Pending Parent Approval</span>}
+                                </div>
+                              )
+                           })}
+                         </div>
+                         
+                         <div className="p-4 bg-white border-t border-slate-100">
+                           <form onSubmit={handleSendReply} className="flex gap-3 relative">
+                             <input type="text" placeholder={`Draft reply to Coach ${activeThread.scoutName}...`} className="flex-1 bg-slate-50 border border-slate-200 rounded-full pl-5 pr-14 py-3 text-sm font-medium focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all" value={replyContent} onChange={e => setReplyContent(e.target.value)} />
+                             <button type="submit" disabled={sendingReply || !replyContent.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors shadow-sm">
+                               {sendingReply ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
+                             </button>
+                           </form>
+                         </div>
+                       </>
+                     ) : (
+                       <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
+                         <Mail size={48} className="text-slate-200 mb-4" />
+                         <h3 className="font-extrabold text-slate-400 uppercase tracking-tight text-xl" style={displayFont}>Select a Conversation</h3>
+                         <p className="text-sm font-medium text-slate-400 mt-2 max-w-sm">Select an active recruiting thread from the sidebar to view messages and draft replies.</p>
                        </div>
-                     </div>
-                     
-                     <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 flex flex-col gap-4">
-                       {threadMessages.filter(m => m.senderRole === 'athlete' || m.status === 'approved').map(msg => {
-                          const isAthlete = msg.senderRole === 'athlete';
-                          return (
-                            <div key={msg.id} className={`flex flex-col max-w-[85%] md:max-w-[75%] ${isAthlete ? 'self-end items-end' : 'self-start items-start'}`}>
-                              <div className={`p-4 rounded-2xl ${isAthlete ? (msg.status === 'draft' ? 'bg-violet-400' : 'bg-violet-600') + ' text-white rounded-tr-sm shadow-md' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm shadow-sm'}`}>
-                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-1.5 px-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                  {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                </span>
-                                {isAthlete && (
-                                  <span className="text-slate-400">
-                                    {msg.readAt ? <CheckCheck size={12} className="text-violet-500" /> : (msg.status === 'draft' ? <Clock size={10} /> : <Check size={12} />)}
-                                  </span>
-                                )}
-                              </div>
-                              {isAthlete && msg.status === 'draft' && <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest pr-1 mt-0.5">Pending Parent Approval</span>}
-                            </div>
-                          )
-                       })}
-                     </div>
-                     
-                     <div className="p-4 bg-white border-t border-slate-100">
-                       <form onSubmit={handleSendReply} className="flex gap-3 relative">
-                         <input type="text" placeholder={`Draft reply to Coach ${activeThread.scoutName}...`} className="flex-1 bg-slate-50 border border-slate-200 rounded-full pl-5 pr-14 py-3 text-sm font-medium focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all" value={replyContent} onChange={e => setReplyContent(e.target.value)} />
-                         <button type="submit" disabled={sendingReply || !replyContent.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 text-white rounded-full flex items-center justify-center transition-colors shadow-sm">
-                           {sendingReply ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} className="ml-0.5" />}
-                         </button>
-                       </form>
-                     </div>
-                   </>
-                 ) : (
-                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-slate-50/30">
-                     <Mail size={48} className="text-slate-200 mb-4" />
-                     <h3 className="font-extrabold text-slate-400 uppercase tracking-tight text-xl" style={displayFont}>Select a Conversation</h3>
-                     <p className="text-sm font-medium text-slate-400 mt-2 max-w-sm">Select an active recruiting thread from the sidebar to view messages and draft replies.</p>
-                   </div>
-                 )}
-              </div>
-            </div>
+                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* OUTBOUND COLLEGE DIRECTORY TAB */}
+              {athleteTab === 'directory' && (
+                <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6 md:p-8 animate-in fade-in">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-slate-100 pb-6">
+                    <div>
+                      <h3 className="text-xl font-extrabold uppercase tracking-tight text-slate-900" style={displayFont}>NCAA & NAIA Directory</h3>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">Take control of your recruiting. Reach out directly.</p>
+                    </div>
+                    <div className="relative w-full md:w-72">
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
+                      <input type="text" placeholder="Search colleges..." className="w-full bg-slate-50 border border-slate-200 rounded-full pl-11 pr-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-violet-500/20 transition-all focus:outline-none" value={collegeSearch} onChange={(e) => setCollegeSearch(e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredColleges.map((college) => (
+                      <div key={college.id} className="border border-slate-200 rounded-2xl p-5 hover:border-violet-300 hover:shadow-md transition-all bg-slate-50/50 group flex flex-col">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="p-3 bg-white border border-slate-200 rounded-xl group-hover:border-violet-300 transition-colors"><GraduationCap className="text-slate-700 group-hover:text-violet-600 transition-colors" size={20}/></div>
+                          <span className="text-[10px] font-black text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full uppercase tracking-widest">{college.division}</span>
+                        </div>
+                        <h4 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight mb-1" style={displayFont}>{college.name}</h4>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
+                          <MapPin size={12}/> {college.state}
+                        </div>
+                        <div className="mt-auto pt-4 border-t border-slate-200/60">
+                          <p className="text-[11px] font-semibold text-slate-500 mb-3">Head Coach: <span className="font-bold text-slate-900">{college.coach}</span></p>
+                          <button onClick={() => generateOutboundEmail(college)} className="w-full bg-violet-100 hover:bg-violet-600 text-violet-700 hover:text-white font-bold py-2.5 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-2 transition-all shadow-sm">
+                            <FileText size={14} /> Auto-Generate Email <ExternalLink size={12} className="ml-1 opacity-50"/>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredColleges.length === 0 && (
+                      <div className="col-span-full text-center py-12 text-slate-400 text-sm font-medium">No colleges match your search.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
