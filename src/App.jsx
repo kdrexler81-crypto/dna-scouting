@@ -20,6 +20,9 @@ import { useApp } from './context/AppContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 
+// --- ANALYTICS ---
+import { Analytics } from '@vercel/analytics/react';
+
 // --- TYPOGRAPHY HELPERS ---
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 const bodyFont = { fontFamily: "'Inter', sans-serif" };
@@ -461,6 +464,7 @@ export default function App() {
       </main>
 
       <SanctionedFooter />
+      <Analytics />
     </div>
   );
 }
