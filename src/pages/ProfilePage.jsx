@@ -1,12 +1,12 @@
 // src/pages/ProfilePage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, 
   ExternalLink, PlayCircle, BookOpen, Shield, Zap, Users, 
   Calendar, Mail, FileText, Eye, EyeOff, Target,
-  Edit3, Save, Upload, X, Loader2
+  Edit3, Save, Upload, X, Loader2, Trash2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -22,9 +22,10 @@ export const ProfilePage = ({ onBack }) => {
   const [error, setError] = useState('');
   const [forceBlurPreview, setForceBlurPreview] = useState(false);
 
-  // --- FAMILY PROFILE EDITOR STATE ---
+  // --- FAMILY PROFILE EDITOR & DELETE STATE ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [deletingProfile, setDeletingProfile] = useState(false);
   const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
@@ -92,18 +93,20 @@ export const ProfilePage = ({ onBack }) => {
   // Check if the logged-in Parent or Athlete owns this specific profile (or if user is Admin)
   const userEmail = familyData?.email?.toLowerCase();
   const isOwner = Boolean(
-    userEmail && (
+    (userEmail && (
       player.athleteEmail?.toLowerCase() === userEmail ||
       player.email?.toLowerCase() === userEmail ||
       player.guardianEmail?.toLowerCase() === userEmail ||
       player.parentEmail?.toLowerCase() === userEmail
-    )
+    )) ||
+    (familyData?.athleteId && String(familyData.athleteId) === String(player.id))
   );
   const canCustomize = authRole === 'admin' || ((authRole === 'parent' || authRole === 'athlete') && isOwner);
 
   // Open the modal and pre-fill with current non-verified fields
   const openEditModal = () => {
     const m = player.metrics || {};
+    const s = player.seasonStats || {};
     setEditForm({
       name: player.name || '',
       avatar: player.avatar || player.photo || '',
@@ -116,12 +119,12 @@ export const ProfilePage = ({ onBack }) => {
       satAct: player.satAct || player.sat || '',
       twitter: player.twitter || player.social || '',
       hudlLink: player.hudlLink || player.highlightUrl || '',
-      stat1Label: player.stat1Label || m.stat1Label || 'Touchdowns',
-      stat1Value: player.stat1Value || m.stat1Value || '',
-      stat2Label: player.stat2Label || m.stat2Label || 'All-Purpose Yds',
-      stat2Value: player.stat2Value || m.stat2Value || '',
-      stat3Label: player.stat3Label || m.stat3Label || 'Interceptions',
-      stat3Value: player.stat3Value || m.stat3Value || ''
+      stat1Label: player.stat1Label || s.stat1Label || m.stat1Label || 'Touchdowns',
+      stat1Value: player.stat1Value || s.stat1Value || m.stat1Value || '',
+      stat2Label: player.stat2Label || s.stat2Label || m.stat2Label || 'All-Purpose Yds',
+      stat2Value: player.stat2Value || s.stat2Value || m.stat2Value || '',
+      stat3Label: player.stat3Label || s.stat3Label || m.stat3Label || 'Interceptions',
+      stat3Value: player.stat3Value || s.stat3Value || m.stat3Value || ''
     });
     setIsEditModalOpen(true);
   };
@@ -169,11 +172,12 @@ export const ProfilePage = ({ onBack }) => {
         avatar: editForm.avatar,
         primaryPos: editForm.primaryPos,
         secondaryPos: editForm.secondaryPos,
-        gradYear: editForm.gradYear,
+        gradYear: Number(editForm.gradYear) || editForm.gradYear,
         state: editForm.state.toUpperCase(),
         externalClub: editForm.externalClub,
         gpa: editForm.gpa,
         satAct: editForm.satAct,
+        sat: editForm.satAct,
         twitter: editForm.twitter,
         hudlLink: editForm.hudlLink,
         stat1Label: editForm.stat1Label,
@@ -181,7 +185,16 @@ export const ProfilePage = ({ onBack }) => {
         stat2Label: editForm.stat2Label,
         stat2Value: editForm.stat2Value,
         stat3Label: editForm.stat3Label,
-        stat3Value: editForm.stat3Value
+        stat3Value: editForm.stat3Value,
+        seasonStats: {
+          stat1Label: editForm.stat1Label,
+          stat1Value: editForm.stat1Value,
+          stat2Label: editForm.stat2Label,
+          stat2Value: editForm.stat2Value,
+          stat3Label: editForm.stat3Label,
+          stat3Value: editForm.stat3Value
+        },
+        updatedAt: Date.now()
       };
       await updateDoc(docRef, updatedFields);
       setPlayer(prev => ({ ...prev, ...updatedFields }));
@@ -193,7 +206,29 @@ export const ProfilePage = ({ onBack }) => {
     }
   };
 
-  // Helper to read nested metrics OR flat properties
+  // Self-service Delete Athlete Profile handler for linked Parent, Athlete, or Admin
+  const handleDeleteAthleteProfile = async () => {
+    if (!db || !player?.id) return;
+    const confirmed = window.confirm(
+      `PERMANENT ACTION: Are you sure you want to permanently delete ${player.name}'s athlete profile from the national leaderboard? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingProfile(true);
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', player.id));
+      localStorage.removeItem(`dna_checklist_${player.id}`);
+      setIsEditModalOpen(false);
+      alert(`${player.name}'s profile has been permanently deleted.`);
+      navigate('/');
+    } catch (err) {
+      alert("Failed to delete profile: " + err.message);
+    } finally {
+      setDeletingProfile(false);
+    }
+  };
+
+  // Helper to read nested metrics OR flat properties WITHOUT duplicating %, s, ", or mph
   const m = player.metrics || {};
   const val = (key, altKey, suffix = '') => {
     const raw = m[key] !== undefined && m[key] !== '' ? m[key] 
@@ -201,16 +236,28 @@ export const ProfilePage = ({ onBack }) => {
               : m[altKey] !== undefined && m[altKey] !== '' ? m[altKey]
               : player[altKey] !== undefined && player[altKey] !== '' ? player[altKey]
               : null;
-    return raw !== null && raw !== undefined && raw !== '' ? `${raw}${suffix}` : 'N/A';
+
+    if (raw === null || raw === undefined || raw === '') return 'N/A';
+
+    const strVal = String(raw).trim();
+    if (!suffix) return strVal;
+
+    // Prevent double percentage signs (%%), double seconds (ss), double quotes (""), or double MPH
+    const cleanSuffix = suffix.trim().toLowerCase();
+    if (strVal.toLowerCase().endsWith(cleanSuffix)) {
+      return strVal;
+    }
+    return `${strVal}${suffix}`;
   };
 
-  // Helper for In-Season Custom Stats
-  const stat1Label = player.stat1Label || m.stat1Label || 'In-Season Stat 1';
-  const stat1Value = player.stat1Value || m.stat1Value || player.stat1 || 'N/A';
-  const stat2Label = player.stat2Label || m.stat2Label || 'In-Season Stat 2';
-  const stat2Value = player.stat2Value || m.stat2Value || player.stat2 || 'N/A';
-  const stat3Label = player.stat3Label || m.stat3Label || 'In-Season Stat 3';
-  const stat3Value = player.stat3Value || m.stat3Value || player.stat3 || 'N/A';
+  // Helper for In-Season Custom Stats (Checks both top-level and seasonStats object)
+  const s = player.seasonStats || {};
+  const stat1Label = player.stat1Label || s.stat1Label || m.stat1Label || 'Touchdowns';
+  const stat1Value = player.stat1Value || s.stat1Value || m.stat1Value || player.stat1 || 'N/A';
+  const stat2Label = player.stat2Label || s.stat2Label || m.stat2Label || 'All-Purpose Yds';
+  const stat2Value = player.stat2Value || s.stat2Value || m.stat2Value || player.stat2 || 'N/A';
+  const stat3Label = player.stat3Label || s.stat3Label || m.stat3Label || 'Interceptions';
+  const stat3Value = player.stat3Value || s.stat3Value || m.stat3Value || player.stat3 || 'N/A';
 
   const highlightUrl = player.hudlLink || player.highlightUrl || player.videoUrl || player.filmLink || '';
   const twitterHandle = player.twitter || player.social || '';
@@ -228,14 +275,23 @@ export const ProfilePage = ({ onBack }) => {
             </button>
 
             <div className="flex flex-wrap items-center gap-3">
-              {/* Customize Button for Linked Athlete, Parent, or Admin */}
+              {/* Customize & Delete Buttons for Linked Athlete, Parent, or Admin */}
               {canCustomize && (
-                <button
-                  onClick={openEditModal}
-                  className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] text-white shadow-lg hover:opacity-95 flex items-center gap-2 transition-all"
-                >
-                  <Edit3 size={14} /> Customize My Profile
-                </button>
+                <>
+                  <button
+                    onClick={openEditModal}
+                    className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] text-white shadow-lg hover:opacity-95 flex items-center gap-2 transition-all"
+                  >
+                    <Edit3 size={14} /> Customize My Profile
+                  </button>
+                  <button
+                    onClick={handleDeleteAthleteProfile}
+                    disabled={deletingProfile}
+                    className="text-[10px] font-bold uppercase tracking-widest px-3.5 py-2 rounded-full bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-500/30 flex items-center gap-1.5 transition-all"
+                  >
+                    {deletingProfile ? <Loader2 size={13} className="animate-spin" /> : <><Trash2 size={13} /> Delete Profile</>}
+                  </button>
+                </>
               )}
 
               {/* Admin/Logged-In Preview Toggle so you can test the blur effect */}
@@ -369,11 +425,11 @@ export const ProfilePage = ({ onBack }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Clinic Location</span>
-                  <span className="text-sm font-extrabold text-slate-900">{isLocked ? 'Horseshoe Lake Turf, NJ' : (player.combineLocation || m.location || player.location || 'Verified DNA Clinic')}</span>
+                  <span className="text-sm font-extrabold text-slate-900">{isLocked ? 'Horseshoe Lake Turf, NJ' : (player.combineEvent?.location || player.combineLocation || m.location || player.location || 'Verified DNA Clinic')}</span>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Verification Date</span>
-                  <span className="text-sm font-extrabold text-slate-900">{isLocked ? 'October 2026' : (player.combineDate || m.date || player.date || 'Verified')}</span>
+                  <span className="text-sm font-extrabold text-slate-900">{isLocked ? 'October 2026' : (player.combineEvent?.date || player.combineDate || m.date || player.date || 'Verified')}</span>
                 </div>
               </div>
             </div>
@@ -389,11 +445,11 @@ export const ProfilePage = ({ onBack }) => {
               <MetricCard label="40-Yd Dash (Sec)" value={isLocked ? '4.78s' : val('sprint', 'fortyYd', 's')} highlight />
               <MetricCard label="5-10-5 Shuttle (Sec)" value={isLocked ? '4.42s' : val('shuttle', 'proShuttle', 's')} highlight />
               <MetricCard label="L-Drill (Sec)" value={isLocked ? '7.15s' : val('lDrill', 'ldrill', 's')} />
-              <MetricCard label="Max Speed (MPH)" value={isLocked ? '17.4 MPH' : val('maxSpeed', 'mph', ' MPH')} />
+              <MetricCard label="Max Speed (MPH)" value={isLocked ? '17.4 MPH' : val('mph', 'maxSpeed', ' mph')} />
             </div>
           </div>
 
-          {/* ROW 3: SKILLS & EXPLOSIVENESS */}
+          {/* ROW 3: SKILLS & EXPLOSIVENESS (Fixed single % sign and 'flag' key lookup) */}
           <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
             <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-100 pb-4" style={displayFont}>
               <Target className="text-[#1c7ed6]" size={18} /> Skills, Measurables & Explosiveness
@@ -401,9 +457,9 @@ export const ProfilePage = ({ onBack }) => {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
               <MetricCard label="Catching %" value={isLocked ? '92%' : val('catching', 'catchingPct', '%')} />
               <MetricCard label="Throwing %" value={isLocked ? '88%' : val('throwing', 'throwingPct', '%')} />
-              <MetricCard label="Flag Pull %" value={isLocked ? '95%' : val('flagPull', 'flagPullPct', '%')} />
+              <MetricCard label="Flag Pull %" value={isLocked ? '95%' : val('flag', 'flagPull', '%')} />
               <MetricCard label="Height" value={isLocked ? '5\'6"' : val('height', 'ht', '')} />
-              <MetricCard label="Weight (lbs)" value={isLocked ? '130 lbs' : val('weight', 'wt', ' lbs')} />
+              <MetricCard label="Weight (lbs)" value={isLocked ? '130 lbs' : (player.weight && Number(player.weight) > 0 ? `${player.weight} lbs` : 'N/A')} />
               <MetricCard label="Broad Jump" value={isLocked ? '94"' : val('broad', 'broadJump', '"')} />
               <MetricCard label="Vertical (In)" value={isLocked ? '26.5"' : val('vertical', 'vert', '"')} />
             </div>
@@ -539,7 +595,7 @@ export const ProfilePage = ({ onBack }) => {
         </div>
       </div>
 
-      {/* 3. SELF-SERVICE CUSTOMIZATION MODAL (Non-Verified Fields Only) */}
+      {/* 3. SELF-SERVICE CUSTOMIZATION MODAL (Non-Verified Fields Only + Delete Profile Option) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-8">
@@ -605,14 +661,14 @@ export const ProfilePage = ({ onBack }) => {
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Primary Pos</label>
                       <select value={editForm.primaryPos} onChange={e => setEditForm({...editForm, primaryPos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold">
-                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSH', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Secondary Pos</label>
                       <select value={editForm.secondaryPos} onChange={e => setEditForm({...editForm, secondaryPos: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-semibold">
                         <option value="">None</option>
-                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
+                        {['QB', 'WR', 'RB', 'C', 'DB', 'LB', 'RUSH', 'RUSHER', 'ATH'].map(pos => <option key={pos} value={pos}>{pos}</option>)}
                       </select>
                     </div>
                   </div>
@@ -675,14 +731,25 @@ export const ProfilePage = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Save Footer */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
-                  Cancel
+              {/* Save & Delete Footer */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={handleDeleteAthleteProfile}
+                  disabled={deletingProfile || savingProfile}
+                  className="w-full sm:w-auto px-4 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white border border-rose-200 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  {deletingProfile ? <Loader2 size={15} className="animate-spin" /> : <><Trash2 size={15} /> Permanently Delete Profile</>}
                 </button>
-                <button type="submit" disabled={savingProfile} className="px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-white bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] hover:opacity-95 transition-all shadow-lg flex items-center gap-2">
-                  {savingProfile ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Profile Updates</>}
-                </button>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                  <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={savingProfile || deletingProfile} className="px-6 py-3 rounded-xl font-bold uppercase tracking-wider text-xs text-white bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] hover:opacity-95 transition-all shadow-lg flex items-center gap-2">
+                    {savingProfile ? <Loader2 size={16} className="animate-spin" /> : <><Save size={16} /> Save Profile Updates</>}
+                  </button>
+                </div>
               </div>
 
             </form>
