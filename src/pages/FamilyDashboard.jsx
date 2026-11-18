@@ -1,22 +1,21 @@
 // src/pages/FamilyDashboard.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getAuth, deleteUser } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { 
   Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, 
   Building, Trophy, Send, Check, CheckCheck, AlertCircle, Search, 
   ExternalLink, GraduationCap, MapPin, FileText, Eye, TrendingUp, 
-  BarChart3, Sparkles, Compass, ListChecks, Star, Square, CheckSquare
+  BarChart3, Sparkles, Compass, ListChecks, Star, Square, CheckSquare, Trash2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
-// 1. IMPORT THE COLLEGE DATABASE
 import COLLEGES_DB from '../data/colleges.json';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
-// REGIONAL PROXIMITY GROUPS FOR SMART MATCHING
 const REGION_GROUPS = {
   Northeast: ['NJ', 'NY', 'PA', 'CT', 'MA', 'DE', 'MD', 'RI', 'VT', 'NH', 'ME', 'DC'],
   Southeast: ['FL', 'GA', 'NC', 'SC', 'VA', 'WV', 'AL', 'MS', 'TN', 'KY', 'LA'],
@@ -40,7 +39,8 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
 
   const myLinkedAthlete = players.find(p => 
     p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase() ||
-    p.guardianEmail?.toLowerCase() === user?.email?.toLowerCase()
+    p.guardianEmail?.toLowerCase() === user?.email?.toLowerCase() ||
+    p.id === user?.athleteId
   );
   
   // --- PARENT STATE ---
@@ -59,14 +59,17 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
   // --- OUTBOUND ENGINE & MATCH STATE ---
   const [collegeSearch, setCollegeSearch] = useState('');
   const [collegeDivision, setCollegeDivision] = useState('All'); 
-  const [matchRegionPref, setMatchRegionPref] = useState('Any'); // 'Any', 'HomeRegion', 'InState'
+  const [matchRegionPref, setMatchRegionPref] = useState('Any');
   const [emailModalCollege, setEmailModalCollege] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
+
+  // --- DELETE ACCOUNT / PROFILE MODAL STATE ---
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAction, setDeletingAction] = useState(null); // 'account' | 'both' | 'profile'
 
   // --- INTERACTIVE RECRUITING CHECKLIST STATE ---
   const [completedTasks, setCompletedTasks] = useState({});
 
-  // Load saved checklist state from Firestore or localStorage
   useEffect(() => {
     if (!activeAthlete?.id) return;
     const localSaved = localStorage.getItem(`dna_checklist_${activeAthlete.id}`);
@@ -89,6 +92,72 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
         console.error("Checklist sync fallback to local:", err);
       }
     }
+  };
+
+  // --- SELF-SERVICE ACCOUNT & PROFILE DELETION HANDLERS ---
+  const handleDeleteProfileOnly = async () => {
+    if (!myLinkedAthlete?.id || !db) return;
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete ${myLinkedAthlete.name}'s athlete profile from the national leaderboard? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingAction('profile');
+    try {
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', myLinkedAthlete.id));
+      localStorage.removeItem(`dna_checklist_${myLinkedAthlete.id}`);
+      alert(`${myLinkedAthlete.name}'s profile has been permanently removed.`);
+      setShowDeleteModal(false);
+    } catch (err) {
+      alert("Error deleting athlete profile: " + err.message);
+    }
+    setDeletingAction(null);
+  };
+
+  const handleDeleteAccount = async (alsoDeleteAthleteProfile = false) => {
+    const confirmMsg = alsoDeleteAthleteProfile && myLinkedAthlete
+      ? `PERMANENT ACTION: This will permanently delete ${myLinkedAthlete.name}'s public athlete profile AND your login account (${user?.email}). Continue?`
+      : `Are you sure you want to permanently delete your login account (${user?.email})?`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingAction(alsoDeleteAthleteProfile ? 'both' : 'account');
+    try {
+      const auth = getAuth(app);
+      const currentUser = auth.currentUser;
+
+      // 1. Optionally delete the linked athlete profile from 'players'
+      if (alsoDeleteAthleteProfile && myLinkedAthlete?.id && db) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'players', myLinkedAthlete.id));
+        localStorage.removeItem(`dna_checklist_${myLinkedAthlete.id}`);
+      }
+
+      // 2. Delete the user's document in 'families'
+      if (db && (currentUser?.uid || user?.uid)) {
+        const targetUid = currentUser?.uid || user?.uid;
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'families', targetUid)).catch(() => {});
+      }
+
+      // 3. Delete the Firebase Authentication user
+      if (currentUser) {
+        try {
+          await deleteUser(currentUser);
+        } catch (authErr) {
+          if (authErr.code === 'auth/requires-recent-login') {
+            alert("Your profile data was removed. For security, Firebase requires a fresh login before deleting your email credential—please sign back in and click Delete Account once more to finish.");
+          } else {
+            throw authErr;
+          }
+        }
+      }
+
+      setShowDeleteModal(false);
+      if (onLogout) onLogout();
+      navigate('/');
+    } catch (err) {
+      alert("Error deleting account: " + err.message);
+    }
+    setDeletingAction(null);
   };
 
   // DATA FETCHING: PARENT MODERATION QUEUE
@@ -251,30 +320,23 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       targetDivs = ['NCAA DIII', 'NAIA', 'NJCAA', '3C2A'];
     }
 
-    // Score each college in COLLEGES_DB
     const scored = COLLEGES_DB.filter(c => {
       if (matchRegionPref === 'InState') return c.state?.toUpperCase() === athleteState;
       if (matchRegionPref === 'HomeRegion') return getRegion(c.state) === athleteRegion;
       return true;
     }).map(c => {
-      let fitScore = 72; // Base compatibility
-
-      // 1. Division Alignment (+16 pts)
+      let fitScore = 72;
       if (targetDivs[0] && c.division?.includes(targetDivs[0])) fitScore += 16;
       else if (targetDivs.some(d => c.division?.includes(d))) fitScore += 11;
 
-      // 2. Academic & GPA Synergy (+5 pts)
       if (gpa >= 3.5 && (c.division?.includes('NCAA DIII') || c.division?.includes('NCAA DI'))) fitScore += 5;
       else if (gpa >= 2.8) fitScore += 3;
 
-      // 3. Geographic Proximity (+5 pts)
       if (c.state?.toUpperCase() === athleteState) fitScore += 5;
       else if (getRegion(c.state) === athleteRegion) fitScore += 3;
 
-      // 4. Direct Coach Email Bonus (+3 pts so athletes can act immediately)
       if (c.email) fitScore += 3;
 
-      // 5. Bonus if a coach from this school already viewed the athlete's profile!
       const viewedBySchool = (activeAthlete.recentViews || []).some(
         v => v.school?.toLowerCase()?.includes(c.name?.toLowerCase())
       );
@@ -333,7 +395,7 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     };
   }, [scoutViews, activeAthlete]);
 
-  // --- RECRUITING ROADMAP CHECKLIST ITEMS (AUTO + MANUAL) ---
+  // --- RECRUITING ROADMAP CHECKLIST ITEMS ---
   const checklistItems = useMemo(() => {
     if (!activeAthlete) return [];
     const hasDnaScore = Number(activeAthlete.dnaScore) > 0;
@@ -466,17 +528,26 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
               <User size={14} /> View & Customize Profile
             </button>
           )}
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className={`text-xs font-bold border px-4 py-2.5 rounded-full uppercase tracking-wider transition-colors flex items-center gap-1.5 ${
+              viewMode === 'parent'
+                ? 'text-slate-300 border-slate-700 bg-slate-800 hover:bg-rose-600 hover:text-white hover:border-rose-500'
+                : 'text-slate-500 border-slate-200 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200'
+            }`}
+          >
+            <Trash2 size={13} /> Delete Account / Profile
+          </button>
           <button onClick={onLogout} className={`text-xs font-bold border px-5 py-2.5 rounded-full uppercase tracking-wider transition-colors ${viewMode === 'parent' ? 'text-rose-400 border-rose-400/30 bg-rose-400/10 hover:bg-rose-400 hover:text-white' : 'text-rose-500 border-rose-200 bg-rose-50 hover:bg-rose-100'}`}>
             Sign Out
           </button>
         </div>
       </div>
 
-      {/* PARENT VIEW (MODERATION HUB + SCOUT INTEREST SUMMARY) */}
+      {/* PARENT VIEW */}
       {viewMode === 'parent' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-left-4 max-w-4xl mx-auto">
           
-          {/* PARENT SCOUT ACTIVITY SNAPSHOT */}
           {myLinkedAthlete && (
             <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -614,7 +685,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
               {/* TAB 1: INBOX */}
               {athleteTab === 'inbox' && (
                 <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 flex flex-col md:flex-row overflow-hidden h-[700px] animate-in fade-in">
-                  {/* THREAD LIST (LEFT SIDEBAR) */}
                   <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-slate-100 bg-slate-50/50 flex flex-col h-1/3 md:h-full">
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
                       {threads.length === 0 ? (
@@ -638,7 +708,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* CHAT WINDOW (RIGHT PANE) */}
                   <div className="w-full md:w-2/3 flex flex-col bg-white h-2/3 md:h-full">
                      {activeThread ? (
                        <>
@@ -696,11 +765,9 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                 </div>
               )}
 
-              {/* TAB 2: PROFILE ANALYTICS & SCOUT VIEWS */}
+              {/* TAB 2: PROFILE ANALYTICS */}
               {athleteTab === 'analytics' && (
                 <div className="space-y-6 animate-in fade-in">
-                  
-                  {/* KPI CARDS */}
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
                       <div className="flex items-center justify-between mb-3">
@@ -739,7 +806,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* 14-DAY SCOUT VIEW ACTIVITY CHART */}
                   <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
                       <div>
@@ -784,7 +850,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* VERIFIED SCOUT LOG LIST */}
                   <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-8">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 mb-6">
                       <div>
@@ -869,15 +934,12 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                       </div>
                     )}
                   </div>
-
                 </div>
               )}
 
               {/* TAB 3: SMART COLLEGE MATCH + FULL DIRECTORY */}
               {athleteTab === 'directory' && (
                 <div className="space-y-8 animate-in fade-in">
-                  
-                  {/* SMART COLLEGE MATCH ENGINE BANNER */}
                   <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800 relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#1c7ed6] via-violet-500 to-[#d6336c]"></div>
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 mb-6 border-b border-slate-800">
@@ -893,7 +955,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                         </p>
                       </div>
 
-                      {/* Region Filter Toggle for Match Engine */}
                       <div className="flex bg-slate-800 p-1.5 rounded-2xl border border-slate-700 shrink-0 self-start lg:self-auto">
                         {[
                           { id: 'Any', label: 'National Fit' },
@@ -953,7 +1014,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                     )}
                   </div>
 
-                  {/* FULL SEARCHABLE COLLEGE DIRECTORY */}
                   <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 p-6 md:p-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-slate-100 pb-6">
                       <div>
@@ -1017,15 +1077,12 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                       )}
                     </div>
                   </div>
-
                 </div>
               )}
 
-              {/* TAB 4: INTERACTIVE RECRUITING ROADMAP & CHECKLIST */}
+              {/* TAB 4: RECRUITING ROADMAP CHECKLIST */}
               {athleteTab === 'checklist' && (
                 <div className="space-y-6 animate-in fade-in max-w-4xl mx-auto">
-                  
-                  {/* PROGRESS HEADER */}
                   <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
                       <div>
@@ -1046,7 +1103,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                       </div>
                     </div>
 
-                    {/* Progress Bar */}
                     <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
                       <div 
                         style={{ width: `${checklistProgress.pct}%` }} 
@@ -1055,7 +1111,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                     </div>
                   </div>
 
-                  {/* CHECKLIST ITEMS */}
                   <div className="bg-white rounded-3xl shadow-sm border border-slate-100 divide-y divide-slate-100 overflow-hidden">
                     {checklistItems.map((item) => {
                       const isChecked = item.autoDone || Boolean(completedTasks[item.id]);
@@ -1117,11 +1172,83 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                       );
                     })}
                   </div>
-
                 </div>
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* DELETE ACCOUNT & PROFILE MODAL */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div className="bg-rose-600 text-white p-6 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Trash2 size={22} />
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-rose-200 block">Account & Data Privacy</span>
+                  <h3 className="text-xl font-extrabold uppercase tracking-tight" style={displayFont}>
+                    Delete Account or Athlete Profile
+                  </h3>
+                </div>
+              </div>
+              <button onClick={() => setShowDeleteModal(false)} className="text-rose-100 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                <XCircle size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-xs font-medium text-slate-600 leading-relaxed">
+                Select what you would like to permanently remove. These actions cannot be undone.
+              </p>
+
+              {/* Option 1: Delete Login Account Only */}
+              <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50">
+                <h4 className="text-sm font-extrabold uppercase text-slate-900" style={displayFont}>
+                  Option 1: Delete My Login Account Only ({user?.email})
+                </h4>
+                <p className="text-xs text-slate-500 mt-1 mb-3">
+                  Deletes your personal login credentials and inbox access, but leaves the athlete's public leaderboard profile intact.
+                </p>
+                <button
+                  onClick={() => handleDeleteAccount(false)}
+                  disabled={!!deletingAction}
+                  className="w-full bg-slate-900 hover:bg-rose-600 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs flex justify-center items-center gap-2 transition-colors"
+                >
+                  {deletingAction === 'account' ? <Loader2 size={15} className="animate-spin" /> : <><Trash2 size={14} /> Delete My Login Account</>}
+                </button>
+              </div>
+
+              {/* Option 2: Delete Athlete Profile Only */}
+              {myLinkedAthlete && (
+                <div className="border border-rose-200 rounded-2xl p-4 bg-rose-50/50">
+                  <h4 className="text-sm font-extrabold uppercase text-rose-950" style={displayFont}>
+                    Option 2: Delete {myLinkedAthlete.name}'s Athlete Profile
+                  </h4>
+                  <p className="text-xs text-rose-800 mt-1 mb-3">
+                    Permanently removes {myLinkedAthlete.name}'s scouting profile, metrics, and stats from the DNA Flag Ratings leaderboard.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <button
+                      onClick={handleDeleteProfileOnly}
+                      disabled={!!deletingAction}
+                      className="flex-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-1.5 transition-colors"
+                    >
+                      {deletingAction === 'profile' ? <Loader2 size={14} className="animate-spin" /> : 'Delete Profile Only'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAccount(true)}
+                      disabled={!!deletingAction}
+                      className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-[11px] flex justify-center items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      {deletingAction === 'both' ? <Loader2 size={14} className="animate-spin" /> : 'Delete Profile + My Account'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1146,7 +1273,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                 Choose how you want to send your pre-written recruiting pitch to <span className="font-bold text-slate-900">Coach {emailModalCollege.coach}</span> ({emailModalCollege.email}):
               </p>
 
-              {/* BROWSER EMAIL BUTTONS */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   onClick={() => launchEmailClient('gmail')}
@@ -1177,7 +1303,6 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                 </button>
               </div>
 
-              {/* PREVIEW & COPY FALLBACK */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Or Copy & Paste Manually</span>

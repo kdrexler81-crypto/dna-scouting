@@ -1,9 +1,10 @@
 // src/pages/RecruiterPortal.jsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getAuth, deleteUser } from 'firebase/auth';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
-import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download, Check, CheckCheck, Clock } from 'lucide-react';
+import { Search, LayoutDashboard, GitCompare, Building, Star, MessageSquare, AtSign, Video, GripVertical, X, Send, Loader2, Shield, Download, Check, CheckCheck, Clock, Trash2, XCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
@@ -99,6 +100,10 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
   const [messageContent, setMessageContent] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  // Self-Service Account Deletion State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
   // Filters
   const [minDna, setMinDna] = useState(0); const [minGpa, setMinGpa] = useState(0); const [maxSprint, setMaxSprint] = useState(10); const [maxShuttle, setMaxShuttle] = useState(10); const [maxLDrill, setMaxLDrill] = useState(10); const [minBroad, setMinBroad] = useState(0); const [minVert, setMinVert] = useState(0); const [posFilter, setPosFilter] = useState('All'); const [yearFilter, setYearFilter] = useState('All');
 
@@ -141,6 +146,46 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
     
     return () => unsubMsg();
   }, [activeThreadId, db, appId, app]);
+
+  // --- SELF-SERVICE SCOUT ACCOUNT DELETION ---
+  const handleDeleteScoutAccount = async () => {
+    const confirmed = window.confirm(
+      `PERMANENT ACTION: Are you sure you want to permanently delete your Scout Account (${recruiterData?.email || recruiterData?.name}) and saved Recruiting Board? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingAccount(true);
+    try {
+      const auth = getAuth(app);
+      const currentUser = auth.currentUser;
+      const targetUid = currentUser?.uid || recruiterData?.uid;
+
+      // 1. Delete the scout's Firestore document from 'recruiters'
+      if (db && targetUid) {
+        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'recruiters', targetUid));
+      }
+
+      // 2. Delete the Firebase Authentication user credential
+      if (currentUser) {
+        try {
+          await deleteUser(currentUser);
+        } catch (authErr) {
+          if (authErr.code === 'auth/requires-recent-login') {
+            alert("Your scout profile and recruiting board were deleted. For security, Firebase requires a fresh login before removing your email credential—please sign back in and click Delete Account once more to finish.");
+          } else {
+            throw authErr;
+          }
+        }
+      }
+
+      setShowDeleteModal(false);
+      if (onLogout) onLogout();
+    } catch (err) {
+      alert("Error deleting scout account: " + err.message);
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
 
   const uniquePositions = useMemo(() => ['All', ...new Set(players.map(p => p.primaryPos).filter(Boolean))].sort(), [players]);
   const uniqueYears = useMemo(() => ['All', ...new Set(players.map(p => p.gradYear).filter(Boolean))].sort((a,b)=>b-a), [players]);
@@ -223,9 +268,22 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
         <div className="bg-slate-900 rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6 mb-10 border border-slate-800" style={{ borderTop: '4px solid #1c7ed6' }}>
           <div className="flex items-center gap-5">
             <div className="p-4 bg-white/10 rounded-2xl"><Building size={28} className="text-white" /></div>
-            <div><h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Scout Portal: {recruiterData?.school}</h2><p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest mt-1">Logged in as {recruiterData?.name}</p></div>
+            <div>
+              <h2 className="text-2xl font-extrabold text-white uppercase tracking-tight" style={displayFont}>Scout Portal: {recruiterData?.school}</h2>
+              <p className="text-xs font-bold text-[#1c7ed6] uppercase tracking-widest mt-1">Logged in as {recruiterData?.name}</p>
+            </div>
           </div>
-          <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">Sign Out</button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 px-4 py-2.5 rounded-full hover:bg-rose-600 hover:text-white hover:border-rose-500 transition-colors uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <Trash2 size={13} /> Delete Account
+            </button>
+            <button onClick={onLogout} className="text-xs font-bold text-rose-400 border border-rose-400/30 bg-rose-400/10 px-5 py-2.5 rounded-full hover:bg-rose-400 hover:text-white transition-colors uppercase tracking-wider">
+              Sign Out
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2 sm:gap-4 mb-8 bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
@@ -452,7 +510,18 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {[
-                        { label: 'DNA Score', key: 'dnaScore' }, { label: 'High School GPA', key: 'gpa' }, { label: 'State / Location', key: 'state' }, { label: '40-Yd Dash', key: 'metrics.sprint' }, { label: '5-10-5 Shuttle', key: 'metrics.shuttle' }, { label: 'L-Drill', key: 'metrics.lDrill' }, { label: 'Max Speed', key: 'metrics.mph' }, { label: 'Broad Jump', key: 'metrics.broad' }, { label: 'Vertical Jump', key: 'metrics.vertical' }, { label: 'Catching %', key: 'metrics.catching' }, { label: 'Throwing %', key: 'metrics.throwing' }
+                        { label: 'DNA Score', key: 'dnaScore' },
+                        { label: 'High School GPA', key: 'gpa' },
+                        { label: 'State / Location', key: 'state' },
+                        { label: '40-Yd Dash', key: 'metrics.sprint' },
+                        { label: '5-10-5 Shuttle', key: 'metrics.shuttle' },
+                        { label: 'L-Drill', key: 'metrics.lDrill' },
+                        { label: 'Max Speed', key: 'metrics.mph' },
+                        { label: 'Broad Jump', key: 'metrics.broad' },
+                        { label: 'Vertical Jump', key: 'metrics.vertical' },
+                        { label: 'Catching %', key: 'metrics.catching' },
+                        { label: 'Throwing %', key: 'metrics.throwing' },
+                        { label: 'Flag Pull %', key: 'metrics.flag' }
                       ].map((metric, i) => (
                         <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
                           <td className="p-4 border-r border-slate-100 bg-slate-50/30 text-xs font-bold uppercase tracking-widest text-slate-600">{metric.label}</td>
@@ -488,6 +557,58 @@ export const RecruiterPortal = ({ onSelect, onLogout }) => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* SCOUT ACCOUNT DELETION MODAL */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-white border border-slate-100 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+              <div className="bg-rose-600 text-white p-6 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Trash2 size={22} />
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-rose-200 block">Scout Account Privacy</span>
+                    <h3 className="text-xl font-extrabold uppercase tracking-tight" style={displayFont}>
+                      Delete Scout Account
+                    </h3>
+                  </div>
+                </div>
+                <button onClick={() => setShowDeleteModal(false)} className="text-rose-100 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                  <XCircle size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+                  <h4 className="text-xs font-extrabold uppercase text-rose-950" style={displayFont}>
+                    {recruiterData?.name} • {recruiterData?.school}
+                  </h4>
+                  <p className="text-xs text-rose-800 mt-1.5 leading-relaxed">
+                    Deleting your account will permanently remove your verified scout login, saved Recruiting Board targets, and portal access. This action cannot be undone.
+                  </p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={deletingAccount}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl uppercase tracking-wider text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteScoutAccount}
+                    disabled={deletingAccount}
+                    className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-3 rounded-xl uppercase tracking-wider text-xs flex justify-center items-center gap-2 transition-colors shadow-md"
+                  >
+                    {deletingAccount ? <Loader2 size={15} className="animate-spin" /> : <><Trash2 size={14} /> Confirm Delete</>}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
