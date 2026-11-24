@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Lock, Loader2, X, User, Users, Building, LayoutDashboard, Trophy, Shield, Key, Sparkles } from 'lucide-react';
+import { Lock, Loader2, X, User, Users, Building, GraduationCap,LayoutDashboard, Trophy, Shield, Key, Sparkles } from 'lucide-react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -12,6 +12,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { PublicHub } from './pages/PublicHub';
 import { RosterPage } from './pages/RosterPage';
 import { AboutPage } from './pages/AboutPage';
+import { CollegeDirectory } from './pages/CollegeDirectory';
 
 // --- GLOBAL STATE ---
 import { useApp } from './context/AppContext';
@@ -383,7 +384,18 @@ export default function App() {
             >
               <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
             </button>
-
+            <button 
+              onClick={() => navigate('/roster')} 
+              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/roster' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+            >
+              <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
+            </button>
+            <button 
+              onClick={() => navigate('/colleges')} 
+              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/colleges' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
+            >
+              <GraduationCap size={15} /> Colleges <span className="hidden md:inline">Directory</span>
+            </button>
             {authRole ? (
               <div className="flex items-center gap-2">
                 <button
@@ -460,6 +472,7 @@ export default function App() {
           <Route path="/scout" element={(authRole === 'recruiter' || authRole === 'scout') ? <RecruiterPortal onSelect={handlePlayerSelect} onLogout={handleLogout} onBack={() => navigate('/')} /> : <Navigate to="/" replace />} />
           <Route path="/parent" element={authRole === 'parent' ? <FamilyDashboard viewMode="parent" onLogout={handleLogout} /> : <Navigate to="/" replace />} />
           <Route path="/athlete" element={authRole === 'athlete' ? <FamilyDashboard viewMode="athlete" onLogout={handleLogout} /> : <Navigate to="/" replace />} />
+          <Route path="/colleges" element={<CollegeDirectory />} />
         </Routes>
       </main>
 
