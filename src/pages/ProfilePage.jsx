@@ -102,9 +102,9 @@ const formatSocialUrl = (platform, value) => {
   if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
   const handle = clean.replace(/^@/, '');
   if (platform === 'twitter') return `https://x.com/${handle}`;
-  if (platform === 'camera') return `https://instagram.com/${handle}`;
+  if (platform === 'instagram') return `https://instagram.com/${handle}`;
   if (platform === 'tiktok') return `https://tiktok.com/@${handle}`;
-  if (platform === 'video') return `https://youtube.com/@${handle}`;
+  if (platform === 'youtube') return `https://youtube.com/@${handle}`;
   return `https://${clean}`;
 };
 
@@ -113,13 +113,12 @@ const getVideoEmbedUrl = (input) => {
   if (!input || typeof input !== 'string') return null;
   let url = input.trim();
 
-  // If the user pasted a full <iframe> snippet from Hudl or YouTube, extract the src URL
   const iframeSrcMatch = url.match(/src=["']([^"']+)["']/i);
   if (iframeSrcMatch) {
     url = iframeSrcMatch[1];
   }
 
-  // 1. YouTube (watch?v=, youtu.be/, shorts/, or already /embed/)
+  // 1. YouTube
   const ytMatch = url.match(
     /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
   );
@@ -127,12 +126,12 @@ const getVideoEmbedUrl = (input) => {
     return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`;
   }
 
-  // 2. Hudl (already an embed link)
+  // 2. Hudl (already embed)
   if (url.includes('hudl.com/embed/video/')) {
     return url;
   }
 
-  // 3. Hudl (standard highlight URL -> convert /video/ to /embed/video/)
+  // 3. Hudl (standard highlight URL)
   const hudlMatch = url.match(/hudl\.com\/video\/(.+)/i);
   if (hudlMatch && hudlMatch[1]) {
     const cleanPath = hudlMatch[1].split('?')[0];
@@ -161,6 +160,12 @@ export const ProfilePage = ({ onBack }) => {
   const [savingProfile, setSavingProfile] = useState(false);
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [editForm, setEditForm] = useState({});
+
+  // --- HUDL / EXTERNAL LINK IMPORTER STATE ---
+  const [showImportBar, setShowImportBar] = useState(true);
+  const [importUrl, setImportUrl] = useState('');
+  const [importingProfile, setImportingProfile] = useState(false);
+  const [importStatus, setImportStatus] = useState(null);
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -235,13 +240,13 @@ export const ProfilePage = ({ onBack }) => {
   );
   const canCustomize = authRole === 'admin' || ((authRole === 'parent' || authRole === 'athlete') && isOwner);
 
-  // Open the modal and pre-fill with current non-verified fields
-  const openEditModal = () => {
+  // Build edit form baseline from current player data + optional imported overrides
+  const buildEditFormState = (overrides = {}) => {
     const existingSeasons = Array.isArray(player.yearlyStats) && player.yearlyStats.length > 0
       ? player.yearlyStats.map(s => ({ ...createEmptySeason(s.year), ...s }))
       : [createEmptySeason()];
 
-    setEditForm({
+    return {
       name: player.name || '',
       avatar: player.avatar || player.photo || '',
       primaryPos: player.primaryPos || 'WR',
@@ -256,10 +261,60 @@ export const ProfilePage = ({ onBack }) => {
       youtube: player.youtube || '',
       tiktok: player.tiktok || '',
       hudlLink: player.hudlLink || player.highlightUrl || '',
-      yearlyStats: existingSeasons
-    });
+      yearlyStats: existingSeasons,
+      ...overrides
+    };
+  };
+
+  // Open the modal pre-filled with current non-verified fields
+  const openEditModal = () => {
+    setEditForm(buildEditFormState());
     setActiveEditYearIdx(0);
+    setImportStatus(null);
     setIsEditModalOpen(true);
+  };
+
+  // Import from Hudl / MaxPreps / YouTube (works from both the page header AND inside the modal)
+  const handleImportFromLink = async (openModalAfter = false) => {
+    if (!importUrl.trim()) return;
+    setImportingProfile(true);
+    setImportStatus(null);
+    try {
+      const importFn = httpsCallable(getFunctions(app), 'importExternalProfile');
+      const { data } = await importFn({ url: importUrl.trim() });
+      const found = data?.imported || {};
+      const keys = Object.keys(found);
+
+      if (keys.length === 0) {
+        setImportStatus({
+          type: 'error',
+          text: 'Could not read public profile data from that link. Make sure the profile is set to Public, or enter fields manually.'
+        });
+      } else {
+        if (openModalAfter && !isEditModalOpen) {
+          setEditForm(buildEditFormState(found));
+          setActiveEditYearIdx(0);
+          setIsEditModalOpen(true);
+        } else {
+          setEditForm((prev) => ({
+            ...prev,
+            ...found
+          }));
+        }
+        setImportStatus({
+          type: 'success',
+          text: `Auto-filled: ${keys.join(', ')}. Review the fields below and click Save Profile Updates.`
+        });
+        setImportUrl('');
+      }
+    } catch (err) {
+      setImportStatus({
+        type: 'error',
+        text: err.message || 'Failed to import link. Make sure the importExternalProfile Cloud Function is deployed.'
+      });
+    } finally {
+      setImportingProfile(false);
+    }
   };
 
   // Compress uploaded profile photo so it fits cleanly in Firestore
@@ -403,7 +458,7 @@ export const ProfilePage = ({ onBack }) => {
       <div className="bg-slate-900 text-white pt-8 pb-20 relative border-b-4 border-[#1c7ed6]">
         <div className="max-w-6xl mx-auto px-4">
           
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <button onClick={() => onBack ? onBack() : navigate(-1)} className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest">
               <ArrowLeft size={16} /> Back to Directory
             </button>
@@ -411,6 +466,17 @@ export const ProfilePage = ({ onBack }) => {
             <div className="flex flex-wrap items-center gap-3">
               {canCustomize && (
                 <>
+                  <button
+                    type="button"
+                    onClick={() => setShowImportBar(prev => !prev)}
+                    className={`text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full border flex items-center gap-2 transition-all shadow-lg ${
+                      showImportBar
+                        ? 'bg-[#1c7ed6] text-white border-blue-400'
+                        : 'bg-blue-500/20 text-blue-200 border-blue-400/40 hover:bg-[#1c7ed6] hover:text-white'
+                    }`}
+                  >
+                    <Sparkles size={14} /> Quick Auto-Fill (Hudl / Link)
+                  </button>
                   <button
                     onClick={openEditModal}
                     className="text-[10px] font-bold uppercase tracking-widest px-4 py-2 rounded-full bg-gradient-to-r from-[#1c7ed6] to-[#d6336c] text-white shadow-lg hover:opacity-95 flex items-center gap-2 transition-all"
@@ -441,6 +507,47 @@ export const ProfilePage = ({ onBack }) => {
               )}
             </div>
           </div>
+
+          {/* PROMINENT ON-PAGE HUDL / EXTERNAL LINK AUTO-FILL BAR */}
+          {canCustomize && showImportBar && (
+            <div className="mb-8 bg-[#1c7ed6]/15 border border-blue-400/40 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <span className="text-[11px] font-black uppercase tracking-widest text-blue-300 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-blue-400" /> Quick Auto-Fill from Hudl, MaxPreps, or YouTube
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowImportBar(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                  title="Hide Auto-Fill Bar"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <input
+                  type="url"
+                  placeholder="Paste public Hudl profile, highlight video, MaxPreps, or social URL..."
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  className="flex-1 bg-white text-slate-900 placeholder:text-slate-400 border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleImportFromLink(true)}
+                  disabled={importingProfile || !importUrl.trim()}
+                  className="bg-[#1c7ed6] hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors shrink-0 shadow-md"
+                >
+                  {importingProfile ? <><Loader2 size={14} className="animate-spin" /> Importing...</> : <><Sparkles size={14} /> Auto-Fill Profile</>}
+                </button>
+              </div>
+              {importStatus && !isEditModalOpen && (
+                <p className={`mt-2.5 text-xs font-bold ${importStatus.type === 'success' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {importStatus.text}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
             <div className="relative shrink-0">
@@ -779,12 +886,12 @@ export const ProfilePage = ({ onBack }) => {
                     )}
                     {player.instagram && (
                       <a href={formatSocialUrl('instagram', player.instagram)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 text-white text-xs font-bold transition-all shadow-sm">
-                        <Instagram size={14} /> Instagram <ExternalLink size={12} className="opacity-75" />
+                        <Camera size={14} /> Instagram <ExternalLink size={12} className="opacity-75" />
                       </a>
                     )}
                     {player.youtube && (
                       <a href={formatSocialUrl('youtube', player.youtube)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-sm">
-                        <Youtube size={14} /> YouTube <ExternalLink size={12} className="opacity-75" />
+                        <Video size={14} /> YouTube <ExternalLink size={12} className="opacity-75" />
                       </a>
                     )}
                     {player.tiktok && (
@@ -863,6 +970,37 @@ export const ProfilePage = ({ onBack }) => {
 
             <form onSubmit={handleSaveCustomProfile} className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto space-y-6">
               
+              {/* Quick Auto-Fill from Hudl / External Link (Also inside modal) */}
+              <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-[#1c7ed6] flex items-center gap-1.5">
+                    <Sparkles size={13} /> Quick Auto-Fill from Hudl, MaxPreps, or YouTube
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="url"
+                    placeholder="Paste public Hudl profile, highlight video, or social URL..."
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    className="flex-1 bg-white border border-blue-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#1c7ed6]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleImportFromLink(false)}
+                    disabled={importingProfile || !importUrl.trim()}
+                    className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                  >
+                    {importingProfile ? <><Loader2 size={13} className="animate-spin" /> Importing...</> : 'Auto-Fill Profile'}
+                  </button>
+                </div>
+                {importStatus && (
+                  <p className={`text-[11px] font-bold ${importStatus.type === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {importStatus.text}
+                  </p>
+                )}
+              </div>
+
               {/* Photo Upload & URL */}
               <div className="flex flex-col sm:flex-row items-center gap-5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <img 
