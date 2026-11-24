@@ -384,12 +384,7 @@ export default function App() {
             >
               <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
             </button>
-            <button 
-              onClick={() => navigate('/roster')} 
-              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/roster' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-            >
-              <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
-            </button>
+            
             <button 
               onClick={() => navigate('/colleges')} 
               className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/colleges' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
