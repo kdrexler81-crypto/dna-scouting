@@ -6,11 +6,140 @@ import {
   ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, 
   ExternalLink, PlayCircle, BookOpen, Shield, Zap, Users, 
   Calendar, Mail, FileText, Eye, EyeOff, Target,
-  Edit3, Save, Upload, X, Loader2, Trash2
+  Edit3, Save, Upload, X, Loader2, Trash2, Instagram, Youtube, Share2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
+
+// --- STAT SCHEMA & CAREER TOTALS HELPERS ---
+const STAT_GROUPS = [
+  {
+    id: 'passing',
+    title: 'Passing (QB)',
+    fields: [
+      { key: 'comp', label: 'Completions', type: 'sum' },
+      { key: 'att', label: 'Attempts', type: 'sum' },
+      { key: 'passYds', label: 'Passing Yds', type: 'sum' },
+      { key: 'passTds', label: 'Passing TDs', type: 'sum' },
+      { key: 'passInts', label: 'INTs Thrown', type: 'sum' },
+      { key: 'compPg', label: 'Comp / Game', type: 'avg' },
+      { key: 'attPg', label: 'Att / Game', type: 'avg' },
+      { key: 'passYdsPg', label: 'Pass Yds / Game', type: 'avg' },
+      { key: 'passTdsPg', label: 'Pass TDs / Game', type: 'avg' },
+      { key: 'passIntsPg', label: 'INTs / Game', type: 'avg' },
+    ],
+  },
+  {
+    id: 'rushing',
+    title: 'Rushing',
+    fields: [
+      { key: 'rushAtt', label: 'Rushes', type: 'sum' },
+      { key: 'rushYds', label: 'Total Rush Yds', type: 'sum' },
+      { key: 'rushYdsPg', label: 'Rush Yds / Game', type: 'avg' },
+      { key: 'rushTds', label: 'Rushing TDs', type: 'sum' },
+    ],
+  },
+  {
+    id: 'receiving',
+    title: 'Receiving',
+    fields: [
+      { key: 'rec', label: 'Receptions', type: 'sum' },
+      { key: 'recYds', label: 'Total Rec Yds', type: 'sum' },
+      { key: 'recYdsPg', label: 'Rec Yds / Game', type: 'avg' },
+      { key: 'recTds', label: 'Receiving TDs', type: 'sum' },
+    ],
+  },
+  {
+    id: 'defense',
+    title: 'Defense',
+    fields: [
+      { key: 'defInts', label: 'Interceptions', type: 'sum' },
+      { key: 'flagPullsPg', label: 'Flag Pulls / Game', type: 'avg' },
+      { key: 'pbu', label: 'Passes Defended', type: 'sum' },
+      { key: 'tfl', label: 'Flag Pulls for Loss', type: 'sum' },
+    ],
+  },
+];
+
+const createEmptySeason = (year = String(new Date().getFullYear())) => ({
+  year,
+  comp: '', att: '', passYds: '', passTds: '', passInts: '',
+  compPg: '', attPg: '', passYdsPg: '', passTdsPg: '', passIntsPg: '',
+  rushAtt: '', rushYds: '', rushYdsPg: '', rushTds: '',
+  rec: '', recYds: '', recYdsPg: '', recTds: '',
+  defInts: '', flagPullsPg: '', pbu: '', tfl: '',
+});
+
+const buildCareerTotals = (yearlyStats = []) => {
+  const career = { year: 'Career' };
+  STAT_GROUPS.forEach(group => {
+    group.fields.forEach(({ key, type }) => {
+      const nums = yearlyStats
+        .map(s => s[key])
+        .filter(v => v !== '' && v !== null && v !== undefined && !isNaN(Number(v)))
+        .map(Number);
+
+      if (nums.length === 0) {
+        career[key] = '';
+      } else if (type === 'sum') {
+        const sum = nums.reduce((a, b) => a + b, 0);
+        career[key] = Number.isInteger(sum) ? String(sum) : sum.toFixed(1);
+      } else {
+        const avg = nums.reduce((a, b) => a + b, 0) / nums.length;
+        career[key] = avg.toFixed(1);
+      }
+    });
+  });
+  return career;
+};
+
+// --- SOCIAL MEDIA URL HELPER ---
+const formatSocialUrl = (platform, value) => {
+  if (!value) return '';
+  const clean = value.trim();
+  if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+  const handle = clean.replace(/^@/, '');
+  if (platform === 'twitter') return `https://x.com/${handle}`;
+  if (platform === 'instagram') return `https://instagram.com/${handle}`;
+  if (platform === 'tiktok') return `https://tiktok.com/@${handle}`;
+  if (platform === 'youtube') return `https://youtube.com/@${handle}`;
+  return `https://${clean}`;
+};
+
+// --- HUDL & YOUTUBE EMBED PARSER ---
+const getVideoEmbedUrl = (input) => {
+  if (!input || typeof input !== 'string') return null;
+  let url = input.trim();
+
+  // If the user pasted a full <iframe> snippet from Hudl or YouTube, extract the src URL
+  const iframeSrcMatch = url.match(/src=["']([^"']+)["']/i);
+  if (iframeSrcMatch) {
+    url = iframeSrcMatch[1];
+  }
+
+  // 1. YouTube (watch?v=, youtu.be/, shorts/, or already /embed/)
+  const ytMatch = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  );
+  if (ytMatch && ytMatch[1]) {
+    return `https://www.youtube.com/embed/${ytMatch[1]}?rel=0`;
+  }
+
+  // 2. Hudl (already an embed link)
+  if (url.includes('hudl.com/embed/video/')) {
+    return url;
+  }
+
+  // 3. Hudl (standard highlight URL -> convert /video/ to /embed/video/)
+  const hudlMatch = url.match(/hudl\.com\/video\/(.+)/i);
+  if (hudlMatch && hudlMatch[1]) {
+    const cleanPath = hudlMatch[1].split('?')[0];
+    return `https://www.hudl.com/embed/video/${cleanPath}`;
+  }
+
+  return null;
+};
 
 export const ProfilePage = ({ onBack }) => {
   const { id } = useParams();
@@ -22,6 +151,10 @@ export const ProfilePage = ({ onBack }) => {
   const [error, setError] = useState('');
   const [forceBlurPreview, setForceBlurPreview] = useState(false);
 
+  // --- STATS TAB & EDITOR STATE ---
+  const [selectedStatYear, setSelectedStatYear] = useState('career');
+  const [activeEditYearIdx, setActiveEditYearIdx] = useState(0);
+
   // --- FAMILY PROFILE EDITOR & DELETE STATE ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -30,14 +163,12 @@ export const ProfilePage = ({ onBack }) => {
 
   useEffect(() => {
     const fetchPlayer = async () => {
-      // 1. Check if player is already loaded in global state
       const cached = players?.find(p => String(p.id) === String(id));
       if (cached) {
         setPlayer(cached);
         setLoading(false);
       }
 
-      // 2. Fetch fresh copy from Firestore if active
       if (!isFirebaseActive || !db) {
         if (!cached) setError("Database offline and player not found in local cache.");
         setLoading(false);
@@ -86,11 +217,11 @@ export const ProfilePage = ({ onBack }) => {
     );
   }
 
-  // Safely check if user is logged in OR if you clicked the "Preview Public Blur" button
+  // Auth & Privacy Gate
   const hasValidRole = ['admin', 'recruiter', 'scout', 'parent', 'athlete'].includes(authRole);
   const isLocked = !hasValidRole || forceBlurPreview;
 
-  // Check if the logged-in Parent or Athlete owns this specific profile (or if user is Admin)
+  // Ownership check for self-service editing/deleting
   const userEmail = familyData?.email?.toLowerCase();
   const isOwner = Boolean(
     (userEmail && (
@@ -105,8 +236,10 @@ export const ProfilePage = ({ onBack }) => {
 
   // Open the modal and pre-fill with current non-verified fields
   const openEditModal = () => {
-    const m = player.metrics || {};
-    const s = player.seasonStats || {};
+    const existingSeasons = Array.isArray(player.yearlyStats) && player.yearlyStats.length > 0
+      ? player.yearlyStats.map(s => ({ ...createEmptySeason(s.year), ...s }))
+      : [createEmptySeason()];
+
     setEditForm({
       name: player.name || '',
       avatar: player.avatar || player.photo || '',
@@ -118,14 +251,13 @@ export const ProfilePage = ({ onBack }) => {
       gpa: player.gpa || '',
       satAct: player.satAct || player.sat || '',
       twitter: player.twitter || player.social || '',
+      instagram: player.instagram || '',
+      youtube: player.youtube || '',
+      tiktok: player.tiktok || '',
       hudlLink: player.hudlLink || player.highlightUrl || '',
-      stat1Label: player.stat1Label || s.stat1Label || m.stat1Label || 'Touchdowns',
-      stat1Value: player.stat1Value || s.stat1Value || m.stat1Value || '',
-      stat2Label: player.stat2Label || s.stat2Label || m.stat2Label || 'All-Purpose Yds',
-      stat2Value: player.stat2Value || s.stat2Value || m.stat2Value || '',
-      stat3Label: player.stat3Label || s.stat3Label || m.stat3Label || 'Interceptions',
-      stat3Value: player.stat3Value || s.stat3Value || m.stat3Value || ''
+      yearlyStats: existingSeasons
     });
+    setActiveEditYearIdx(0);
     setIsEditModalOpen(true);
   };
 
@@ -178,22 +310,12 @@ export const ProfilePage = ({ onBack }) => {
         gpa: editForm.gpa,
         satAct: editForm.satAct,
         sat: editForm.satAct,
-        twitter: editForm.twitter,
-        hudlLink: editForm.hudlLink,
-        stat1Label: editForm.stat1Label,
-        stat1Value: editForm.stat1Value,
-        stat2Label: editForm.stat2Label,
-        stat2Value: editForm.stat2Value,
-        stat3Label: editForm.stat3Label,
-        stat3Value: editForm.stat3Value,
-        seasonStats: {
-          stat1Label: editForm.stat1Label,
-          stat1Value: editForm.stat1Value,
-          stat2Label: editForm.stat2Label,
-          stat2Value: editForm.stat2Value,
-          stat3Label: editForm.stat3Label,
-          stat3Value: editForm.stat3Value
-        },
+        twitter: (editForm.twitter || '').trim(),
+        instagram: (editForm.instagram || '').trim(),
+        youtube: (editForm.youtube || '').trim(),
+        tiktok: (editForm.tiktok || '').trim(),
+        hudlLink: (editForm.hudlLink || '').trim(),
+        yearlyStats: editForm.yearlyStats || [],
         updatedAt: Date.now()
       };
       await updateDoc(docRef, updatedFields);
@@ -242,7 +364,6 @@ export const ProfilePage = ({ onBack }) => {
     const strVal = String(raw).trim();
     if (!suffix) return strVal;
 
-    // Prevent double percentage signs (%%), double seconds (ss), double quotes (""), or double MPH
     const cleanSuffix = suffix.trim().toLowerCase();
     if (strVal.toLowerCase().endsWith(cleanSuffix)) {
       return strVal;
@@ -250,22 +371,34 @@ export const ProfilePage = ({ onBack }) => {
     return `${strVal}${suffix}`;
   };
 
-  // Helper for In-Season Custom Stats (Checks both top-level and seasonStats object)
-  const s = player.seasonStats || {};
-  const stat1Label = player.stat1Label || s.stat1Label || m.stat1Label || 'Touchdowns';
-  const stat1Value = player.stat1Value || s.stat1Value || m.stat1Value || player.stat1 || 'N/A';
-  const stat2Label = player.stat2Label || s.stat2Label || m.stat2Label || 'All-Purpose Yds';
-  const stat2Value = player.stat2Value || s.stat2Value || m.stat2Value || player.stat2 || 'N/A';
-  const stat3Label = player.stat3Label || s.stat3Label || m.stat3Label || 'Interceptions';
-  const stat3Value = player.stat3Value || s.stat3Value || m.stat3Value || player.stat3 || 'N/A';
-
+  // Video & Social values
   const highlightUrl = player.hudlLink || player.highlightUrl || player.videoUrl || player.filmLink || '';
+  const embedUrl = getVideoEmbedUrl(highlightUrl);
   const twitterHandle = player.twitter || player.social || '';
+
+  // Multi-Year & Career Stats Computation (hides empty fields & empty groups)
+  const seasons = Array.isArray(player.yearlyStats)
+    ? [...player.yearlyStats].sort((a, b) => Number(b.year) - Number(a.year))
+    : [];
+  const careerStats = seasons.length > 0 ? buildCareerTotals(seasons) : null;
+  const activeStatsObj = selectedStatYear === 'career'
+    ? careerStats
+    : seasons.find(s => String(s.year) === String(selectedStatYear)) || careerStats;
+
+  const visibleStatGroups = activeStatsObj
+    ? STAT_GROUPS.map(group => ({
+        ...group,
+        filledFields: group.fields.filter(f => {
+          const v = activeStatsObj[f.key];
+          return v !== '' && v !== null && v !== undefined;
+        }),
+      })).filter(group => group.filledFields.length > 0)
+    : [];
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-24 animate-in fade-in">
       
-      {/* 1. PUBLIC HEADER (Always Visible to Everyone: Image, Name, Pos, Grad Year, State, DNA Score) */}
+      {/* 1. PUBLIC HEADER (Always Visible to Everyone) */}
       <div className="bg-slate-900 text-white pt-8 pb-20 relative border-b-4 border-[#1c7ed6]">
         <div className="max-w-6xl mx-auto px-4">
           
@@ -275,7 +408,6 @@ export const ProfilePage = ({ onBack }) => {
             </button>
 
             <div className="flex flex-wrap items-center gap-3">
-              {/* Customize & Delete Buttons for Linked Athlete, Parent, or Admin */}
               {canCustomize && (
                 <>
                   <button
@@ -294,7 +426,6 @@ export const ProfilePage = ({ onBack }) => {
                 </>
               )}
 
-              {/* Admin/Logged-In Preview Toggle so you can test the blur effect */}
               {hasValidRole && (
                 <button 
                   onClick={() => setForceBlurPreview(!forceBlurPreview)}
@@ -311,8 +442,6 @@ export const ProfilePage = ({ onBack }) => {
           </div>
 
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
-            
-            {/* Athlete Avatar (Unblurred) */}
             <div className="relative shrink-0">
               <img 
                 src={player.avatar || player.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.name}`} 
@@ -324,7 +453,6 @@ export const ProfilePage = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Basic Info (Unblurred: Name, Primary/Secondary Pos, Grad Year, State) */}
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-3">
                 Verified Prospect Profile
@@ -348,7 +476,6 @@ export const ProfilePage = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Public DNA Score Badge (Unblurred) */}
             <div className="bg-slate-800/90 border border-slate-700 p-5 rounded-3xl shrink-0 mt-4 md:mt-0 backdrop-blur-sm min-w-[150px] text-center shadow-xl">
               <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Verified DNA Score</span>
               <span className="text-4xl md:text-5xl font-black text-[#d6336c]" style={displayFont}>{player.dnaScore || '0.0'}</span>
@@ -357,10 +484,9 @@ export const ProfilePage = ({ onBack }) => {
         </div>
       </div>
 
-      {/* 2. PROTECTED METRICS & RECRUITING DATA SECTION (Blurred if not logged in) */}
+      {/* 2. PROTECTED METRICS & RECRUITING DATA SECTION */}
       <div className="max-w-6xl mx-auto px-4 -mt-10 relative z-10">
         
-        {/* PAYWALL / AUTH GATE OVERLAY */}
         {isLocked && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-start pt-16 sm:pt-28 bg-slate-900/20 backdrop-blur-[6px] rounded-3xl">
             <div className="bg-white p-8 rounded-3xl text-center shadow-2xl max-w-md border border-slate-200 mx-4 sticky top-32">
@@ -391,7 +517,6 @@ export const ProfilePage = ({ onBack }) => {
           </div>
         )}
 
-        {/* BLURRED DATA CONTAINER */}
         <div 
           style={isLocked ? { filter: 'blur(12px)', WebkitFilter: 'blur(12px)' } : {}}
           className={`space-y-6 transition-all duration-300 ${isLocked ? 'select-none pointer-events-none opacity-60' : ''}`}
@@ -399,8 +524,6 @@ export const ProfilePage = ({ onBack }) => {
           
           {/* ROW 1: CLUB TEAM ASSIGNMENT & CLINIC DETAILS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Club Team Assignment */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-5 flex items-center gap-2 border-b border-slate-100 pb-3.5" style={displayFont}>
                 <Users className="text-[#1c7ed6]" size={18} /> Club Team Assignment
@@ -417,7 +540,6 @@ export const ProfilePage = ({ onBack }) => {
               </div>
             </div>
 
-            {/* Verification Clinic Details */}
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
               <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-5 flex items-center gap-2 border-b border-slate-100 pb-3.5" style={displayFont}>
                 <Calendar className="text-[#d6336c]" size={18} /> Verification Clinic Details
@@ -433,7 +555,6 @@ export const ProfilePage = ({ onBack }) => {
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* ROW 2: SPEED VERIFICATIONS */}
@@ -449,7 +570,7 @@ export const ProfilePage = ({ onBack }) => {
             </div>
           </div>
 
-          {/* ROW 3: SKILLS & EXPLOSIVENESS (Fixed single % sign and 'flag' key lookup) */}
+          {/* ROW 3: SKILLS & EXPLOSIVENESS */}
           <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
             <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-100 pb-4" style={displayFont}>
               <Target className="text-[#1c7ed6]" size={18} /> Skills, Measurables & Explosiveness
@@ -468,18 +589,56 @@ export const ProfilePage = ({ onBack }) => {
           {/* ROW 4: MEDIA & IN-SEASON STATS + ACADEMIC & RECRUITING */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            {/* Media & In-Season Stats (5 Cols) */}
-            <div className="lg:col-span-5 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
+            {/* Media & Multi-Year In-Season Stats (6 Cols) */}
+            <div className="lg:col-span-6 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-100 pb-4" style={displayFont}>
-                  <PlayCircle className="text-rose-500" size={18} /> Media & In-Season Stats
+                  <PlayCircle className="text-rose-500" size={18} /> Game Film & In-Season Stats
                 </h3>
                 
-                {/* Highlight Tape URL */}
+                {/* Embedded Highlight Tape Player (Hudl / YouTube) */}
                 <div className="mb-6">
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Highlight Tape (Hudl / YouTube)</span>
-                  {highlightUrl && !isLocked ? (
-                    <a href={highlightUrl} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors group">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                      Highlight Tape (Hudl / YouTube)
+                    </span>
+                    {highlightUrl && !isLocked && (
+                      <a
+                        href={highlightUrl.includes('<iframe') ? (embedUrl || '#') : highlightUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1 uppercase tracking-wider"
+                      >
+                        Open Original <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </div>
+
+                  {isLocked ? (
+                    <div className="aspect-video w-full rounded-2xl bg-slate-900 flex flex-col items-center justify-center border border-slate-200">
+                      <PlayCircle size={40} className="text-slate-600 mb-2" />
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        Verified Game Film Locked
+                      </span>
+                    </div>
+                  ) : embedUrl ? (
+                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 shadow-sm">
+                      <iframe
+                        src={embedUrl}
+                        title={`${player.name} Highlight Reel`}
+                        className="absolute inset-0 w-full h-full"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : highlightUrl ? (
+                    <a
+                      href={highlightUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center justify-between p-4 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors group"
+                    >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-sm">
                           <PlayCircle size={20} />
@@ -494,50 +653,101 @@ export const ProfilePage = ({ onBack }) => {
                   ) : (
                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-center">
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        {isLocked ? 'https://www.hudl.com/video/3/...' : 'No Highlight Link Uploaded'}
+                        No Highlight Link Uploaded
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Custom In-Season Stats 1, 2, 3 */}
-                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">Verified In-Season Production</span>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
-                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider truncate mb-1">
-                      {isLocked ? 'Touchdowns' : stat1Label}
-                    </span>
-                    <span className="text-lg font-black text-slate-900" style={displayFont}>
-                      {isLocked ? '18' : stat1Value}
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
-                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider truncate mb-1">
-                      {isLocked ? 'All-Purpose Yds' : stat2Label}
-                    </span>
-                    <span className="text-lg font-black text-slate-900" style={displayFont}>
-                      {isLocked ? '1,240' : stat2Value}
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
-                    <span className="block text-[9px] font-black text-slate-400 uppercase tracking-wider truncate mb-1">
-                      {isLocked ? 'Interceptions' : stat3Label}
-                    </span>
-                    <span className="text-lg font-black text-slate-900" style={displayFont}>
-                      {isLocked ? '7' : stat3Value}
-                    </span>
-                  </div>
+                {/* Verified In-Season & Career Production (Hides empty fields) */}
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    In-Season & Career Stats
+                  </span>
+                  {seasons.length > 0 && !isLocked && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStatYear('career')}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-colors ${
+                          selectedStatYear === 'career'
+                            ? 'bg-slate-900 text-white'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
+                        Career
+                      </button>
+                      {seasons.map(s => (
+                        <button
+                          key={s.year}
+                          type="button"
+                          onClick={() => setSelectedStatYear(String(s.year))}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider transition-colors ${
+                            String(selectedStatYear) === String(s.year)
+                              ? 'bg-[#1c7ed6] text-white'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {s.year}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {isLocked ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">Receptions</span>
+                      <span className="text-lg font-black text-slate-900" style={displayFont}>42</span>
+                    </div>
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">Rec Yds</span>
+                      <span className="text-lg font-black text-slate-900" style={displayFont}>680</span>
+                    </div>
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase mb-1">Rec TDs</span>
+                      <span className="text-lg font-black text-slate-900" style={displayFont}>11</span>
+                    </div>
+                  </div>
+                ) : visibleStatGroups.length > 0 ? (
+                  <div className="space-y-4">
+                    {visibleStatGroups.map(group => (
+                      <div key={group.id} className="bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                        <span className="block text-[10px] font-black text-[#1c7ed6] uppercase tracking-widest mb-2.5">
+                          {group.title} ({selectedStatYear === 'career' ? 'Career' : selectedStatYear})
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {group.filledFields.map(field => (
+                            <div key={field.key} className="bg-white p-2.5 rounded-xl border border-slate-100 text-center shadow-sm">
+                              <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate mb-0.5">
+                                {field.label}
+                              </span>
+                              <span className="text-base font-black text-slate-900" style={displayFont}>
+                                {activeStatsObj[field.key]}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-center text-xs font-bold text-slate-400">
+                    No in-season stats recorded yet.
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Academic & Recruiting Profile (7 Cols) */}
-            <div className="lg:col-span-7 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
+            {/* Academic, Social Media & Recruiting Profile (6 Cols) */}
+            <div className="lg:col-span-6 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
               <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-slate-100 pb-4" style={displayFont}>
                 <BookOpen className="text-violet-600" size={18} /> Academic & Recruiting Information
               </h3>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+              {/* GPA & SAT/ACT Row */}
+              <div className="grid grid-cols-2 gap-4 mb-5">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Cumulative GPA</span>
                   <span className="text-xl font-black text-slate-900" style={displayFont}>{isLocked ? '3.92' : (player.gpa || 'N/A')}</span>
@@ -546,12 +756,47 @@ export const ProfilePage = ({ onBack }) => {
                   <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">SAT / ACT Score</span>
                   <span className="text-xl font-black text-slate-900" style={displayFont}>{isLocked ? '1340' : (player.satAct || player.sat || player.act || 'N/A')}</span>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 col-span-2 sm:col-span-1">
-                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Twitter / X</span>
-                  <span className="text-sm font-extrabold text-[#1c7ed6] truncate block mt-1">
-                    {isLocked ? '@AthleteFlag2027' : (twitterHandle || 'Not Listed')}
-                  </span>
-                </div>
+              </div>
+
+              {/* Multi-Platform Social Media Links */}
+              <div className="mb-6">
+                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
+                  Social Media & Recruiting Channels
+                </span>
+                {isLocked ? (
+                  <div className="flex flex-wrap gap-2.5">
+                    <span className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">@AthleteFlag27</span>
+                    <span className="px-3.5 py-2 rounded-xl bg-pink-50 text-pink-700 text-xs font-bold">Instagram</span>
+                    <span className="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold">YouTube</span>
+                  </div>
+                ) : (twitterHandle || player.instagram || player.youtube || player.tiktok) ? (
+                  <div className="flex flex-wrap gap-2.5">
+                    {twitterHandle && (
+                      <a href={formatSocialUrl('twitter', twitterHandle)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm">
+                        <Share2 size={14} /> X / Twitter <ExternalLink size={12} className="opacity-60" />
+                      </a>
+                    )}
+                    {player.instagram && (
+                      <a href={formatSocialUrl('instagram', player.instagram)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:opacity-95 text-white text-xs font-bold transition-all shadow-sm">
+                        <Instagram size={14} /> Instagram <ExternalLink size={12} className="opacity-75" />
+                      </a>
+                    )}
+                    {player.youtube && (
+                      <a href={formatSocialUrl('youtube', player.youtube)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all shadow-sm">
+                        <Youtube size={14} /> YouTube <ExternalLink size={12} className="opacity-75" />
+                      </a>
+                    )}
+                    {player.tiktok && (
+                      <a href={formatSocialUrl('tiktok', player.tiktok)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-black text-white text-xs font-bold transition-all shadow-sm">
+                        <PlayCircle size={14} /> TikTok <ExternalLink size={12} className="opacity-75" />
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-400">
+                    No social media links added yet.
+                  </div>
+                )}
               </div>
 
               {/* Compliance Contact Emails */}
@@ -595,7 +840,7 @@ export const ProfilePage = ({ onBack }) => {
         </div>
       </div>
 
-      {/* 3. SELF-SERVICE CUSTOMIZATION MODAL (Non-Verified Fields Only + Delete Profile Option) */}
+      {/* 3. SELF-SERVICE CUSTOMIZATION MODAL */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in">
           <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden my-8">
@@ -643,7 +888,7 @@ export const ProfilePage = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Basic Identity */}
+              {/* 1. Basic Identity */}
               <div>
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
                   1. Athlete Identity & Position
@@ -685,12 +930,12 @@ export const ProfilePage = ({ onBack }) => {
                 </div>
               </div>
 
-              {/* Academics, Social & Film */}
+              {/* 2. Academics, Social & Highlight Film */}
               <div>
                 <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
-                  2. Academics, Social & Highlight Film
+                  2. Academics, Social Media & Highlight Film
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Cumulative GPA</label>
                     <input type="text" placeholder="e.g. 3.85" value={editForm.gpa} onChange={e => setEditForm({...editForm, gpa: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
@@ -700,35 +945,131 @@ export const ProfilePage = ({ onBack }) => {
                     <input type="text" placeholder="e.g. 1280" value={editForm.satAct} onChange={e => setEditForm({...editForm, satAct: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Twitter / X Handle</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Twitter / X Handle or URL</label>
                     <input type="text" placeholder="@handle" value={editForm.twitter} onChange={e => setEditForm({...editForm, twitter: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Instagram Handle or URL</label>
+                    <input type="text" placeholder="@handle" value={editForm.instagram} onChange={e => setEditForm({...editForm, instagram: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">YouTube Channel or Handle</label>
+                    <input type="text" placeholder="https://youtube.com/@..." value={editForm.youtube} onChange={e => setEditForm({...editForm, youtube: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">TikTok Handle or URL</label>
+                    <input type="text" placeholder="@handle" value={editForm.tiktok} onChange={e => setEditForm({...editForm, tiktok: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Highlight Tape URL (Hudl / YouTube)</label>
-                  <input type="url" placeholder="https://www.hudl.com/..." value={editForm.hudlLink} onChange={e => setEditForm({...editForm, hudlLink: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Highlight Tape URL or Embed Code (Hudl / YouTube)</label>
+                  <input type="text" placeholder="https://www.hudl.com/video/... or https://youtu.be/..." value={editForm.hudlLink} onChange={e => setEditForm({...editForm, hudlLink: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                  <p className="text-[10px] text-slate-400 mt-1">Make sure your Hudl highlight privacy is set to Public so it plays directly on your profile.</p>
                 </div>
               </div>
 
-              {/* In-Season Custom Stats */}
+              {/* 3. Multi-Year In-Season Stats Editor */}
               <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900 mb-3 border-b border-slate-100 pb-2" style={displayFont}>
-                  3. Custom In-Season Stats
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                    <input type="text" placeholder="Stat 1 Label (e.g. TDs)" value={editForm.stat1Label} onChange={e => setEditForm({...editForm, stat1Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
-                    <input type="text" placeholder="Value (e.g. 14)" value={editForm.stat1Value} onChange={e => setEditForm({...editForm, stat1Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                    <input type="text" placeholder="Stat 2 Label (e.g. Yards)" value={editForm.stat2Label} onChange={e => setEditForm({...editForm, stat2Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
-                    <input type="text" placeholder="Value (e.g. 950)" value={editForm.stat2Value} onChange={e => setEditForm({...editForm, stat2Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                    <input type="text" placeholder="Stat 3 Label (e.g. INTs)" value={editForm.stat3Label} onChange={e => setEditForm({...editForm, stat3Label: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase" />
-                    <input type="text" placeholder="Value (e.g. 6)" value={editForm.stat3Value} onChange={e => setEditForm({...editForm, stat3Value: e.target.value})} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-black" />
-                  </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 border-b border-slate-100 pb-2">
+                  <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-900" style={displayFont}>
+                    3. In-Season Stats (By Year • Leave Blank to Hide)
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextYear = String((Number(editForm.yearlyStats?.[0]?.year) || new Date().getFullYear()) - 1);
+                      const updated = [...(editForm.yearlyStats || []), createEmptySeason(nextYear)];
+                      setEditForm({ ...editForm, yearlyStats: updated });
+                      setActiveEditYearIdx(updated.length - 1);
+                    }}
+                    className="text-[10px] font-bold uppercase tracking-wider bg-slate-900 hover:bg-[#1c7ed6] text-white px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    + Add Season
+                  </button>
                 </div>
+
+                {/* Season Tabs */}
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  {(editForm.yearlyStats || []).map((season, idx) => (
+                    <div key={idx} className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => setActiveEditYearIdx(idx)}
+                        className={`px-3 py-1.5 rounded-l-lg text-xs font-extrabold uppercase transition-colors ${
+                          activeEditYearIdx === idx ? 'bg-[#1c7ed6] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {season.year || `Season ${idx + 1}`}
+                      </button>
+                      {(editForm.yearlyStats || []).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = editForm.yearlyStats.filter((_, i) => i !== idx);
+                            setEditForm({ ...editForm, yearlyStats: updated });
+                            setActiveEditYearIdx(0);
+                          }}
+                          className="px-2 py-1.5 rounded-r-lg bg-rose-50 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-bold transition-colors"
+                          title="Remove Season"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Active Season Inputs */}
+                {editForm.yearlyStats?.[activeEditYearIdx] && (
+                  <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    <div className="w-40">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Season Year</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 2026"
+                        value={editForm.yearlyStats[activeEditYearIdx].year}
+                        onChange={e => {
+                          const updated = [...editForm.yearlyStats];
+                          updated[activeEditYearIdx] = { ...updated[activeEditYearIdx], year: e.target.value };
+                          setEditForm({ ...editForm, yearlyStats: updated });
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-black"
+                      />
+                    </div>
+
+                    {STAT_GROUPS.map(group => (
+                      <div key={group.id} className="pt-2 border-t border-slate-200/70">
+                        <span className="block text-[10px] font-black text-[#1c7ed6] uppercase tracking-widest mb-2">
+                          {group.title}
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {group.fields.map(field => (
+                            <div key={field.key}>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1 truncate">
+                                {field.label}
+                              </label>
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="-"
+                                value={editForm.yearlyStats[activeEditYearIdx][field.key] ?? ''}
+                                onChange={e => {
+                                  const updated = [...editForm.yearlyStats];
+                                  updated[activeEditYearIdx] = {
+                                    ...updated[activeEditYearIdx],
+                                    [field.key]: e.target.value,
+                                  };
+                                  setEditForm({ ...editForm, yearlyStats: updated });
+                                }}
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Save & Delete Footer */}
