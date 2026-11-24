@@ -2,10 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { 
   ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, 
   ExternalLink, PlayCircle, BookOpen, Shield, Zap, Users, 
-  Calendar, Mail, FileText, Eye, EyeOff, Target,
+  Calendar, Mail, Sparkles, FileText, Eye, EyeOff, Target,
   Edit3, Save, Upload, X, Loader2, Trash2, Camera, Video, Share2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -101,9 +102,9 @@ const formatSocialUrl = (platform, value) => {
   if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
   const handle = clean.replace(/^@/, '');
   if (platform === 'twitter') return `https://x.com/${handle}`;
-  if (platform === 'instagram') return `https://instagram.com/${handle}`;
+  if (platform === 'camera') return `https://instagram.com/${handle}`;
   if (platform === 'tiktok') return `https://tiktok.com/@${handle}`;
-  if (platform === 'youtube') return `https://youtube.com/@${handle}`;
+  if (platform === 'video') return `https://youtube.com/@${handle}`;
   return `https://${clean}`;
 };
 
@@ -144,7 +145,7 @@ const getVideoEmbedUrl = (input) => {
 export const ProfilePage = ({ onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { db, appId, isFirebaseActive, authRole, familyData, players } = useApp();
+  const { app, db, appId, isFirebaseActive, authRole, familyData, players } = useApp();
   
   const [player, setPlayer] = useState(null);
   const [loading, setLoading] = useState(true);

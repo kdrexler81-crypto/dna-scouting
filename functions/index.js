@@ -1,13 +1,118 @@
 // functions/index.js
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
+const Parser = require("rss-parser");
 
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
+const parser = new Parser();
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 
+exports.importExternalProfile = onCall({ cors: true }, async (request) => {
+  const rawUrl = (request.data?.url || "").trim();
+
+  if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
+    throw new HttpsError("invalid-argument", "Please paste a valid URL starting with https://");
+  }
+
+  const imported = {};
+  const lowerUrl = rawUrl.toLowerCase();
+
+  // 1. Direct URL pattern matching (works even if a site blocks scraping)
+  if (lowerUrl.includes("hudl.com/video/") || lowerUrl.includes("youtube.com/watch") || lowerUrl.includes("youtu.be/")) {
+    imported.hudlLink = rawUrl;
+  } else if (lowerUrl.includes("twitter.com/") || lowerUrl.includes("x.com/")) {
+    imported.twitter = rawUrl;
+  } else if (lowerUrl.includes("instagram.com/")) {
+    imported.instagram = rawUrl;
+  } else if (lowerUrl.includes("tiktok.com/")) {
+    imported.tiktok = rawUrl;
+  } else if (lowerUrl.includes("youtube.com/@") || lowerUrl.includes("youtube.com/channel/")) {
+    imported.youtube = rawUrl;
+  }
+
+  // 2. Fetch public HTML & OpenGraph metadata server-side
+  try {
+    const response = await fetch(rawUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml"
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (response.ok) {
+      const html = await response.text();
+
+      const getMeta = (prop) => {
+        const match =
+          html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]+content=["']([^"']+)["']`, "i")) ||
+          html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${prop}["']`, "i"));
+        return match ? match[1].replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim() : "";
+      };
+
+      const ogTitle = getMeta("og:title") || (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1] || "").trim();
+      const ogImage = getMeta("og:image");
+      const ogDesc = getMeta("og:description") || getMeta("description");
+
+      // Extract Athlete Name from title (strips "- Hudl", "| MaxPreps", etc.)
+      if (ogTitle && !imported.hudlLink) {
+        const cleanName = ogTitle
+          .replace(/\s*[-|•]\s*(Hudl|MaxPreps|NCSA|SportsRecruits|YouTube|Instagram|X|Twitter).*$/i, "")
+          .replace(/'s\s+(Football|Flag Football|Profile|Highlights).*$/i, "")
+          .trim();
+        if (cleanName && cleanName.length >= 3 && cleanName.length <= 50 && !/hudl|login|sign in/i.test(cleanName)) {
+          imported.name = cleanName;
+        }
+      }
+
+      // Extract Profile Photo (skip generic site logos)
+      if (ogImage && /^https?:\/\//i.test(ogImage) && !/default-avatar|hudl-logo|maxpreps-logo/i.test(ogImage)) {
+        imported.avatar = ogImage;
+      }
+
+      // Extract Grad Year (e.g., "Class of 2027" or "2028")
+      const combinedText = `${ogTitle} ${ogDesc}`;
+      const gradMatch = combinedText.match(/\b(202[6-9]|203[0-5])\b/);
+      if (gradMatch) {
+        imported.gradYear = gradMatch[1];
+      }
+
+      // Extract 2-Letter State Code (e.g., ", NJ" or "(NJ)")
+      const stateMatch = combinedText.match(/(?:,\s*|\()([A-Z]{2})(?:\)|\s|\.|,|$)/);
+      if (stateMatch) {
+        imported.state = stateMatch[1];
+      }
+
+      // Extract Primary Position
+      const posMatch = combinedText.match(/\b(QB|WR|RB|DB|LB|RUSH|RUSHER|ATH)\b/);
+      if (posMatch) {
+        imported.primaryPos = posMatch[1];
+      }
+
+      // If it's a Hudl profile page, grab the first public highlight video URL if present
+      if (lowerUrl.includes("hudl.com/profile/") && !imported.hudlLink) {
+        const videoMatch = html.match(/https?:\/\/(?:www\.)?hudl\.com\/video\/[a-zA-Z0-9/_-]+/i);
+        if (videoMatch) {
+          imported.hudlLink = videoMatch[0];
+        }
+      }
+    }
+  } catch (err) {
+    // If the external site blocks server fetches, still return any direct link fields we matched above
+    console.warn("External metadata fetch skipped/blocked:", err.message);
+  }
+
+  return {
+    imported,
+    foundFields: Object.keys(imported)
+  };
+});
 // --- 1. DNA SCORING ENGINE ---
 exports.calculateDNAScore = onCall((request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Only authorized coaches can calculate scores.');
@@ -263,3 +368,71 @@ exports.markMessageRead = onCall(async (request) => {
     throw new HttpsError("internal", `Server error: ${err.message}`);
   }
 });
+
+
+// --- 6. AUTOMATED DAILY GIRLS' FLAG FOOTBALL NEWS ---
+// Runs automatically every day at 8:00 AM Eastern Time
+exports.fetchDailyFlagNews = onSchedule(
+  {
+    schedule: "0 8 * * *",
+    timeZone: "America/New_York",
+  },
+  async () => {
+    const appId = "1:1017762631786:web:1663a6a926887b6173fa13";
+    const newsRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("news");
+
+    // Free Google News RSS search for Girls / Women's Flag Football (past 2 days)
+    const rssUrl =
+      "https://news.google.com/rss/search?q=%22girls+flag+football%22+OR+%22women%27s+flag+football%22+when:2d&hl=en-US&gl=US&ceid=US:en";
+
+    try {
+      const feed = await parser.parseURL(rssUrl);
+      if (!feed.items || feed.items.length === 0) {
+        logger.info("No new flag football headlines found today.");
+        return;
+      }
+
+      // Grab the 20 most recent headlines already in Firestore to prevent duplicates
+      const existingSnap = await newsRef.orderBy("timestamp", "desc").limit(20).get();
+      const existingTitles = new Set(
+        existingSnap.docs.map((doc) => (doc.data().title || "").toLowerCase().trim())
+      );
+
+      let addedCount = 0;
+
+      for (const item of feed.items) {
+        if (addedCount >= 2) break; // Limit to 2 fresh headlines per day
+
+        const cleanTitle = (item.title || "").trim();
+        if (!cleanTitle || existingTitles.has(cleanTitle.toLowerCase())) {
+          continue;
+        }
+
+        // Auto-categorize based on keywords
+        let category = "ANNOUNCEMENT";
+        const lower = cleanTitle.toLowerCase();
+        if (lower.includes("college") || lower.includes("ncaa") || lower.includes("naia") || lower.includes("commit") || lower.includes("scholarship")) {
+          category = "RECRUITING";
+        } else if (lower.includes("championship") || lower.includes("tournament") || lower.includes("playoff") || lower.includes("title")) {
+          category = "TOURNAMENT";
+        }
+
+        await newsRef.add({
+          title: cleanTitle,
+          category: category,
+          link: item.link || "",
+          source: item.creator || "Flag Football News",
+          automated: true,
+          timestamp: Date.now(),
+        });
+
+        existingTitles.add(cleanTitle.toLowerCase());
+        addedCount++;
+      }
+
+      logger.info(`Daily news update complete. Added ${addedCount} new headlines.`);
+    } catch (error) {
+      logger.error("Error fetching daily flag football news:", error);
+    }
+  }
+);
