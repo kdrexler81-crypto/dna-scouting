@@ -6,7 +6,7 @@ import {
   ArrowLeft, MapPin, GraduationCap, Trophy, Activity, Lock, 
   ExternalLink, PlayCircle, BookOpen, Shield, Zap, Users, 
   Calendar, Mail, FileText, Eye, EyeOff, Target,
-  Edit3, Save, Upload, X, Loader2, Trash2, Instagram, Youtube, Share2
+  Edit3, Save, Upload, X, Loader2, Trash2, Camera, Video, Share2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
