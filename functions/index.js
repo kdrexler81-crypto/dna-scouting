@@ -10,7 +10,7 @@ if (admin.apps.length === 0) {
 }
 const db = admin.firestore();
 const parser = new Parser();
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+
 
 exports.importExternalProfile = onCall({ cors: true }, async (request) => {
   const rawUrl = (request.data?.url || "").trim();
@@ -436,3 +436,89 @@ exports.fetchDailyFlagNews = onSchedule(
     }
   }
 );
+// --- 7. AUTOMATED WEEKLY COLLEGE PROGRAM & COACH RADAR ---
+const COLLEGE_APP_ID = "1:1017762631786:web:1663a6a926887b6173fa13";
+
+async function runCollegeUpdateScan() {
+  const pendingRef = db
+    .collection("artifacts")
+    .doc(COLLEGE_APP_ID)
+    .collection("public")
+    .doc("data")
+    .collection("pendingCollegeUpdates");
+
+  const rssQueries = [
+    {
+      type: "NEW PROGRAM",
+      url: "https://news.google.com/rss/search?q=%22women%27s+flag+football%22+(%22adds%22+OR+%22launches%22+OR+%22announces%22+OR+%22new+program%22+OR+%22varsity%22)+when:14d&hl=en-US&gl=US&ceid=US:en",
+    },
+    {
+      type: "COACH HIRE",
+      url: "https://news.google.com/rss/search?q=%22flag+football%22+(%22head+coach%22+OR+%22named+head+coach%22+OR+%22hires%22)+(university+OR+college)+when:14d&hl=en-US&gl=US&ceid=US:en",
+    },
+  ];
+
+  // Pull recent pending & dismissed items to avoid duplicates
+  const existingSnap = await pendingRef.orderBy("timestamp", "desc").limit(100).get();
+  const existingTitles = new Set(
+    existingSnap.docs.map((d) => (d.data().title || "").toLowerCase().trim())
+  );
+
+  let addedCount = 0;
+
+  for (const feedConfig of rssQueries) {
+    try {
+      const feed = await parser.parseURL(feedConfig.url);
+      if (!feed.items) continue;
+
+      for (const item of feed.items.slice(0, 10)) {
+        const cleanTitle = (item.title || "").trim();
+        const titleKey = cleanTitle.toLowerCase();
+        if (!cleanTitle || existingTitles.has(titleKey)) continue;
+
+        // Filter out high school-only stories
+        if (/\bhigh school\b|\bhs\b|\bvarsity girls\b/i.test(cleanTitle) && !/\bcollege\b|\buniversity\b|\bncaa\b|\bnaia\b|\bnjcaa\b/i.test(cleanTitle)) {
+          continue;
+        }
+
+        await pendingRef.add({
+          title: cleanTitle,
+          type: feedConfig.type,
+          link: item.link || "",
+          source: item.creator || "College Flag Radar",
+          pubDate: item.pubDate || "",
+          status: "pending",
+          timestamp: Date.now(),
+        });
+
+        existingTitles.add(titleKey);
+        addedCount++;
+      }
+    } catch (err) {
+      logger.error(`Radar RSS error (${feedConfig.type}):`, err);
+    }
+  }
+
+  return addedCount;
+}
+
+// Runs automatically every Monday at 9:00 AM Eastern Time
+exports.scanCollegeUpdates = onSchedule(
+  {
+    schedule: "0 9 * * 1",
+    timeZone: "America/New_York",
+  },
+  async () => {
+    const added = await runCollegeUpdateScan();
+    logger.info(`Weekly College Radar complete. Queued ${added} new updates.`);
+  }
+);
+
+// Manual "Scan Now" trigger for the Admin Panel
+exports.triggerCollegeScan = onCall({ cors: true }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Admin login required.");
+  }
+  const added = await runCollegeUpdateScan();
+  return { success: true, added };
+});

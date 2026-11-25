@@ -3,12 +3,15 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch
 } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useApp } from '../../context/AppContext';
 import {
   GraduationCap, Upload, Plus, Search, Trash2, Edit3, Save, X,
-  Loader2, Database, CheckCircle2, Mail, MapPin
+  Loader2, Radar, ExternalLink, Database, CheckCircle2, Mail, MapPin
 } from 'lucide-react';
 import COLLEGES_JSON from '../../data/colleges.json';
-
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useApp } from '../../context/AppContext';
 const DIVISIONS = [
   'NCAA DI', 'NCAA DII', 'NCAA DIII', 'NAIA', 'NJCAA', '3C2A', 'USCAA', 'Club'
 ];
@@ -57,6 +60,10 @@ export const AdminCollegeManager = ({ db, appId }) => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('All');
+  const { app } = useApp();
+  const [pendingUpdates, setPendingUpdates] = useState([]);
+  const [scanningRadar, setScanningRadar] = useState(false);
+  const [activePendingId, setActivePendingId] = useState(null);
 
   // Form State
   const [editingId, setEditingId] = useState(null);
@@ -66,7 +73,10 @@ export const AdminCollegeManager = ({ db, appId }) => {
   // Bulk Import State
   const [importing, setImporting] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
-
+  const { app } = useApp();
+  const [pendingUpdates, setPendingUpdates] = useState([]);
+  const [scanningRadar, setScanningRadar] = useState(false);
+  const [activePendingId, setActivePendingId] = useState(null);
   // Live Firestore Listener
   useEffect(() => {
     if (!db || !appId) {
@@ -82,7 +92,18 @@ export const AdminCollegeManager = ({ db, appId }) => {
     });
     return () => unsub();
   }, [db, appId]);
-
+useEffect(() => {
+    if (!db || !appId) return;
+    const pendingRef = collection(db, 'artifacts', appId, 'public', 'data', 'pendingCollegeUpdates');
+    const unsub = onSnapshot(pendingRef, (snap) => {
+      const items = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((item) => item.status === 'pending')
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      setPendingUpdates(items);
+    });
+    return () => unsub();
+  }, [db, appId]);
   const filteredColleges = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     return colleges.filter((c) => {
@@ -97,7 +118,44 @@ export const AdminCollegeManager = ({ db, appId }) => {
       return matchesTerm && matchesDiv;
     });
   }, [colleges, searchTerm, divisionFilter]);
+const handleRunRadarNow = async () => {
+    setScanningRadar(true);
+    setStatusMsg(null);
+    try {
+      const scanFn = httpsCallable(getFunctions(app), 'triggerCollegeScan');
+      const { data } = await scanFn();
+      setStatusMsg({
+        type: 'success',
+        text: data.added > 0
+          ? `Radar scan complete: found ${data.added} new program or coaching update${data.added > 1 ? 's' : ''}.`
+          : 'Radar scan complete: no new college updates found since last check.'
+      });
+    } catch (err) {
+      setStatusMsg({ type: 'error', text: 'Radar scan failed: ' + err.message });
+    } finally {
+      setScanningRadar(false);
+    }
+  };
 
+  const handleDismissPending = async (pendingId) => {
+    if (!db) return;
+    await updateDoc(
+      doc(db, 'artifacts', appId, 'public', 'data', 'pendingCollegeUpdates', pendingId),
+      { status: 'dismissed', reviewedAt: Date.now() }
+    );
+    if (activePendingId === pendingId) setActivePendingId(null);
+  };
+
+  const handleStartFromPending = (item) => {
+    const cleanHeadline = (item.title || '').replace(/\s*[-|]\s*[^-|]+$/, '').trim();
+    setEditingId(null);
+    setActivePendingId(item.id);
+    setForm({ ...EMPTY_FORM, name: cleanHeadline });
+    setStatusMsg({
+      type: 'success',
+      text: 'Loaded headline into the form below. Trim to the school name, add details, and click Add Program to publish and clear this alert.'
+    });
+  };
   // --- MANUAL SAVE (ADD OR UPDATE) ---
   const handleSaveCollege = async (e) => {
     e.preventDefault();
@@ -345,7 +403,77 @@ export const AdminCollegeManager = ({ db, appId }) => {
           {statusMsg.text}
         </div>
       )}
+{/* WEEKLY RADAR: PENDING APPROVAL QUEUE */}
+      <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 flex items-center gap-1.5">
+              <Radar size={14} /> Weekly Program & Coach Radar
+            </span>
+            <h4 className="text-sm font-extrabold text-slate-900 mt-0.5">
+              {pendingUpdates.length} Pending Update{pendingUpdates.length !== 1 ? 's' : ''} to Review
+            </h4>
+          </div>
+          <button
+            type="button"
+            onClick={handleRunRadarNow}
+            disabled={scanningRadar}
+            className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            {scanningRadar ? <><Loader2 size={13} className="animate-spin" /> Scanning News...</> : <><Radar size={13} /> Scan Now</>}
+          </button>
+        </div>
 
+        {pendingUpdates.length > 0 ? (
+          <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+            {pendingUpdates.map((item) => (
+              <div key={item.id} className="bg-white border border-amber-200/80 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                      item.type === 'COACH HIRE' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {item.type}
+                    </span>
+                    {item.link && (
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] font-bold text-[#1c7ed6] hover:underline flex items-center gap-1"
+                      >
+                        Read Article <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                  <p className="text-xs font-bold text-slate-800 leading-snug">{item.title}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleStartFromPending(item)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  >
+                    Use in Form
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissPending(item.id)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-600 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs font-semibold text-amber-800/80">
+            All caught up. The radar runs automatically every Monday at 9:00 AM ET, or click <strong>Scan Now</strong> to check immediately.
+          </p>
+        )}
+      </div>
       {/* MANUAL ADD / EDIT FORM */}
       <form onSubmit={handleSaveCollege} className="bg-slate-50/80 border border-slate-200 rounded-2xl p-6 space-y-5">
         <div className="flex items-center justify-between">
