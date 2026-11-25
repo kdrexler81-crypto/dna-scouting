@@ -4,7 +4,9 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const Parser = require("rss-parser");
-
+const { defineSecret } = require("firebase-functions/params");
+const { GoogleGenAI } = require("@google/genai");
+const geminiApiKey = defineSecret("GEMINI_API_KEY");
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
@@ -522,3 +524,54 @@ exports.triggerCollegeScan = onCall({ cors: true }, async (request) => {
   const added = await runCollegeUpdateScan();
   return { success: true, added };
 });
+// --- 8. AI AUTO-FIND SCHOOL INFO (GEMINI + GOOGLE SEARCH) ---
+exports.lookupCollegeInfo = onCall(
+  { cors: true, secrets: [geminiApiKey] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Admin login required.");
+    }
+
+    const schoolName = (request.data?.schoolName || "").trim();
+    if (!schoolName) {
+      throw new HttpsError("invalid-argument", "Please enter a school name first.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey.value() });
+
+    const prompt = `Search the official athletics website and staff directory for "${schoolName}" women's flag football program.
+Return ONLY a valid JSON object (no markdown, no backticks, no extra text) with these exact keys:
+{
+  "state": "2-letter US state code like NJ, or empty string",
+  "division": "one of: NCAA DI, NCAA DII, NCAA DIII, NAIA, NJCAA, 3C2A, USCAA, Club",
+  "conference": "conference name or empty string",
+  "coach": "head coach full name or TBA",
+  "email": "head coach official school email or empty string",
+  "phone": "office phone number or empty string",
+  "questionnaireUrl": "official recruiting questionnaire URL or empty string"
+}
+If a field cannot be verified from official sources, leave it as an empty string (or "TBA" for coach).`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          tools: [{ googleSearch: {} }],
+        },
+      });
+
+      const rawText = (response.text || "").trim();
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error("Could not parse school info from search results.");
+      }
+
+      const info = JSON.parse(jsonMatch[0]);
+      return { success: true, info };
+    } catch (err) {
+      logger.error("lookupCollegeInfo error:", err);
+      throw new HttpsError("internal", err.message || "AI lookup failed.");
+    }
+  }
+);
