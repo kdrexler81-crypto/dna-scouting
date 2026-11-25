@@ -10,8 +10,6 @@ import {
   Loader2, Radar, ExternalLink, Database, CheckCircle2, Mail, MapPin
 } from 'lucide-react';
 import COLLEGES_JSON from '../../data/colleges.json';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import { useApp } from '../../context/AppContext';
 const DIVISIONS = [
   'NCAA DI', 'NCAA DII', 'NCAA DIII', 'NAIA', 'NJCAA', '3C2A', 'USCAA', 'Club'
 ];
@@ -73,10 +71,6 @@ export const AdminCollegeManager = ({ db, appId }) => {
   // Bulk Import State
   const [importing, setImporting] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
-  const { app } = useApp();
-  const [pendingUpdates, setPendingUpdates] = useState([]);
-  const [scanningRadar, setScanningRadar] = useState(false);
-  const [activePendingId, setActivePendingId] = useState(null);
   // Live Firestore Listener
   useEffect(() => {
     if (!db || !appId) {
