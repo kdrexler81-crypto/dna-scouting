@@ -4,7 +4,11 @@ import { getAuth } from 'firebase/auth';
 import { doc, updateDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { Activity, Megaphone, Building, Search, Camera, Users, GraduationCap, Trophy, MapPin, Zap, Ruler, ChevronLeft, Key, Check, Copy, Download, Loader2 } from 'lucide-react';
+import {
+  Activity, Megaphone, Building, Search, Camera, Users, GraduationCap,
+  Trophy, MapPin, Zap, Ruler, ChevronLeft, Key, Check, Copy, Download,
+  Loader2, Sparkles
+} from 'lucide-react';
 import { AdminScoutApproval } from '../components/admin/AdminScoutApproval';
 import { useApp } from '../context/AppContext';
 
@@ -47,6 +51,180 @@ const getVideoEmbedUrl = (input) => {
   }
 
   return null;
+};
+
+// --- COPY & PASTE PROFILE TEXT PARSER (HUDL / MAXPREPS / NCSA) ---
+const US_STATES = new Set([
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'
+]);
+
+const normalizeAdminPos = (pos) => {
+  if (!pos) return '';
+  const upper = pos.toUpperCase();
+  if (upper === 'RUSHER') return 'RUSH';
+  return upper;
+};
+
+const parsePastedProfileText = (rawText) => {
+  if (!rawText || !rawText.trim()) return { fields: {}, parsedStats: {}, foundLabels: [] };
+
+  const text = rawText.replace(/\r/g, '');
+  const fields = {};
+  const parsedStats = {};
+  const foundLabels = [];
+
+  // 1. Grad Year (Class of 2027, Class of '27, c/o 2028)
+  const gradExplicit = text.match(/(?:class\s+of|grad(?:uation)?(?:\s+year)?|c\/o)\s*[:\-]?\s*['’]?(20[2-3]\d|[2-3]\d)['’]?/i);
+  if (gradExplicit) {
+    const yr = gradExplicit[1].length === 2 ? `20${gradExplicit[1]}` : gradExplicit[1];
+    fields.gradYear = yr;
+    foundLabels.push(`Grad Year (${yr})`);
+  } else {
+    const gradFallback = text.match(/\b(202[6-9]|203[0-5])\b/);
+    if (gradFallback) {
+      fields.gradYear = gradFallback[1];
+      foundLabels.push(`Grad Year (${gradFallback[1]})`);
+    }
+  }
+
+  // 2. State (City, NJ or (NJ))
+  const stateMatches = [...text.matchAll(/(?:,\s*|\()([A-Z]{2})(?:\)|\s|\.|,|$)/g)];
+  for (const m of stateMatches) {
+    if (US_STATES.has(m[1])) {
+      fields.state = m[1];
+      foundLabels.push(`State (${m[1]})`);
+      break;
+    }
+  }
+
+  // 3. Height (split into heightFeet & heightInches for AdminPanel)
+  const heightMatch =
+    text.match(/\b([4-6])\s*['’]\s*(1[0-1]|[0-9])\s*["”]?/) ||
+    text.match(/\b(?:height|ht)\s*[:\-]?\s*([4-6])[-']\s*(1[0-1]|[0-9])\b/i);
+  if (heightMatch) {
+    fields.heightFeet = heightMatch[1];
+    fields.heightInches = heightMatch[2];
+    foundLabels.push(`Height (${heightMatch[1]}'${heightMatch[2]}")`);
+  }
+
+  // 4. Weight (e.g., 125 lbs, Weight: 125)
+  const weightMatch =
+    text.match(/\b([7-9]\d|1\d{2}|2[0-4]\d)\s*(?:lbs?\.?|pounds)\b/i) ||
+    text.match(/\b(?:weight|wt)\s*[:\-]?\s*([7-9]\d|1\d{2}|2[0-4]\d)\b/i);
+  if (weightMatch) {
+    fields.weight = weightMatch[1];
+    foundLabels.push(`Weight (${weightMatch[1]} lbs)`);
+  }
+
+  // 5. GPA (4.1 GPA, GPA: 3.85)
+  const gpaMatch =
+    text.match(/\bgpa\s*(?:of|:|-)?\s*([2-5]\.\d{1,2})\b/i) ||
+    text.match(/\b([2-5]\.\d{1,2})\s*gpa\b/i);
+  if (gpaMatch) {
+    fields.gpa = gpaMatch[1];
+    foundLabels.push(`GPA (${gpaMatch[1]})`);
+  }
+
+  // 6. SAT / ACT (maps to metrics.sat)
+  const satMatch = text.match(/\bsat\s*[:\-]?\s*(1[0-6]\d{2}|[89]\d{2})\b/i) || text.match(/\b(1[0-6]\d{2})\s*sat\b/i);
+  const actMatch = text.match(/\bact\s*[:\-]?\s*([1-3]\d)\b/i) || text.match(/\b([1-3]\d)\s*act\b/i);
+  if (satMatch) {
+    fields.sat = satMatch[1];
+    foundLabels.push(`SAT (${satMatch[1]})`);
+  } else if (actMatch) {
+    fields.sat = actMatch[1];
+    foundLabels.push(`ACT (${actMatch[1]})`);
+  }
+
+  // 7. Positions (matched to AdminPanel select options)
+  const posMap = {
+    QB: 'QB', QUARTERBACK: 'QB',
+    WR: 'WR', 'WIDE RECEIVER': 'WR', RECEIVER: 'WR',
+    RB: 'RB', 'RUNNING BACK': 'RB',
+    TE: 'TE', 'TIGHT END': 'TE',
+    C: 'C', CENTER: 'C',
+    DB: 'DB', FS: 'DB', SS: 'DB', CB: 'DB', S: 'DB', SAFETY: 'DB', CORNERBACK: 'DB',
+    LB: 'LB', OLB: 'LB', MLB: 'LB', ILB: 'LB', LINEBACKER: 'LB',
+    RUSH: 'RUSH', RUSHER: 'RUSH', BLITZER: 'RUSH',
+    ATH: 'ATH', ATHLETE: 'ATH'
+  };
+  const posRegex = /\b(QB|WR|RB|TE|DB|FS|SS|CB|LB|OLB|MLB|ILB|RUSH|RUSHER|ATH|Quarterback|Wide Receiver|Running Back|Tight End|Linebacker|Cornerback|Safety)\b/gi;
+  const detectedPositions = [];
+  for (const m of text.matchAll(posRegex)) {
+    const normalized = posMap[m[1].toUpperCase()];
+    if (normalized && !detectedPositions.includes(normalized)) {
+      detectedPositions.push(normalized);
+    }
+    if (detectedPositions.length >= 2) break;
+  }
+  if (detectedPositions[0]) {
+    fields.primaryPos = detectedPositions[0];
+    foundLabels.push(`Pos (${detectedPositions.join('/')})`);
+  }
+  if (detectedPositions[1]) {
+    fields.secondaryPos = detectedPositions[1];
+  }
+
+  // 8. Embedded Links (Hudl, YouTube, Instagram, X/Twitter, TikTok)
+  const hudlUrl = text.match(/https?:\/\/(?:www\.)?hudl\.com\/(?:video|profile)\/[^\s"'<>]+/i);
+  const ytUrl = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[^\s"'<>]+/i);
+  if (hudlUrl) { fields.hudlLink = hudlUrl[0]; foundLabels.push('Hudl Link'); }
+  else if (ytUrl) { fields.hudlLink = ytUrl[0]; foundLabels.push('YouTube Video'); }
+
+  const igUrl = text.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s"'<>]+/i);
+  if (igUrl) { fields.instagram = igUrl[0]; foundLabels.push('Instagram'); }
+
+  const xUrl = text.match(/https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[^\s"'<>]+/i);
+  if (xUrl) { fields.twitter = xUrl[0]; foundLabels.push('X/Twitter'); }
+
+  const ttUrl = text.match(/https?:\/\/(?:www\.)?tiktok\.com\/[^\s"'<>]+/i);
+  if (ttUrl) { fields.tiktok = ttUrl[0]; foundLabels.push('TikTok'); }
+
+  // 9. In-Season Stats
+  const statMatchers = [
+    { key: 'passYds', regex: /(?:pass(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*pass(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'passTds', regex: /(?:pass(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*pass(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'comp', regex: /(?:completions\s*[:\-]?\s*(\d+)|(\d+)\s*completions)/i },
+    { key: 'rushYds', regex: /(?:rush(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rush(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'rushTds', regex: /(?:rush(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rush(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'rec', regex: /(?:receptions\s*[:\-]?\s*(\d+)|(\d+)\s*(?:receptions|catches))/i },
+    { key: 'recYds', regex: /(?:rec(?:eiving)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rec(?:eiving)?\s*(?:yds|yards))/i },
+    { key: 'recTds', regex: /(?:rec(?:eiving)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rec(?:eiving)?\s*(?:tds|touchdowns))/i },
+    { key: 'defInts', regex: /(?:interceptions\s*[:\-]?\s*(\d+)|(\d+)\s*(?:interceptions|ints))/i },
+    { key: 'flagPullsPg', regex: /(?:flag\s*pulls\s*(?:\/g|per game)\s*[:\-]?\s*([\d.]+)|([\d.]+)\s*flag\s*pulls\s*(?:\/g|per game))/i },
+    { key: 'pbu', regex: /(?:(?:passes\s*defended|pbu)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:passes\s*defended|pbu))/i },
+    { key: 'tfl', regex: /(?:(?:tfl|flag\s*pulls\s*for\s*loss)\s*[:\-]?\s*(\d+)|(\d+)\s*tfl)/i },
+  ];
+
+  let statsFoundCount = 0;
+  statMatchers.forEach(({ key, regex }) => {
+    const match = text.match(regex);
+    if (match) {
+      const rawNum = (match[1] || match[2] || '').replace(/,/g, '');
+      if (rawNum) {
+        parsedStats[key] = rawNum;
+        statsFoundCount++;
+      }
+    }
+  });
+  if (statsFoundCount > 0) {
+    foundLabels.push(`${statsFoundCount} Stat${statsFoundCount > 1 ? 's' : ''}`);
+  }
+
+  // 10. Athlete Name (clean 2-3 word name line, skipping site navigation)
+  const skipLine = /hudl|maxpreps|skip to|log in|sign in|sign up|search|follow|highlights|schedule|stats|about|bio|menu|home|varsity|football|class of|gpa|http/i;
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const line of lines.slice(0, 12)) {
+    if (!skipLine.test(line) && /^[A-Z][a-z'-]+\s+[A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+)?$/.test(line)) {
+      fields.name = line;
+      foundLabels.unshift(`Name (${line})`);
+      break;
+    }
+  }
+
+  return { fields, parsedStats, foundLabels };
 };
 
 // Multi-Year In-Season Stat Schema (Matches ProfilePage.jsx)
@@ -119,6 +297,13 @@ export const AdminPanel = ({ onBack, onLogout }) => {
   const [athleteSearchTerm, setAthleteSearchTerm] = useState("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [activeSeasonIdx, setActiveSeasonIdx] = useState(0);
+
+  // --- QUICK AUTO-FILL (LINK + PASTE TEXT) STATE ---
+  const [importMode, setImportMode] = useState('url'); // 'url' | 'text'
+  const [importUrl, setImportUrl] = useState('');
+  const [pastedText, setPastedText] = useState('');
+  const [importingProfile, setImportingProfile] = useState(false);
+  const [importStatus, setImportStatus] = useState(null);
   
   const [newsTitle, setNewsTitle] = useState('');
   const [newsCategory, setNewsCategory] = useState('ANNOUNCEMENT');
@@ -143,6 +328,98 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     }
     return list.sort((a, b) => (a.name || '').split(' ').slice(-1)[0].localeCompare((b.name || '').split(' ').slice(-1)[0]));
   }, [players, athleteSearchTerm, selectedExistingId]);
+
+  // --- AUTO-FILL HANDLER 1: IMPORT FROM LINK ---
+  const handleImportFromLink = async () => {
+    if (!importUrl.trim()) return;
+    setImportingProfile(true);
+    setImportStatus(null);
+    try {
+      const importFn = httpsCallable(getFunctions(app), 'importExternalProfile');
+      const { data } = await importFn({ url: importUrl.trim() });
+      const found = data?.imported || {};
+      const keys = Object.keys(found);
+
+      if (keys.length === 0) {
+        setImportStatus({
+          type: 'error',
+          text: 'Could not read public profile data from that link. Switch to "Paste Profile Text (Ctrl+A)" to pull all details directly.'
+        });
+      } else {
+        setMetrics((prev) => ({
+          ...prev,
+          ...(found.name ? { name: found.name } : {}),
+          ...(found.gradYear ? { gradYear: found.gradYear } : {}),
+          ...(found.state ? { state: found.state.toUpperCase() } : {}),
+          ...(found.primaryPos ? { primaryPos: normalizeAdminPos(found.primaryPos) } : {}),
+          ...(found.hudlLink ? { hudlLink: found.hudlLink } : {}),
+          ...(found.twitter ? { twitter: found.twitter } : {}),
+          ...(found.instagram ? { instagram: found.instagram } : {}),
+          ...(found.youtube ? { youtube: found.youtube } : {}),
+          ...(found.tiktok ? { tiktok: found.tiktok } : {}),
+        }));
+
+        if (found.avatar) {
+          setPhotoPreview(found.avatar);
+        }
+
+        setImportStatus({
+          type: 'success',
+          text: data?.fetchBlocked
+            ? `Saved link (${keys.join(', ')}). That site blocked automatic scraping—switch to "Paste Profile Text (Ctrl+A)" to pull Height, Weight, GPA, Position, and Stats.`
+            : `Auto-filled: ${keys.join(', ')}. Review the fields below and click Save Profile.`
+        });
+        setImportUrl('');
+      }
+    } catch (err) {
+      setImportStatus({
+        type: 'error',
+        text: err.message || 'Failed to import link. Make sure importExternalProfile is deployed.'
+      });
+    } finally {
+      setImportingProfile(false);
+    }
+  };
+
+  // --- AUTO-FILL HANDLER 2: PARSE COPIED PROFILE TEXT ---
+  const handleParsePastedText = () => {
+    if (!pastedText.trim()) return;
+    const { fields, parsedStats, foundLabels } = parsePastedProfileText(pastedText);
+
+    if (foundLabels.length === 0) {
+      setImportStatus({
+        type: 'error',
+        text: 'Could not detect profile info in that text. Open the Hudl or MaxPreps About/Bio page, press Ctrl+A then Ctrl+C, and paste again.'
+      });
+      return;
+    }
+
+    setMetrics((prev) => {
+      const updatedSeasons = Array.isArray(prev.yearlyStats) && prev.yearlyStats.length > 0
+        ? [...prev.yearlyStats]
+        : [createEmptySeason()];
+
+      if (Object.keys(parsedStats).length > 0) {
+        const targetIdx = updatedSeasons[activeSeasonIdx] ? activeSeasonIdx : 0;
+        updatedSeasons[targetIdx] = {
+          ...updatedSeasons[targetIdx],
+          ...parsedStats
+        };
+      }
+
+      return {
+        ...prev,
+        ...fields,
+        yearlyStats: updatedSeasons
+      };
+    });
+
+    setImportStatus({
+      type: 'success',
+      text: `Parsed from text: ${foundLabels.join(', ')}. Review the fields below and click Save Profile.`
+    });
+    setPastedText('');
+  };
 
   // --- ONE-CLICK BATCH LOCK & CSV EXPORT FOR MAIL MERGE ---
   const handleExportAccessCodesCSV = async () => {
@@ -224,6 +501,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     setSelectedExistingId(playerId);
     setCodeCopied(false);
     setActiveSeasonIdx(0);
+    setImportStatus(null);
+    setImportUrl('');
+    setPastedText('');
 
     if (!playerId) {
       setMetrics(createDefaultMetrics());
@@ -423,6 +703,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
           const storageRef = ref(storage, `avatars/${Date.now()}_${metrics.name.replace(/\s+/g, '_')}.jpg`);
           await uploadString(storageRef, photoPreview, 'data_url');
           finalAvatarUrl = await getDownloadURL(storageRef);
+        } else if (photoPreview && /^https?:\/\//i.test(photoPreview)) {
+          finalAvatarUrl = photoPreview;
         }
 
         if (selectedExistingId) {
@@ -460,6 +742,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
       setSelectedExistingId("");
       setPhotoPreview(null);
       setActiveSeasonIdx(0);
+      setImportStatus(null);
+      setImportUrl('');
+      setPastedText('');
     } catch (err) {
       alert("Error saving: " + err.message);
     }
@@ -474,6 +759,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     setSelectedExistingId("");
     setPhotoPreview(null);
     setActiveSeasonIdx(0);
+    setImportStatus(null);
   };
 
   const submitNews = async (e) => {
@@ -504,7 +790,7 @@ export const AdminPanel = ({ onBack, onLogout }) => {
            <div className="animate-in fade-in slide-in-from-left-4">
               
               {/* ATHLETE SELECTOR + BATCH EXPORT CSV BUTTON */}
-              <div className="bg-slate-50/80 p-6 rounded-2xl mb-8 border border-slate-100">
+              <div className="bg-slate-50/80 p-6 rounded-2xl mb-6 border border-slate-100">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                   <label className="text-xs font-extrabold uppercase tracking-widest text-slate-800">
                     Select Existing Athlete (Or Create New)
@@ -525,6 +811,81 @@ export const AdminPanel = ({ onBack, onLogout }) => {
 
                 <div className="relative mb-3"><Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} /><input type="text" placeholder="Search athlete by name..." className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-3 text-sm font-medium focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={athleteSearchTerm} onChange={(e) => setAthleteSearchTerm(e.target.value)} /></div>
                 <select className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 font-semibold focus:ring-2 focus:ring-[#1c7ed6]/20 transition-all focus:outline-none" value={selectedExistingId} onChange={(e) => handleSelectExisting(e.target.value)}><option value="">+ Create Brand New Athlete</option>{filteredAdminPlayers.map(p => <option key={p.id} value={p.id}>{p.name} ({p.gradYear})</option>)}</select>
+              </div>
+
+              {/* QUICK AUTO-FILL FROM HUDL / MAXPREPS / PASTE TEXT */}
+              <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-5 mb-8 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-[#1c7ed6] flex items-center gap-1.5">
+                    <Sparkles size={14} /> Quick Auto-Fill Prospect
+                  </span>
+                  <div className="inline-flex bg-white p-0.5 rounded-lg border border-blue-200">
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('url'); setImportStatus(null); }}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'url' ? 'bg-[#1c7ed6] text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Paste Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('text'); setImportStatus(null); }}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'text' ? 'bg-[#1c7ed6] text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Paste Profile Text (Ctrl+A)
+                    </button>
+                  </div>
+                </div>
+
+                {importMode === 'url' ? (
+                  <div className="flex flex-col sm:flex-row gap-2.5">
+                    <input
+                      type="url"
+                      placeholder="Paste public Hudl profile, highlight video, MaxPreps, or social URL..."
+                      value={importUrl}
+                      onChange={(e) => setImportUrl(e.target.value)}
+                      className="flex-1 bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#1c7ed6]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleImportFromLink}
+                      disabled={importingProfile || !importUrl.trim()}
+                      className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shrink-0 shadow-sm"
+                    >
+                      {importingProfile ? <><Loader2 size={14} className="animate-spin" /> Importing...</> : <><Sparkles size={14} /> Auto-Fill Link</>}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <textarea
+                      rows={3}
+                      placeholder="Open a Hudl or MaxPreps profile page, press Ctrl+A then Ctrl+C, and paste here (Ctrl+V) to auto-fill Name, Grad Year, State, Position, Height, Weight, GPA, SAT/ACT, and Stats..."
+                      value={pastedText}
+                      onChange={(e) => setPastedText(e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#1c7ed6]"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleParsePastedText}
+                        disabled={!pastedText.trim()}
+                        className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <Sparkles size={14} /> Parse & Auto-Fill Form
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {importStatus && (
+                  <p className={`text-xs font-bold ${importStatus.type === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {importStatus.text}
+                  </p>
+                )}
               </div>
 
               <form onSubmit={submitCombineData} className="space-y-8">
