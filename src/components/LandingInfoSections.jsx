@@ -232,7 +232,7 @@ export const LandingInfoSections = ({ colleges = [] }) => {
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-extrabold uppercase tracking-wider text-white shadow-md hover:opacity-95 transition-opacity self-start sm:self-auto"
             style={{ background: 'linear-gradient(135deg, #f59f00 0%, #d6336c 50%, #7950f2 100%)' }}
           >
-            < size={15} /> Follow {INSTAGRAM_HANDLE} <ExternalLink size={13} />
+            <Camera size={15} /> Follow {INSTAGRAM_HANDLE} <ExternalLink size={13} />
           </a>
         </div>
 
