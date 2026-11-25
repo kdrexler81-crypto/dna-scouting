@@ -1,7 +1,7 @@
 // src/App.jsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Lock, Loader2, X, User, Users, Building, GraduationCap,LayoutDashboard, Trophy, Shield, Key, Sparkles } from 'lucide-react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Lock, Loader2, X, User, Building, Trophy, Shield, Key } from 'lucide-react';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // --- PAGES ---
@@ -14,6 +14,11 @@ import { RosterPage } from './pages/RosterPage';
 import { AboutPage } from './pages/AboutPage';
 import { CollegeDirectory } from './pages/CollegeDirectory';
 
+// --- LAYOUT COMPONENTS ---
+import { Navbar } from './components/Navbar';
+import { Footer } from './components/Footer';
+import { ReportIssueButton } from './components/ReportIssueButton';
+
 // --- GLOBAL STATE ---
 import { useApp } from './context/AppContext';
 
@@ -25,32 +30,8 @@ import { doc, updateDoc, increment, setDoc, getDoc } from 'firebase/firestore';
 import { Analytics } from '@vercel/analytics/react';
 
 // --- TYPOGRAPHY HELPERS ---
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
-const bodyFont = { fontFamily: "'Inter', sans-serif" };
-
-// --- BRAND COMPONENTS ---
-const DNALogo = () => (
-  <div className="flex items-center gap-3">
-    <img src="/DNA Logo.png" alt="DNA Football Logo" className="h-9 w-auto" onError={(e) => e.target.style.display='none'} />
-    <span className="font-extrabold text-xl tracking-wide uppercase text-slate-900 hidden sm:block print:block" style={displayFont}>DNA Football</span>
-  </div>
-);
-
-const SanctionedFooter = () => (
-  <footer className="bg-white border-t border-slate-200 py-12 mt-20 text-center shadow-sm print:hidden">
-    <div className="max-w-7xl mx-auto px-4 flex flex-col items-center justify-center space-y-6">
-      <div className="flex flex-col items-center space-y-2">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Official Dual Sanctioned Organization</span>
-        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-center gap-6 shadow-sm">
-          <img src="/usa-football-logo.jpg" alt="USA Football Sanctioned" className="h-10 w-auto object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-          <div className="h-8 w-px bg-slate-200"></div>
-          <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider" style={displayFont}>USA Football & NFL FLAG Partner</span>
-        </div>
-      </div>
-      <p className="text-slate-400 text-[10px] uppercase tracking-widest pt-4">&copy; {new Date().getFullYear()} DNA Football. All rights reserved.</p>
-    </div>
-  </footer>
-);
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
+const bodyFont = { fontFamily: "'Plus Jakarta Sans', sans-serif" };
 
 // --- UPGRADED REGISTRATION MODAL ---
 const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
@@ -62,7 +43,6 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // New Fields for Identity Verification
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -104,12 +84,10 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
         setMode('recruiter_login');
       
       } else if (mode === 'parent_signup' || mode === 'athlete_signup') {
-        // IDENTITY VERIFICATION FLOW
         const userRole = mode === 'parent_signup' ? 'parent' : 'athlete';
         const userCred = await createUserWithEmailAndPassword(auth, username, password);
         
         try {
-          // Call the secure Cloud Function to link the account
           const linkAccount = httpsCallable(getFunctions(app), 'linkFamilyAccount');
           await linkAccount({
             athleteId: selectedAthleteId,
@@ -119,7 +97,6 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
           });
           onLoginSuccess(userRole, { email: username, uid: userCred.user.uid });
         } catch (linkErr) {
-          // If they fail the code check, safely delete the auth record so they can try again
           await userCred.user.delete();
           throw new Error(linkErr.message || "Failed to verify Access Code.");
         }
@@ -176,7 +153,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
               {mode.includes('parent') && <Shield size={24} />}
               {mode.includes('athlete') && <Trophy size={24} />}
             </div>
-            <h2 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>
+            <h2 className="text-3xl font-extrabold text-slate-900 uppercase tracking-tight" style={displayFont}>
               {mode === 'admin' && 'Coach Portal'}
               {mode.includes('recruiter') && 'Scout Portal'}
               {mode.includes('parent') && 'Parent Account'}
@@ -190,8 +167,6 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
           {error && <div className={`border text-xs font-semibold p-3.5 rounded-xl text-center mb-6 leading-relaxed ${error.includes('successfully') ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`}>{error}</div>}
           
           <form onSubmit={handleSubmit} className="space-y-4">
-            
-            {/* COMMON FIELDS: EMAIL & PASSWORD */}
             <div>
               <InputLabel>{mode === 'recruiter_signup' ? 'University Email (.edu)' : 'Email Address'}</InputLabel>
               <div className="relative">
@@ -207,7 +182,6 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
               </div>
             </div>
 
-            {/* RECRUITER SPECIFIC SIGNUP */}
             {mode === 'recruiter_signup' && (
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div><InputLabel>Coach Name</InputLabel><input required type="text" placeholder="John Doe" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#1c7ed6] focus:ring-2 transition-all" value={coachName} onChange={e => setCoachName(e.target.value)} /></div>
@@ -215,7 +189,6 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
               </div>
             )}
 
-            {/* FAMILY/ATHLETE SPECIFIC SIGNUP (CONTACT & VERIFICATION) */}
             {(mode === 'parent_signup' || mode === 'athlete_signup') && (
               <div className="space-y-4 pt-4 border-t border-slate-100">
                 <div className="grid grid-cols-2 gap-3">
@@ -275,24 +248,26 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, initialMode }) => {
 // --- MASTER APP CONTROLLER ---
 export default function App() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const { 
-    app, auth, db, appId, isFirebaseActive,
-    players, dbStatus,
+    auth, db, appId, isFirebaseActive,
+    dbStatus,
     authRole, setAuthRole,
     recruiterData, setRecruiterData,
-    familyData, setFamilyData
+    setFamilyData
   } = useApp();
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginModalMode, setLoginModalMode] = useState('admin');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
 
+  // Load Barlow Condensed + Plus Jakarta Sans fonts
   useEffect(() => {
-    if (!document.getElementById('dna-fonts')) {
-      const link = document.createElement('link'); link.id = 'dna-fonts'; link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@700;900&display=swap'; link.rel = 'stylesheet'; document.head.appendChild(link);
+    if (!document.getElementById('dna-fonts-v2')) {
+      const link = document.createElement('link');
+      link.id = 'dna-fonts-v2';
+      link.href = 'https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
     }
   }, []);
 
@@ -303,12 +278,6 @@ export default function App() {
       navigate(`/player/${targetPlayerId}`, { replace: true });
     }
   }, [navigate]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setIsDropdownOpen(false); };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const handleLoginSuccess = (role, data) => { 
     setAuthRole(role); sessionStorage.setItem('dna_auth_role', role);
@@ -349,7 +318,10 @@ export default function App() {
     }
   };
 
-  const openModal = (mode) => { setLoginModalMode(mode); setIsDropdownOpen(false); setIsLoginModalOpen(true); };
+  const openModal = (mode) => {
+    setLoginModalMode(mode);
+    setIsLoginModalOpen(true);
+  };
 
   const getDashboardRoute = () => {
     if (authRole === 'admin') return '/admin';
@@ -361,94 +333,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between" style={bodyFont}>
-      <nav className="border-b border-slate-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-40 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between">
-          <div className="cursor-pointer flex items-center gap-4" onClick={() => navigate('/')}>
-            <DNALogo />
-            <span className={`text-[9px] px-2.5 py-1 rounded-full font-bold tracking-widest uppercase flex items-center gap-1.5 ${dbStatus === "LIVE SYNC" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-slate-100 text-slate-500"}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${dbStatus === "LIVE SYNC" ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`}></span>
-              {dbStatus}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button 
-              onClick={() => navigate('/about')} 
-              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/about' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-            >
-              <Sparkles size={15} /> <span className="hidden sm:inline">Platform</span> Features
-            </button>
-            <button 
-              onClick={() => navigate('/roster')} 
-              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/roster' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-            >
-              <Users size={15} /> <span className="hidden sm:inline">Official</span> Roster
-            </button>
-            
-            <button 
-              onClick={() => navigate('/colleges')} 
-              className={`text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-all flex items-center gap-1.5 ${location.pathname === '/colleges' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
-            >
-              <GraduationCap size={15} /> Colleges <span className="hidden md:inline">Directory</span>
-            </button>
-            {authRole ? (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate(getDashboardRoute())}
-                  className="text-xs font-bold uppercase tracking-wider px-4 py-2.5 rounded-full text-white shadow-sm flex items-center gap-1.5 transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
-                >
-                  <LayoutDashboard size={15} /> Dashboard
-                </button>
-              </div>
-            ) : (
-              <div className="relative" ref={dropdownRef}>
-                <button 
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)} 
-                  className="text-xs font-bold uppercase tracking-wider px-5 py-2.5 rounded-full text-white shadow-md hover:opacity-95 transition-all flex items-center gap-2"
-                  style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
-                >
-                  <Lock size={14} /> Portal Login
-                </button>
-
-                {isDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <button onClick={() => openModal('athlete_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                      <div className="p-1.5 rounded-lg bg-violet-50 text-violet-500"><Trophy size={16} /></div>
-                      <div>
-                        <div className="text-slate-900">Athlete Locker Room</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Approved Messages</div>
-                      </div>
-                    </button>
-                    <button onClick={() => openModal('parent_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                      <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><Shield size={16} /></div>
-                      <div>
-                        <div className="text-slate-900">Parent Dashboard</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Inbox Moderation</div>
-                      </div>
-                    </button>
-                    <button onClick={() => openModal('recruiter_login')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                      <div className="p-1.5 rounded-lg bg-blue-50 text-[#1c7ed6]"><Building size={16} /></div>
-                      <div>
-                        <div className="text-slate-900">College Scout</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Verified .EDU Portal</div>
-                      </div>
-                    </button>
-                    <div className="my-1 border-t border-slate-100"></div>
-                    <button onClick={() => openModal('admin')} className="w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 hover:bg-slate-50 flex items-center gap-3 transition-colors">
-                      <div className="p-1.5 rounded-lg bg-pink-50 text-[#d6336c]"><Lock size={16} /></div>
-                      <div>
-                        <div className="text-slate-900">Coach / Admin</div>
-                        <div className="text-[9px] text-slate-400 font-semibold">Combine Data Entry</div>
-                      </div>
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        authRole={authRole}
+        dbStatus={dbStatus}
+        dashboardRoute={getDashboardRoute()}
+        onOpenLogin={openModal}
+        onLogout={handleLogout}
+      />
 
       <LoginModal 
         isOpen={isLoginModalOpen} 
@@ -471,7 +362,8 @@ export default function App() {
         </Routes>
       </main>
 
-      <SanctionedFooter />
+      <Footer />
+      <ReportIssueButton />
       <Analytics />
     </div>
   );

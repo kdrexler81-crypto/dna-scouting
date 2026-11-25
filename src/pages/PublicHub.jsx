@@ -1,10 +1,14 @@
 // src/pages/PublicHub.jsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { Trophy, Activity, Megaphone, ExternalLink, Globe, Calendar, ChevronRight, Zap, Search, Lock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useColleges } from '../hooks/useColleges';
+import { HeroSlideshow } from '../components/HeroSlideshow';
+import { FeaturedAthleteBanner } from '../components/FeaturedAthleteBanner';
+import { LandingInfoSections } from '../components/LandingInfoSections';
 
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
 
 // HELPER FUNCTIONS
 const getCategoryColor = (category) => {
@@ -33,6 +37,9 @@ const getNewsIcon = (news) => {
 
 export const PublicHub = ({ onSelect }) => {
   const { db, appId, players, isFirebaseActive, authRole } = useApp();
+  const { colleges } = useColleges(db, appId, isFirebaseActive);
+  const leaderboardRef = useRef(null);
+
   const [newsFeed, setNewsFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,45 +82,20 @@ export const PublicHub = ({ onSelect }) => {
     );
   }, [fullLeaderboard, searchTerm]);
 
+  const scrollToLeaderboard = () => {
+    leaderboardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] animate-in fade-in">
-      {/* HERO SECTION */}
-      <div className="bg-slate-900 text-white py-14 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#1c7ed6] to-[#d6336c]"></div>
-        <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/20 mb-5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-200">The Premier Recruiting Database</span>
-              </div>
-              <h1 className="text-4xl md:text-6xl font-extrabold uppercase tracking-tight mb-5 leading-tight" style={displayFont}>
-                Verified Metrics.<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-[#1c7ed6] to-[#d6336c]">Real Recruiting.</span>
-              </h1>
-              <p className="text-slate-300 text-base md:text-lg font-medium max-w-lg leading-relaxed">
-                Connect directly with NCAA & NAIA college coaches using DNA verified combine scores and a secure two-way compliance inbox.
-              </p>
-            </div>
-            
-            {/* HERO STATS */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white/5 border border-white/10 p-6 rounded-3xl backdrop-blur-sm">
-                <UsersIcon className="text-[#1c7ed6] mb-3" size={28} />
-                <h3 className="text-3xl font-black mb-1" style={displayFont}>{players.length}</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Athletes</p>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-6 rounded-3xl backdrop-blur-sm">
-                <Activity className="text-[#d6336c] mb-3" size={28} />
-                <h3 className="text-3xl font-black mb-1" style={displayFont}>320+</h3>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">College Programs</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 1. FULL-WIDTH ACTION SLIDESHOW HERO */}
+      <HeroSlideshow onScrollToLeaderboard={scrollToLeaderboard} />
 
-      {/* MAIN CONTENT: LEADERBOARD FIRST (LEFT ON DESKTOP, TOP ON MOBILE), NEWS SECOND (RIGHT ON DESKTOP) */}
-      <div className="max-w-7xl mx-auto px-4 py-10">
+      {/* 2. FEATURED ATHLETE SPOTLIGHT (Auto-hides if none is pinned in Admin) */}
+      <FeaturedAthleteBanner players={players} />
+
+      {/* 3. MAIN CONTENT: LEADERBOARD (LEFT) & LIVE NEWS WIRE (RIGHT) */}
+      <div ref={leaderboardRef} className="max-w-7xl mx-auto px-4 py-6 scroll-mt-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT COLUMN (FIRST ON MOBILE): FULL NATIONAL LEADERBOARD */}
@@ -122,7 +104,7 @@ export const PublicHub = ({ onSelect }) => {
               <div className="p-6 border-b border-slate-800 bg-gradient-to-br from-slate-900 to-slate-800">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-2xl font-extrabold uppercase tracking-tight text-white flex items-center gap-3" style={displayFont}>
+                    <h2 className="text-3xl font-extrabold uppercase tracking-tight text-white flex items-center gap-3" style={displayFont}>
                       <Trophy className="text-amber-400" size={26} /> National Leaderboard
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
@@ -164,7 +146,7 @@ export const PublicHub = ({ onSelect }) => {
                         
                         {/* RANK NUMBER */}
                         <div className="shrink-0 w-10 text-center">
-                          <span className={`text-lg font-black ${getRankColorClass(trueRank)}`} style={displayFont}>
+                          <span className={`text-xl font-black ${getRankColorClass(trueRank)}`} style={displayFont}>
                             #{trueRank + 1}
                           </span>
                         </div>
@@ -174,7 +156,7 @@ export const PublicHub = ({ onSelect }) => {
                         
                         {/* DETAILS */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm sm:text-base font-bold text-white truncate group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
+                          <p className="text-base sm:text-lg font-bold text-white truncate group-hover:text-[#1c7ed6] transition-colors" style={displayFont}>{player.name}</p>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate mt-0.5">
                             {player.primaryPos} • Class of {player.gradYear || 'N/A'} • {player.state}
                           </p>
@@ -184,7 +166,7 @@ export const PublicHub = ({ onSelect }) => {
                         <div className="text-right shrink-0 flex items-center gap-3">
                           <div>
                             <span className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">DNA Score</span>
-                            <span className="text-base sm:text-lg font-black text-[#d6336c]" style={displayFont}>{player.dnaScore || '0.0'}</span>
+                            <span className="text-lg sm:text-xl font-black text-[#d6336c]" style={displayFont}>{player.dnaScore || '0.0'}</span>
                           </div>
                           <ChevronRight size={16} className="text-slate-600 group-hover:text-white transition-colors" />
                         </div>
@@ -199,7 +181,7 @@ export const PublicHub = ({ onSelect }) => {
           {/* RIGHT COLUMN (SECOND ON MOBILE): LIVE NEWS WIRE */}
           <div className="lg:col-span-5 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
+              <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
                 <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
               </h2>
             </div>
@@ -237,7 +219,7 @@ export const PublicHub = ({ onSelect }) => {
                           <Calendar size={11} /> {new Date(news.timestamp).toLocaleDateString()}
                         </span>
                       </div>
-                      <h3 className="text-base font-extrabold text-slate-900 leading-snug" style={displayFont}>
+                      <h3 className="text-lg font-extrabold text-slate-900 leading-snug" style={displayFont}>
                         {news.title}
                       </h3>
                       
@@ -255,18 +237,9 @@ export const PublicHub = ({ onSelect }) => {
           
         </div>
       </div>
+
+      {/* 4. NEWEST COLLEGE PROGRAMS, VERIFIED DATA, ROADMAP & INSTAGRAM */}
+      <LandingInfoSections colleges={colleges} />
     </div>
   );
 };
-
-// Helper Icon Component
-function UsersIcon(props) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}

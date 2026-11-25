@@ -6,8 +6,11 @@ import {
   ExternalLink, Building2, Filter, ArrowLeft, Eye, EyeOff
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import COLLEGES_DB from '../data/colleges.json';
+import { useApp } from '../context/AppContext';
+import { useColleges } from '../hooks/useColleges';
 
+const { db, appId, isFirebaseActive } = useApp();
+const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
 const DIVISIONS = [

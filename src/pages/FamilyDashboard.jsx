@@ -12,7 +12,8 @@ import {
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
-import COLLEGES_DB from '../data/colleges.json';
+import { useColleges } from '../hooks/useColleges';
+const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
 
 const displayFont = { fontFamily: "'Outfit', sans-serif" };
 
@@ -299,7 +300,7 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
         new RegExp(`\\b${collegeDivision}\\b`, 'i').test(c.division || '');
       return matchesSearch && matchesDiv;
     });
-  }, [collegeSearch, collegeDivision]);
+  }, [collegeSearch, collegeDivision, COLLEGES_DB]);
 
   // --- SMART COLLEGE MATCH RECOMMENDATION ENGINE ---
   const collegeMatches = useMemo(() => {
@@ -364,7 +365,7 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       tierLabel,
       topMatches: scored.slice(0, 6)
     };
-  }, [activeAthlete, matchRegionPref]);
+  }, [activeAthlete, matchRegionPref, COLLEGES_DB]);
 
   // --- ANALYTICS CALCULATIONS (SCOUT VIEWS & 14-DAY CHART) ---
   const scoutViews = useMemo(() => {
