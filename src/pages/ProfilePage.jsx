@@ -141,6 +141,171 @@ const getVideoEmbedUrl = (input) => {
   return null;
 };
 
+// --- COPY & PASTE PROFILE TEXT PARSER (HUDL / MAXPREPS / NCSA) ---
+const US_STATES = new Set([
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'
+]);
+
+const parsePastedProfileText = (rawText) => {
+  if (!rawText || !rawText.trim()) return { fields: {}, parsedStats: {}, foundLabels: [] };
+
+  const text = rawText.replace(/\r/g, '');
+  const fields = {};
+  const parsedStats = {};
+  const foundLabels = [];
+
+  // 1. Grad Year (Class of 2027, Class of '27, c/o 2028)
+  const gradExplicit = text.match(/(?:class\s+of|grad(?:uation)?(?:\s+year)?|c\/o)\s*[:\-]?\s*['’]?(20[2-3]\d|[2-3]\d)['’]?/i);
+  if (gradExplicit) {
+    const yr = gradExplicit[1].length === 2 ? `20${gradExplicit[1]}` : gradExplicit[1];
+    fields.gradYear = yr;
+    foundLabels.push(`Grad Year (${yr})`);
+  } else {
+    const gradFallback = text.match(/\b(202[6-9]|203[0-5])\b/);
+    if (gradFallback) {
+      fields.gradYear = gradFallback[1];
+      foundLabels.push(`Grad Year (${gradFallback[1]})`);
+    }
+  }
+
+  // 2. State (City, NJ or (NJ))
+  const stateMatches = [...text.matchAll(/(?:,\s*|\()([A-Z]{2})(?:\)|\s|\.|,|$)/g)];
+  for (const m of stateMatches) {
+    if (US_STATES.has(m[1])) {
+      fields.state = m[1];
+      foundLabels.push(`State (${m[1]})`);
+      break;
+    }
+  }
+
+  // 3. Height (e.g., 5'6", 5' 6", 5'6, Height: 5-6)
+  const heightMatch =
+    text.match(/\b([4-6])\s*['’]\s*(1[0-1]|[0-9])\s*["”]?/) ||
+    text.match(/\b(?:height|ht)\s*[:\-]?\s*([4-6])[-']\s*(1[0-1]|[0-9])\b/i);
+  if (heightMatch) {
+    fields.height = `${heightMatch[1]}'${heightMatch[2]}"`;
+    foundLabels.push(`Height (${fields.height})`);
+  }
+
+  // 4. Weight (e.g., 125 lbs, 125lbs, Weight: 125)
+  const weightMatch =
+    text.match(/\b([7-9]\d|1\d{2}|2[0-4]\d)\s*(?:lbs?\.?|pounds)\b/i) ||
+    text.match(/\b(?:weight|wt)\s*[:\-]?\s*([7-9]\d|1\d{2}|2[0-4]\d)\b/i);
+  if (weightMatch) {
+    fields.weight = weightMatch[1];
+    foundLabels.push(`Weight (${weightMatch[1]} lbs)`);
+  }
+
+  // 5. GPA (4.1 GPA, GPA: 3.85, gpa of 3.9)
+  const gpaMatch =
+    text.match(/\bgpa\s*(?:of|:|-)?\s*([2-5]\.\d{1,2})\b/i) ||
+    text.match(/\b([2-5]\.\d{1,2})\s*gpa\b/i);
+  if (gpaMatch) {
+    fields.gpa = gpaMatch[1];
+    foundLabels.push(`GPA (${gpaMatch[1]})`);
+  }
+
+  // 6. SAT / ACT
+  const satMatch = text.match(/\bsat\s*[:\-]?\s*(1[0-6]\d{2}|[89]\d{2})\b/i) || text.match(/\b(1[0-6]\d{2})\s*sat\b/i);
+  const actMatch = text.match(/\bact\s*[:\-]?\s*([1-3]\d)\b/i) || text.match(/\b([1-3]\d)\s*act\b/i);
+  if (satMatch) {
+    fields.satAct = satMatch[1];
+    foundLabels.push(`SAT (${satMatch[1]})`);
+  } else if (actMatch) {
+    fields.satAct = actMatch[1];
+    foundLabels.push(`ACT (${actMatch[1]})`);
+  }
+
+  // 7. Positions
+  const posMap = {
+    QB: 'QB', QUARTERBACK: 'QB',
+    WR: 'WR', 'WIDE RECEIVER': 'WR', RECEIVER: 'WR',
+    RB: 'RB', 'RUNNING BACK': 'RB',
+    C: 'C', CENTER: 'C',
+    DB: 'DB', FS: 'DB', SS: 'DB', CB: 'DB', S: 'DB', SAFETY: 'DB', CORNERBACK: 'DB',
+    LB: 'LB', OLB: 'LB', MLB: 'LB', ILB: 'LB', LINEBACKER: 'LB',
+    RUSH: 'RUSH', RUSHER: 'RUSHER', BLITZER: 'RUSHER',
+    ATH: 'ATH', ATHLETE: 'ATH'
+  };
+  const posRegex = /\b(QB|WR|RB|DB|FS|SS|CB|LB|OLB|MLB|ILB|RUSH|RUSHER|ATH|Quarterback|Wide Receiver|Running Back|Linebacker|Cornerback|Safety)\b/gi;
+  const detectedPositions = [];
+  for (const m of text.matchAll(posRegex)) {
+    const normalized = posMap[m[1].toUpperCase()];
+    if (normalized && !detectedPositions.includes(normalized)) {
+      detectedPositions.push(normalized);
+    }
+    if (detectedPositions.length >= 2) break;
+  }
+  if (detectedPositions[0]) {
+    fields.primaryPos = detectedPositions[0];
+    foundLabels.push(`Pos (${detectedPositions.join('/')})`);
+  }
+  if (detectedPositions[1]) {
+    fields.secondaryPos = detectedPositions[1];
+  }
+
+  // 8. Embedded Links (Hudl, YouTube, Instagram, X/Twitter, TikTok)
+  const hudlUrl = text.match(/https?:\/\/(?:www\.)?hudl\.com\/(?:video|profile)\/[^\s"'<>]+/i);
+  const ytUrl = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[^\s"'<>]+/i);
+  if (hudlUrl) { fields.hudlLink = hudlUrl[0]; foundLabels.push('Hudl Link'); }
+  else if (ytUrl) { fields.hudlLink = ytUrl[0]; foundLabels.push('YouTube Video'); }
+
+  const igUrl = text.match(/https?:\/\/(?:www\.)?instagram\.com\/[^\s"'<>]+/i);
+  if (igUrl) { fields.instagram = igUrl[0]; foundLabels.push('Instagram'); }
+
+  const xUrl = text.match(/https?:\/\/(?:www\.)?(?:twitter\.com|x\.com)\/[^\s"'<>]+/i);
+  if (xUrl) { fields.twitter = xUrl[0]; foundLabels.push('X/Twitter'); }
+
+  const ttUrl = text.match(/https?:\/\/(?:www\.)?tiktok\.com\/[^\s"'<>]+/i);
+  if (ttUrl) { fields.tiktok = ttUrl[0]; foundLabels.push('TikTok'); }
+
+  // 9. In-Season Stats
+  const statMatchers = [
+    { key: 'passYds', regex: /(?:pass(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*pass(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'passTds', regex: /(?:pass(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*pass(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'comp', regex: /(?:completions\s*[:\-]?\s*(\d+)|(\d+)\s*completions)/i },
+    { key: 'rushYds', regex: /(?:rush(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rush(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'rushTds', regex: /(?:rush(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rush(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'rec', regex: /(?:receptions\s*[:\-]?\s*(\d+)|(\d+)\s*(?:receptions|catches))/i },
+    { key: 'recYds', regex: /(?:rec(?:eiving)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rec(?:eiving)?\s*(?:yds|yards))/i },
+    { key: 'recTds', regex: /(?:rec(?:eiving)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rec(?:eiving)?\s*(?:tds|touchdowns))/i },
+    { key: 'defInts', regex: /(?:interceptions\s*[:\-]?\s*(\d+)|(\d+)\s*(?:interceptions|ints))/i },
+    { key: 'flagPullsPg', regex: /(?:flag\s*pulls\s*(?:\/g|per game)\s*[:\-]?\s*([\d.]+)|([\d.]+)\s*flag\s*pulls\s*(?:\/g|per game))/i },
+    { key: 'pbu', regex: /(?:(?:passes\s*defended|pbu)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:passes\s*defended|pbu))/i },
+    { key: 'tfl', regex: /(?:(?:tfl|flag\s*pulls\s*for\s*loss)\s*[:\-]?\s*(\d+)|(\d+)\s*tfl)/i },
+  ];
+
+  let statsFoundCount = 0;
+  statMatchers.forEach(({ key, regex }) => {
+    const match = text.match(regex);
+    if (match) {
+      const rawNum = (match[1] || match[2] || '').replace(/,/g, '');
+      if (rawNum) {
+        parsedStats[key] = rawNum;
+        statsFoundCount++;
+      }
+    }
+  });
+  if (statsFoundCount > 0) {
+    foundLabels.push(`${statsFoundCount} Stat${statsFoundCount > 1 ? 's' : ''}`);
+  }
+
+  // 10. Athlete Name (clean 2-3 word name line, skipping site navigation)
+  const skipLine = /hudl|maxpreps|skip to|log in|sign in|sign up|search|follow|highlights|schedule|stats|about|bio|menu|home|varsity|football|class of|gpa|http/i;
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const line of lines.slice(0, 12)) {
+    if (!skipLine.test(line) && /^[A-Z][a-z'-]+\s+[A-Z][a-z'-]+(?:\s+[A-Z][a-z'-]+)?$/.test(line)) {
+      fields.name = line;
+      foundLabels.unshift(`Name (${line})`);
+      break;
+    }
+  }
+
+  return { fields, parsedStats, foundLabels };
+};
+
 export const ProfilePage = ({ onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -161,9 +326,11 @@ export const ProfilePage = ({ onBack }) => {
   const [deletingProfile, setDeletingProfile] = useState(false);
   const [editForm, setEditForm] = useState({});
 
-  // --- HUDL / EXTERNAL LINK IMPORTER STATE ---
+  // --- HUDL / EXTERNAL LINK & TEXT IMPORTER STATE ---
   const [showImportBar, setShowImportBar] = useState(true);
+  const [importMode, setImportMode] = useState('url'); // 'url' | 'text'
   const [importUrl, setImportUrl] = useState('');
+  const [pastedText, setPastedText] = useState('');
   const [importingProfile, setImportingProfile] = useState(false);
   const [importStatus, setImportStatus] = useState(null);
 
@@ -253,6 +420,8 @@ export const ProfilePage = ({ onBack }) => {
       secondaryPos: player.secondaryPos || '',
       gradYear: player.gradYear || '',
       state: player.state || '',
+      height: player.height || player.metrics?.height || '',
+      weight: player.weight || player.metrics?.weight || '',
       externalClub: player.externalClub || player.thirdPartyClub || '',
       gpa: player.gpa || '',
       satAct: player.satAct || player.sat || '',
@@ -274,7 +443,7 @@ export const ProfilePage = ({ onBack }) => {
     setIsEditModalOpen(true);
   };
 
-  // Import from Hudl / MaxPreps / YouTube (works from both the page header AND inside the modal)
+  // Import from Hudl / MaxPreps / YouTube URL
   const handleImportFromLink = async (openModalAfter = false) => {
     if (!importUrl.trim()) return;
     setImportingProfile(true);
@@ -288,7 +457,7 @@ export const ProfilePage = ({ onBack }) => {
       if (keys.length === 0) {
         setImportStatus({
           type: 'error',
-          text: 'Could not read public profile data from that link. Make sure the profile is set to Public, or enter fields manually.'
+          text: 'Could not read public profile data from that link. Switch to "Paste Profile Text (Ctrl+A)" to pull all details directly.'
         });
       } else {
         if (openModalAfter && !isEditModalOpen) {
@@ -303,7 +472,9 @@ export const ProfilePage = ({ onBack }) => {
         }
         setImportStatus({
           type: 'success',
-          text: `Auto-filled: ${keys.join(', ')}. Review the fields below and click Save Profile Updates.`
+          text: data?.fetchBlocked
+            ? `Saved link (${keys.join(', ')}). That site blocked automatic scraping—switch to "Paste Profile Text (Ctrl+A)" to also pull Height, Weight, GPA, Position, and Stats.`
+            : `Auto-filled: ${keys.join(', ')}. Review the fields below and click Save Profile Updates.`
         });
         setImportUrl('');
       }
@@ -315,6 +486,50 @@ export const ProfilePage = ({ onBack }) => {
     } finally {
       setImportingProfile(false);
     }
+  };
+
+  // Import from Copy & Pasted Hudl / MaxPreps Profile Text
+  const handleParsePastedText = (openModalAfter = false) => {
+    if (!pastedText.trim()) return;
+    const { fields, parsedStats, foundLabels } = parsePastedProfileText(pastedText);
+
+    if (foundLabels.length === 0) {
+      setImportStatus({
+        type: 'error',
+        text: 'Could not detect profile info in that text. Open the Hudl or MaxPreps About/Bio page, press Ctrl+A then Ctrl+C, and paste again.'
+      });
+      return;
+    }
+
+    const baseForm = openModalAfter && !isEditModalOpen ? buildEditFormState() : editForm;
+    const updatedSeasons = Array.isArray(baseForm.yearlyStats) && baseForm.yearlyStats.length > 0
+      ? [...baseForm.yearlyStats]
+      : [createEmptySeason()];
+
+    if (Object.keys(parsedStats).length > 0) {
+      const targetIdx = openModalAfter && !isEditModalOpen ? 0 : activeEditYearIdx;
+      updatedSeasons[targetIdx] = {
+        ...updatedSeasons[targetIdx],
+        ...parsedStats
+      };
+    }
+
+    setEditForm({
+      ...baseForm,
+      ...fields,
+      yearlyStats: updatedSeasons
+    });
+
+    if (openModalAfter && !isEditModalOpen) {
+      setActiveEditYearIdx(0);
+      setIsEditModalOpen(true);
+    }
+
+    setImportStatus({
+      type: 'success',
+      text: `Parsed from text: ${foundLabels.join(', ')}. Review the fields below and click Save Profile Updates.`
+    });
+    setPastedText('');
   };
 
   // Compress uploaded profile photo so it fits cleanly in Firestore
@@ -348,7 +563,7 @@ export const ProfilePage = ({ onBack }) => {
     reader.readAsDataURL(file);
   };
 
-  // Save only the non-verified fields to Firestore
+  // Save editable profile fields to Firestore
   const handleSaveCustomProfile = async (e) => {
     e.preventDefault();
     if (!db || !player?.id) return;
@@ -362,6 +577,10 @@ export const ProfilePage = ({ onBack }) => {
         secondaryPos: editForm.secondaryPos,
         gradYear: Number(editForm.gradYear) || editForm.gradYear,
         state: editForm.state.toUpperCase(),
+        height: (editForm.height || '').trim(),
+        weight: editForm.weight !== '' && editForm.weight !== undefined
+          ? (Number(editForm.weight) || String(editForm.weight).trim())
+          : '',
         externalClub: editForm.externalClub,
         gpa: editForm.gpa,
         satAct: editForm.satAct,
@@ -475,7 +694,7 @@ export const ProfilePage = ({ onBack }) => {
                         : 'bg-blue-500/20 text-blue-200 border-blue-400/40 hover:bg-[#1c7ed6] hover:text-white'
                     }`}
                   >
-                    <Sparkles size={14} /> Quick Auto-Fill (Hudl / Link)
+                    <Sparkles size={14} /> Quick Auto-Fill (Hudl / Text)
                   </button>
                   <button
                     onClick={openEditModal}
@@ -508,13 +727,35 @@ export const ProfilePage = ({ onBack }) => {
             </div>
           </div>
 
-          {/* PROMINENT ON-PAGE HUDL / EXTERNAL LINK AUTO-FILL BAR */}
+          {/* PROMINENT ON-PAGE HUDL / PASTE TEXT AUTO-FILL BAR */}
           {canCustomize && showImportBar && (
             <div className="mb-8 bg-[#1c7ed6]/15 border border-blue-400/40 rounded-2xl p-4 sm:p-5 backdrop-blur-sm shadow-xl">
-              <div className="flex items-center justify-between gap-2 mb-2.5">
-                <span className="text-[11px] font-black uppercase tracking-widest text-blue-300 flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-blue-400" /> Quick Auto-Fill from Hudl, MaxPreps, or YouTube
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-blue-300 flex items-center gap-1.5 mr-2">
+                    <Sparkles size={14} className="text-blue-400" /> Quick Auto-Fill
+                  </span>
+                  <div className="inline-flex bg-slate-900/70 p-0.5 rounded-lg border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('url'); setImportStatus(null); }}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'url' ? 'bg-[#1c7ed6] text-white' : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Paste Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('text'); setImportStatus(null); }}
+                      className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'text' ? 'bg-[#1c7ed6] text-white' : 'text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      Paste Profile Text (Ctrl+A)
+                    </button>
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowImportBar(false)}
@@ -524,23 +765,47 @@ export const ProfilePage = ({ onBack }) => {
                   <X size={15} />
                 </button>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2.5">
-                <input
-                  type="url"
-                  placeholder="Paste public Hudl profile, highlight video, MaxPreps, or social URL..."
-                  value={importUrl}
-                  onChange={(e) => setImportUrl(e.target.value)}
-                  className="flex-1 bg-white text-slate-900 placeholder:text-slate-400 border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleImportFromLink(true)}
-                  disabled={importingProfile || !importUrl.trim()}
-                  className="bg-[#1c7ed6] hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors shrink-0 shadow-md"
-                >
-                  {importingProfile ? <><Loader2 size={14} className="animate-spin" /> Importing...</> : <><Sparkles size={14} /> Auto-Fill Profile</>}
-                </button>
-              </div>
+
+              {importMode === 'url' ? (
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <input
+                    type="url"
+                    placeholder="Paste public Hudl profile, highlight video, MaxPreps, or social URL..."
+                    value={importUrl}
+                    onChange={(e) => setImportUrl(e.target.value)}
+                    className="flex-1 bg-white text-slate-900 placeholder:text-slate-400 border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleImportFromLink(true)}
+                    disabled={importingProfile || !importUrl.trim()}
+                    className="bg-[#1c7ed6] hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors shrink-0 shadow-md"
+                  >
+                    {importingProfile ? <><Loader2 size={14} className="animate-spin" /> Importing...</> : <><Sparkles size={14} /> Auto-Fill from Link</>}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <textarea
+                    rows={3}
+                    placeholder="Open your Hudl or MaxPreps profile page, press Ctrl+A then Ctrl+C, and paste here (Ctrl+V) to pull Name, Grad Year, State, Position, Height, Weight, GPA, SAT/ACT, and Stats..."
+                    value={pastedText}
+                    onChange={(e) => setPastedText(e.target.value)}
+                    className="w-full bg-white text-slate-900 placeholder:text-slate-400 border border-blue-200 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => handleParsePastedText(true)}
+                      disabled={!pastedText.trim()}
+                      className="bg-[#1c7ed6] hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-md"
+                    >
+                      <Sparkles size={14} /> Parse & Auto-Fill Profile
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {importStatus && !isEditModalOpen && (
                 <p className={`mt-2.5 text-xs font-bold ${importStatus.type === 'success' ? 'text-emerald-300' : 'text-amber-300'}`}>
                   {importStatus.text}
@@ -687,7 +952,7 @@ export const ProfilePage = ({ onBack }) => {
               <MetricCard label="Catching %" value={isLocked ? '92%' : val('catching', 'catchingPct', '%')} />
               <MetricCard label="Throwing %" value={isLocked ? '88%' : val('throwing', 'throwingPct', '%')} />
               <MetricCard label="Flag Pull %" value={isLocked ? '95%' : val('flag', 'flagPull', '%')} />
-              <MetricCard label="Height" value={isLocked ? '5\'6"' : val('height', 'ht', '')} />
+              <MetricCard label="Height" value={isLocked ? '5\'6"' : (player.height || val('height', 'ht', ''))} />
               <MetricCard label="Weight (lbs)" value={isLocked ? '130 lbs' : (player.weight && Number(player.weight) > 0 ? `${player.weight} lbs` : 'N/A')} />
               <MetricCard label="Broad Jump" value={isLocked ? '94"' : val('broad', 'broadJump', '"')} />
               <MetricCard label="Vertical (In)" value={isLocked ? '26.5"' : val('vertical', 'vert', '"')} />
@@ -970,30 +1235,74 @@ export const ProfilePage = ({ onBack }) => {
 
             <form onSubmit={handleSaveCustomProfile} className="p-6 sm:p-8 max-h-[80vh] overflow-y-auto space-y-6">
               
-              {/* Quick Auto-Fill from Hudl / External Link (Also inside modal) */}
+              {/* Quick Auto-Fill from Link or Pasted Profile Text */}
               <div className="bg-blue-50/70 border border-blue-200 rounded-2xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-[#1c7ed6] flex items-center gap-1.5">
-                    <Sparkles size={13} /> Quick Auto-Fill from Hudl, MaxPreps, or YouTube
+                    <Sparkles size={13} /> Quick Auto-Fill
                   </span>
+                  <div className="inline-flex bg-white p-0.5 rounded-lg border border-blue-200">
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('url'); setImportStatus(null); }}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'url' ? 'bg-[#1c7ed6] text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Paste Link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setImportMode('text'); setImportStatus(null); }}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                        importMode === 'text' ? 'bg-[#1c7ed6] text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Paste Profile Text (Ctrl+A)
+                    </button>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="url"
-                    placeholder="Paste public Hudl profile, highlight video, or social URL..."
-                    value={importUrl}
-                    onChange={(e) => setImportUrl(e.target.value)}
-                    className="flex-1 bg-white border border-blue-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#1c7ed6]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleImportFromLink(false)}
-                    disabled={importingProfile || !importUrl.trim()}
-                    className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                  >
-                    {importingProfile ? <><Loader2 size={13} className="animate-spin" /> Importing...</> : 'Auto-Fill Profile'}
-                  </button>
-                </div>
+
+                {importMode === 'url' ? (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="url"
+                      placeholder="Paste public Hudl profile, highlight video, or social URL..."
+                      value={importUrl}
+                      onChange={(e) => setImportUrl(e.target.value)}
+                      className="flex-1 bg-white border border-blue-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#1c7ed6]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleImportFromLink(false)}
+                      disabled={importingProfile || !importUrl.trim()}
+                      className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                    >
+                      {importingProfile ? <><Loader2 size={13} className="animate-spin" /> Importing...</> : 'Auto-Fill Link'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <textarea
+                      rows={3}
+                      placeholder="Open your Hudl or MaxPreps profile, press Ctrl+A then Ctrl+C, and paste here (Ctrl+V)..."
+                      value={pastedText}
+                      onChange={(e) => setPastedText(e.target.value)}
+                      className="w-full bg-white border border-blue-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:border-[#1c7ed6]"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleParsePastedText(false)}
+                        disabled={!pastedText.trim()}
+                        className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <Sparkles size={13} /> Parse & Auto-Fill
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {importStatus && (
                   <p className={`text-[11px] font-bold ${importStatus.type === 'success' ? 'text-emerald-700' : 'text-amber-700'}`}>
                     {importStatus.text}
@@ -1064,6 +1373,28 @@ export const ProfilePage = ({ onBack }) => {
                     <div>
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">State (2-Letter)</label>
                       <input type="text" maxLength="2" placeholder="NJ" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value.toUpperCase()})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold uppercase" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Height</label>
+                      <input
+                        type="text"
+                        placeholder={`e.g. 5'6"`}
+                        value={editForm.height || ''}
+                        onChange={e => setEditForm({ ...editForm, height: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Weight (lbs)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 125"
+                        value={editForm.weight || ''}
+                        onChange={e => setEditForm({ ...editForm, weight: e.target.value })}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold"
+                      />
                     </div>
                   </div>
                 </div>
