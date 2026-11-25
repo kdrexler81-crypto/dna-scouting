@@ -3,15 +3,13 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, MapPin, GraduationCap, Lock, Mail, User,
-  ExternalLink, Building2, Filter, ArrowLeft, Eye, EyeOff
+  ExternalLink, Building2, Filter, ArrowLeft, Eye, EyeOff, Star, Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useApp } from '../context/AppContext';
 import { useColleges } from '../hooks/useColleges';
+import { useCollegeActions } from '../hooks/useCollegeActions';
 
-const { db, appId, isFirebaseActive } = useApp();
-const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
 
 const DIVISIONS = [
   { value: 'All', label: 'All Divisions' },
@@ -22,29 +20,56 @@ const DIVISIONS = [
   { value: 'NJCAA', label: 'NJCAA (JuCo)' },
   { value: '3C2A', label: '3C2A (Cali JuCo)' },
   { value: 'USCAA', label: 'USCAA' },
+  { value: 'Club', label: 'Club' },
 ];
 
 export const CollegeDirectory = ({ onBack }) => {
   const navigate = useNavigate();
-  const { authRole } = useApp();
+  const { db, appId, isFirebaseActive, authRole, players, familyData, user } = useApp();
+  const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
+
+  // Find the logged-in family/athlete's linked player profile (for Target Schools)
+  const activeEmail = (familyData?.email || user?.email || '').toLowerCase();
+  const linkedPlayer = useMemo(() => {
+    if (!activeEmail || !Array.isArray(players)) return null;
+    return players.find(
+      (p) =>
+        (p.guardianEmail || '').toLowerCase() === activeEmail ||
+        (p.athleteEmail || '').toLowerCase() === activeEmail
+    ) || null;
+  }, [players, activeEmail]);
+
+  const {
+    targetSchools,
+    isTargetSchool,
+    toggleTargetSchool,
+    reportOutdatedSchool,
+    savingTarget
+  } = useCollegeActions({
+    db,
+    appId,
+    linkedPlayer,
+    userEmail: activeEmail
+  });
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDivision, setSelectedDivision] = useState('All');
   const [selectedState, setSelectedState] = useState('All');
+  const [showTargetsOnly, setShowTargetsOnly] = useState(false);
   const [forceBlurPreview, setForceBlurPreview] = useState(false);
 
   // Same auth gate as ProfilePage.jsx
   const hasValidRole = ['admin', 'recruiter', 'scout', 'parent', 'athlete'].includes(authRole);
   const isLocked = !hasValidRole || forceBlurPreview;
 
-  // Unique sorted states from colleges.json
+  // Unique sorted states from live Firestore colleges
   const availableStates = useMemo(() => {
     const states = new Set(
       COLLEGES_DB.map((c) => (c.state || '').trim().toUpperCase()).filter(Boolean)
     );
     return ['All', ...Array.from(states).sort()];
-  }, []);
+  }, [COLLEGES_DB]);
 
   // Filtered & sorted list
   const filteredColleges = useMemo(() => {
@@ -64,9 +89,11 @@ export const CollegeDirectory = ({ onBack }) => {
         selectedState === 'All' ||
         (c.state || '').trim().toUpperCase() === selectedState;
 
-      return matchesSearch && matchesDiv && matchesState;
+      const matchesTarget = !showTargetsOnly || isTargetSchool(c.name);
+
+      return matchesSearch && matchesDiv && matchesState && matchesTarget;
     }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  }, [searchTerm, selectedDivision, selectedState]);
+  }, [COLLEGES_DB, searchTerm, selectedDivision, selectedState, showTargetsOnly, targetSchools]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-24 animate-in fade-in">
@@ -108,7 +135,7 @@ export const CollegeDirectory = ({ onBack }) => {
               <GraduationCap size={13} /> Open Recruiting Directory
             </div>
             <h1
-              className="text-3xl md:text-5xl font-extrabold uppercase tracking-tight mb-3"
+              className="text-4xl md:text-5xl font-extrabold uppercase tracking-tight mb-3"
               style={displayFont}
             >
               College Women's Flag Football Database
@@ -173,13 +200,31 @@ export const CollegeDirectory = ({ onBack }) => {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-100 text-xs font-bold text-slate-500">
-            <span>
-              Showing {filteredColleges.length} of {COLLEGES_DB.length} Programs
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100 text-xs font-bold text-slate-500">
+            <div className="flex flex-wrap items-center gap-3">
+              <span>
+                Showing {filteredColleges.length} of {COLLEGES_DB.length} Programs
+              </span>
+
+              {linkedPlayer && (
+                <button
+                  type="button"
+                  onClick={() => setShowTargetsOnly(!showTargetsOnly)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider transition-colors border ${
+                    showTargetsOnly
+                      ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-sm'
+                      : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  <Star size={12} className={showTargetsOnly ? 'fill-slate-950' : 'fill-amber-400'} />
+                  My Target Schools ({targetSchools.length})
+                </button>
+              )}
+            </div>
+
             {isLocked && (
               <span className="flex items-center gap-1.5 text-[#d6336c]">
-                <Lock size={13} /> Sign in via Portal Login to unlock Coach Names & Emails
+                <Lock size={13} /> Sign in via Menu to unlock Coach Names & Emails
               </span>
             )}
           </div>
@@ -190,7 +235,7 @@ export const CollegeDirectory = ({ onBack }) => {
           <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
             <Building2 size={40} className="mx-auto text-slate-300 mb-3" />
             <h3
-              className="text-lg font-extrabold uppercase text-slate-900 mb-1"
+              className="text-xl font-extrabold uppercase text-slate-900 mb-1"
               style={displayFont}
             >
               No Programs Match Your Filters
@@ -201,115 +246,150 @@ export const CollegeDirectory = ({ onBack }) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredColleges.map((school, idx) => (
-              <div
-                key={school.id || idx}
-                className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 flex flex-col justify-between hover:shadow-md transition-shadow"
-              >
-                {/* PUBLIC TOP SECTION */}
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
-                      {school.division || 'College'}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      <MapPin size={13} className="text-[#1c7ed6]" />
-                      {school.state || 'USA'}
-                    </span>
-                  </div>
-
-                  <h2
-                    className="text-xl font-extrabold text-slate-900 leading-tight mb-4"
-                    style={displayFont}
-                  >
-                    {school.name}
-                  </h2>
-                </div>
-
-                {/* GATED COACH CONTACT SECTION */}
-                <div className="relative rounded-2xl bg-slate-50 border border-slate-200/80 p-4 mb-4 overflow-hidden">
-                  <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
-                    Recruiting Staff Contact
-                  </span>
-
-                  <div
-                    style={
-                      isLocked
-                        ? { filter: 'blur(6px)', WebkitFilter: 'blur(6px)' }
-                        : {}
-                    }
-                    className={`space-y-2 text-xs font-bold text-slate-700 ${
-                      isLocked ? 'select-none pointer-events-none opacity-60' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <User size={13} className="text-slate-400 shrink-0" />
-                      <span className="truncate">
-                        {isLocked
-                          ? 'Coach Alex Morgan'
-                          : school.coach || 'Contact Athletics'}
+            {filteredColleges.map((school, idx) => {
+              const starred = isTargetSchool(school.name);
+              return (
+                <div
+                  key={school.id || idx}
+                  className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80 flex flex-col justify-between hover:shadow-md transition-shadow"
+                >
+                  {/* PUBLIC TOP SECTION */}
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                        {school.division || 'College'}
                       </span>
-                    </div>
-                    <div className="flex items-center gap-2 truncate">
-                      <Mail size={13} className="text-[#1c7ed6] shrink-0" />
-                      {isLocked ? (
-                        <span>coach@university.edu</span>
-                      ) : school.email ? (
-                        <a
-                          href={`mailto:${school.email}`}
-                          className="text-[#1c7ed6] hover:underline truncate"
-                        >
-                          {school.email}
-                        </a>
-                      ) : (
-                        <span className="text-slate-400">Lookup Staff Directory</span>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Lock Overlay for Guests */}
-                  {isLocked && (
-                    <div className="absolute inset-0 bg-slate-900/15 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-center">
-                      <div className="bg-white/95 px-3.5 py-2 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2">
-                        <Lock size={13} className="text-[#d6336c]" />
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-900">
-                          Login to Unlock Contact
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                          <MapPin size={13} className="text-[#1c7ed6]" />
+                          {school.state || 'USA'}
                         </span>
+
+                        {/* Star Target School Button (for logged-in families/athletes) */}
+                        {linkedPlayer && (
+                          <button
+                            type="button"
+                            onClick={() => toggleTargetSchool(school)}
+                            disabled={savingTarget === school.name}
+                            title={starred ? 'Remove from Target Schools' : 'Save to Target Schools'}
+                            className={`p-1.5 rounded-lg border transition-colors ${
+                              starred
+                                ? 'bg-amber-50 border-amber-300 text-amber-500'
+                                : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-amber-500'
+                            }`}
+                          >
+                            <Star size={14} className={starred ? 'fill-amber-400' : ''} />
+                          </button>
+                        )}
                       </div>
                     </div>
+
+                    <h2
+                      className="text-2xl font-extrabold text-slate-900 leading-tight mb-4"
+                      style={displayFont}
+                    >
+                      {school.name}
+                    </h2>
+                  </div>
+
+                  {/* GATED COACH CONTACT SECTION */}
+                  <div className="relative rounded-2xl bg-slate-50 border border-slate-200/80 p-4 mb-4 overflow-hidden">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        Recruiting Staff Contact
+                      </span>
+                      {!isLocked && (
+                        <button
+                          type="button"
+                          onClick={() => reportOutdatedSchool(school)}
+                          title="Report outdated coach or email"
+                          className="text-[9px] font-bold text-slate-400 hover:text-[#d6336c] flex items-center gap-1 uppercase tracking-wider transition-colors"
+                        >
+                          <Flag size={10} /> Report
+                        </button>
+                      )}
+                    </div>
+
+                    <div
+                      style={
+                        isLocked
+                          ? { filter: 'blur(6px)', WebkitFilter: 'blur(6px)' }
+                          : {}
+                      }
+                      className={`space-y-2 text-xs font-bold text-slate-700 ${
+                        isLocked ? 'select-none pointer-events-none opacity-60' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <User size={13} className="text-slate-400 shrink-0" />
+                        <span className="truncate">
+                          {isLocked
+                            ? 'Coach Alex Morgan'
+                            : school.coach || 'Contact Athletics'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 truncate">
+                        <Mail size={13} className="text-[#1c7ed6] shrink-0" />
+                        {isLocked ? (
+                          <span>coach@university.edu</span>
+                        ) : school.email ? (
+                          <a
+                            href={`mailto:${school.email}`}
+                            className="text-[#1c7ed6] hover:underline truncate"
+                          >
+                            {school.email}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">Lookup Staff Directory</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Lock Overlay for Guests */}
+                    {isLocked && (
+                      <div className="absolute inset-0 bg-slate-900/15 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-center">
+                        <div className="bg-white/95 px-3.5 py-2 rounded-xl shadow-sm border border-slate-200 flex items-center gap-2">
+                          <Lock size={13} className="text-[#d6336c]" />
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-900">
+                            Login to Unlock Contact
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ACTION BUTTON */}
+                  {isLocked ? (
+                    <button
+                      type="button"
+                      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Lock size={13} /> Portal Login to Contact Coach
+                    </button>
+                  ) : school.email ? (
+                    <a
+                      href={`mailto:${school.email}`}
+                      className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-[#1c7ed6] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Mail size={13} /> Email Coaching Staff
+                    </a>
+                  ) : (
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(
+                        `${school.name} women's flag football coach email staff directory`
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    >
+                      Lookup Staff Directory <ExternalLink size={13} />
+                    </a>
                   )}
                 </div>
-
-                {/* ACTION BUTTON */}
-                {isLocked ? (
-                  <button
-                    type="button"
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Lock size={13} /> Portal Login to Contact Coach
-                  </button>
-                ) : school.email ? (
-                  <a
-                    href={`mailto:${school.email}`}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-[#1c7ed6] text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Mail size={13} /> Email Coaching Staff
-                  </a>
-                ) : (
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(
-                      `${school.name} women's flag football coach email staff directory`
-                    )}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
-                  >
-                    Lookup Staff Directory <ExternalLink size={13} />
-                  </a>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

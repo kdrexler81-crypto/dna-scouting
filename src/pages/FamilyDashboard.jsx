@@ -7,15 +7,14 @@ import {
   Shield, Clock, CheckCircle2, XCircle, Loader2, User, Mail, 
   Building, Trophy, Send, Check, CheckCheck, AlertCircle, Search, 
   ExternalLink, GraduationCap, MapPin, FileText, Eye, TrendingUp, 
-  BarChart3, Sparkles, Compass, ListChecks, Star, Square, CheckSquare, Trash2
+  BarChart3, Sparkles, Compass, ListChecks, Star, Square, CheckSquare, Trash2, Flag
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
-
 import { useColleges } from '../hooks/useColleges';
-const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
+import { useCollegeActions } from '../hooks/useCollegeActions';
 
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
 
 const REGION_GROUPS = {
   Northeast: ['NJ', 'NY', 'PA', 'CT', 'MA', 'DE', 'MD', 'RI', 'VT', 'NH', 'ME', 'DC'],
@@ -35,7 +34,8 @@ const getRegion = (stateCode) => {
 };
 
 export const FamilyDashboard = ({ viewMode, onLogout }) => {
-  const { app, appId, db, familyData: user, players } = useApp();
+  const { app, appId, db, isFirebaseActive, familyData: user, players } = useApp();
+  const { colleges: COLLEGES_DB } = useColleges(db, appId, isFirebaseActive);
   const navigate = useNavigate();
 
   const myLinkedAthlete = players.find(p => 
@@ -50,6 +50,19 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
 
   // --- ATHLETE STATE ---
   const activeAthlete = players.find(p => p.athleteEmail?.toLowerCase() === user?.email?.toLowerCase()) || myLinkedAthlete;
+  const {
+    targetSchools,
+    isTargetSchool,
+    toggleTargetSchool,
+    reportOutdatedSchool,
+    savingTarget
+  } = useCollegeActions({
+    db,
+    appId,
+    linkedPlayer: activeAthlete,
+    userEmail: user?.email || ''
+  });
+  const [showTargetsOnly, setShowTargetsOnly] = useState(false);
   const [athleteTab, setAthleteTab] = useState('inbox'); 
   const [threads, setThreads] = useState([]);
   const [activeThread, setActiveThread] = useState(null);
@@ -298,9 +311,10 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       const matchesDiv =
         collegeDivision === 'All' ||
         new RegExp(`\\b${collegeDivision}\\b`, 'i').test(c.division || '');
-      return matchesSearch && matchesDiv;
+      const matchesTarget = !showTargetsOnly || isTargetSchool(c.name);
+      return matchesSearch && matchesDiv && matchesTarget;
     });
-  }, [collegeSearch, collegeDivision, COLLEGES_DB]);
+  }, [collegeSearch, collegeDivision, COLLEGES_DB, showTargetsOnly, targetSchools]);
 
   // --- SMART COLLEGE MATCH RECOMMENDATION ENGINE ---
   const collegeMatches = useMemo(() => {
@@ -1027,6 +1041,18 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                       </div>
                       
                       <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setShowTargetsOnly(!showTargetsOnly)}
+                          className={`px-4 py-2.5 rounded-full text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 border transition-colors shrink-0 ${
+                            showTargetsOnly
+                              ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-sm'
+                              : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
+                          }`}
+                        >
+                          <Star size={13} className={showTargetsOnly ? 'fill-slate-950' : 'fill-amber-400'} />
+                          Targets ({targetSchools.length})
+                        </button>
                         <select 
                           className="bg-slate-50 border border-slate-200 rounded-full px-4 py-2.5 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-violet-500/20 transition-all focus:outline-none cursor-pointer"
                           value={collegeDivision} 
@@ -1054,7 +1080,30 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
                         <div key={college.id} className="border border-slate-200 rounded-2xl p-5 hover:border-violet-300 hover:shadow-md transition-all bg-slate-50/50 group flex flex-col">
                           <div className="flex justify-between items-start mb-4">
                             <div className="p-3 bg-white border border-slate-200 rounded-xl group-hover:border-violet-300 transition-colors"><GraduationCap className="text-slate-700 group-hover:text-violet-600 transition-colors" size={20}/></div>
+                            <div className="flex items-center gap-1.5">
                             <span className="text-[10px] font-black text-slate-500 bg-white border border-slate-200 px-3 py-1 rounded-full uppercase tracking-widest">{college.division}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleTargetSchool(college)}
+                              disabled={savingTarget === college.name}
+                              title={isTargetSchool(college.name) ? 'Remove from Target Schools' : 'Save to Target Schools'}
+                              className={`p-1.5 rounded-lg border transition-colors ${
+                                isTargetSchool(college.name)
+                                  ? 'bg-amber-50 border-amber-300 text-amber-500'
+                                  : 'bg-white border-slate-200 text-slate-400 hover:text-amber-500'
+                              }`}
+                            >
+                              <Star size={14} className={isTargetSchool(college.name) ? 'fill-amber-400' : ''} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => reportOutdatedSchool(college)}
+                              title="Report outdated coach or email"
+                              className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-400 hover:text-[#d6336c] transition-colors"
+                            >
+                              <Flag size={13} />
+                            </button>
+                          </div>
                           </div>
                           <h4 className="text-lg font-extrabold text-slate-900 uppercase tracking-tight mb-1" style={displayFont}>{college.name}</h4>
                           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
