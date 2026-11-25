@@ -92,7 +92,8 @@ export const AdminCollegeManager = ({ db, appId }) => {
         (c.state || '').toLowerCase().includes(term) ||
         (c.coach || '').toLowerCase().includes(term);
       const matchesDiv =
-        divisionFilter === 'All' || (c.division || '').includes(divisionFilter);
+        divisionFilter === 'All' ||
+        new RegExp(`\\b${divisionFilter}\\b`, 'i').test(c.division || '');
       return matchesTerm && matchesDiv;
     });
   }, [colleges, searchTerm, divisionFilter]);

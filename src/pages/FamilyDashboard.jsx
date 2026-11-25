@@ -294,7 +294,9 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
     return COLLEGES_DB.filter(c => {
       const matchesSearch = c.name.toLowerCase().includes(collegeSearch.toLowerCase()) || 
                             c.state.toLowerCase().includes(collegeSearch.toLowerCase());
-      const matchesDiv = collegeDivision === 'All' || c.division.includes(collegeDivision);
+      const matchesDiv =
+        collegeDivision === 'All' ||
+        new RegExp(`\\b${collegeDivision}\\b`, 'i').test(c.division || '');
       return matchesSearch && matchesDiv;
     });
   }, [collegeSearch, collegeDivision]);
@@ -319,6 +321,8 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       tierLabel = 'NCAA DIII / NAIA / NJCAA Target';
       targetDivs = ['NCAA DIII', 'NAIA', 'NJCAA', '3C2A'];
     }
+    const hasDiv = (divStr, target) =>
+      new RegExp(`\\b${target}\\b`, 'i').test(divStr || '');
 
     const scored = COLLEGES_DB.filter(c => {
       if (matchRegionPref === 'InState') return c.state?.toUpperCase() === athleteState;
@@ -326,10 +330,10 @@ export const FamilyDashboard = ({ viewMode, onLogout }) => {
       return true;
     }).map(c => {
       let fitScore = 72;
-      if (targetDivs[0] && c.division?.includes(targetDivs[0])) fitScore += 16;
-      else if (targetDivs.some(d => c.division?.includes(d))) fitScore += 11;
+      if (targetDivs[0] && hasDiv(c.division, targetDivs[0])) fitScore += 16;
+      else if (targetDivs.some(d => hasDiv(c.division, d))) fitScore += 11;
 
-      if (gpa >= 3.5 && (c.division?.includes('NCAA DIII') || c.division?.includes('NCAA DI'))) fitScore += 5;
+      if (gpa >= 3.5 && (hasDiv(c.division, 'NCAA DIII') || hasDiv(c.division, 'NCAA DI'))) fitScore += 5;
       else if (gpa >= 2.8) fitScore += 3;
 
       if (c.state?.toUpperCase() === athleteState) fitScore += 5;

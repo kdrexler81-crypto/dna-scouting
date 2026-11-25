@@ -54,7 +54,8 @@ export const CollegeDirectory = ({ onBack }) => {
         (c.division || '').toLowerCase().includes(term);
 
       const matchesDiv =
-        selectedDivision === 'All' || (c.division || '').includes(selectedDivision);
+        selectedDivision === 'All' ||
+        new RegExp(`\\b${selectedDivision}\\b`, 'i').test(c.division || '');
 
       const matchesState =
         selectedState === 'All' ||
