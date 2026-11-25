@@ -1,7 +1,7 @@
 // src/components/Footer.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, MapPin, Instagram, ArrowRight, CheckCircle2, X, FileText } from 'lucide-react';
+import { Mail, MapPin, Camera, ArrowRight, CheckCircle2, X, FileText } from 'lucide-react';
 
 // Optional: Paste your hosted MailerLite or Jotform links below anytime
 const MAILERLITE_FORM_URL = '';
@@ -152,7 +152,7 @@ export const Footer = () => {
                 rel="noreferrer"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
-                <Instagram size={14} className="text-pink-400" /> @dnaflagfootball
+                <Camera size={14} className="text-pink-400" /> @dnaflagfootball
               </a>
             </div>
           </div>
