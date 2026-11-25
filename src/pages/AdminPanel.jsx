@@ -10,6 +10,7 @@ import {
   Loader2, Sparkles
 } from 'lucide-react';
 import { AdminScoutApproval } from '../components/admin/AdminScoutApproval';
+import { AdminCollegeManager } from '../components/admin/AdminCollegeManager';
 import { useApp } from '../context/AppContext';
 
 const InputLabel = ({ children }) => <label className="text-[10px] font-bold text-slate-500 block mb-2 uppercase tracking-widest">{children}</label>;
@@ -783,6 +784,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
          <button onClick={() => setActiveTab('scouts')} className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${activeTab === 'scouts' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} style={activeTab === 'scouts' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}>
            <Building size={16} className="hidden sm:block"/> Manage Scouts {scouts.filter(s => !s.approved).length > 0 && <span className="bg-rose-500 text-white rounded-full px-2 py-0.5 text-[10px]">{scouts.filter(s => !s.approved).length}</span>}
          </button>
+         <button onClick={() => setActiveTab('colleges')} className={`flex-1 py-3 px-3 rounded-xl text-xs font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all ${activeTab === 'colleges' ? 'text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`} style={activeTab === 'colleges' ? { background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' } : {}}>
+          <GraduationCap size={16} className="hidden sm:block"/> Manage Colleges
+         </button>
       </div>
 
       <div className="bg-white border border-slate-100 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 sm:p-10">
@@ -1165,7 +1169,11 @@ export const AdminPanel = ({ onBack, onLogout }) => {
 
         {activeTab === 'scouts' && (
           <AdminScoutApproval db={db} appId={appId} />
+        )}  
+        {activeTab === 'colleges' && (
+          <AdminCollegeManager db={db} appId={appId} />
         )}
+      
       </div>
     </div>
   );
