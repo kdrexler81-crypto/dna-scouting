@@ -214,7 +214,7 @@ export const LandingInfoSections = ({ colleges = [] }) => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-[11px] font-black uppercase tracking-widest text-[#d6336c] flex items-center gap-1.5">
-              <Instagram size={14} /> Live From The Turf
+              <Camera size={14} /> Live From The Turf
             </span>
             <h2
               className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
