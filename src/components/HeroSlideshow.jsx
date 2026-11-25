@@ -5,9 +5,10 @@ import { ArrowRight, GraduationCap, ShieldCheck } from 'lucide-react';
 
 // Replace these URLs with your own clinic / action photos (stored in /public/images/ or Firebase Storage)
 const HERO_SLIDES = [
-  'https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1800&q=80',
-  'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1800&q=80'
+  '\hero\DNA-Clinic1-152(1).jpg',
+  '\hero\DNA-Clinic1-140.jpg',
+  '\hero\DNA-Clinic1-083.jpg'
+  '\hero\DNA-Clinic1-125.jpg'
 ];
 
 export const HeroSlideshow = ({ onScrollToLeaderboard }) => {
