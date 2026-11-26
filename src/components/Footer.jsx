@@ -147,12 +147,12 @@ export const Footer = () => {
                 <Mail size={14} className="text-[#1c7ed6]" /> info@dnaflagfootball.com
               </a>
               <a
-                href="https://www.instagram.com/dnaflagfootball/"
+                href="https://www.instagram.com/dna_girlsflagfootball/"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
-                <Camera size={14} className="text-pink-400" /> @dnaflagfootball
+                <Camera size={14} className="text-pink-400" /> @dna_girlsflagfootball
               </a>
             </div>
           </div>
