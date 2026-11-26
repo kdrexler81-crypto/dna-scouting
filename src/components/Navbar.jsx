@@ -6,6 +6,8 @@ import {
   LogOut, LayoutDashboard, Building, Lock, ExternalLink
 } from 'lucide-react';
 
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
+
 export const Navbar = ({
   authRole,
   dbStatus,
@@ -33,58 +35,98 @@ export const Navbar = ({
 
   return (
     <>
-      {/* Clean Sticky Top Bar */}
-      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-white/10 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 h-16 sm:h-20 flex items-center justify-between">
-          {/* Left: Brand Logo + Live Sync Badge */}
-          <div className="flex items-center gap-3 sm:gap-4">
+      {/* Enlarged, Clean Sticky Top Banner */}
+      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-white/10 shadow-lg print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between gap-4">
+          {/* Left: Larger Brand Logo + Wordmark */}
+          <button
+            type="button"
+            onClick={() => goTo('/')}
+            className="flex items-center gap-3.5 sm:gap-4 text-left group shrink-0"
+          >
+            <img
+              src="/DNA Logo.png"
+              alt="DNA Flag Football Logo"
+              className="h-14 sm:h-16 w-auto object-contain transition-transform group-hover:scale-105"
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+            <div>
+              <span
+                className="block text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-white leading-none"
+                style={displayFont}
+              >
+                DNA Flag <span className="text-[#d6336c]">Ratings</span>
+              </span>
+              <span className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mt-1">
+                Verified Girls&apos; Flag Recruiting
+              </span>
+            </div>
+          </button>
+
+          {/* Center: Clean Desktop Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-8">
             <button
               type="button"
               onClick={() => goTo('/')}
-              className="flex items-center gap-3 text-left"
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
             >
-              <img
-                src="/DNA Logo.png"
-                alt="DNA Football Logo"
-                className="h-9 w-auto"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
-              <div>
-                <span className="block text-xl font-extrabold uppercase tracking-wider text-white leading-none font-display">
-                  DNA Flag <span className="text-[#d6336c]">Ratings</span>
-                </span>
-                <span className="hidden sm:block text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">
-                  Verified Prospect Hub
-                </span>
-              </div>
+              Leaderboard
             </button>
-
-            <span
-              className={`hidden md:inline-flex text-[9px] px-2.5 py-1 rounded-full font-bold tracking-widest uppercase items-center gap-1.5 ${
-                dbStatus === 'LIVE SYNC'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'bg-white/10 text-slate-400'
-              }`}
+            <button
+              type="button"
+              onClick={() => goTo('/colleges')}
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
             >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  dbStatus === 'LIVE SYNC' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
-                }`}
-              />
-              {dbStatus}
-            </span>
-          </div>
+              College Directory
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo('/roster')}
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
+            >
+              Roster
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo('/about')}
+              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
+            >
+              Features
+            </button>
+          </nav>
 
-          {/* Right: Hamburger Menu Button */}
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 border border-white/10"
-            aria-label="Open navigation menu"
-          >
-            <span className="text-[11px] font-extrabold uppercase tracking-widest">Menu</span>
-            <Menu size={20} />
-          </button>
+          {/* Right: Desktop Portal CTA + Menu Button */}
+          <div className="flex items-center gap-3">
+            {authRole ? (
+              <button
+                type="button"
+                onClick={() => goTo(dashboardRoute)}
+                className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider text-white shadow-md hover:opacity-95 transition-opacity"
+                style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+              >
+                <LayoutDashboard size={15} /> Dashboard
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider text-white shadow-md hover:opacity-95 transition-opacity"
+                style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+              >
+                <Lock size={14} /> Portal Login
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 border border-white/10"
+              aria-label="Open navigation menu"
+            >
+              <span className="text-[11px] font-extrabold uppercase tracking-widest">Menu</span>
+              <Menu size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -100,9 +142,14 @@ export const Navbar = ({
             <div className="space-y-6">
               {/* Drawer Header */}
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
-                <span className="text-xl font-extrabold uppercase tracking-wider font-display">
-                  Navigation
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl font-extrabold uppercase tracking-wider" style={displayFont}>
+                    Navigation
+                  </span>
+                  {dbStatus === 'LIVE SYNC' && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Live Sync Active" />
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
