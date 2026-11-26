@@ -71,6 +71,62 @@ export const AdminCollegeManager = ({ db, appId }) => {
   // Bulk Import State
   const [importing, setImporting] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
+  const [findingLogos, setFindingLogos] = useState(false);
+const [logoProgress, setLogoProgress] = useState('');
+
+const handleBatchFindLogos = async () => {
+  // Only process schools that don't already have a saved logoUrl
+  const missing = colleges.filter((c) => c.id && !c.logoUrl);
+  if (missing.length === 0) {
+    alert('All schools in Firestore already have a saved logo!');
+    return;
+  }
+
+  if (!window.confirm(`Auto-find official domains & logos for ${missing.length} schools? This takes ~30–60 seconds.`)) {
+    return;
+  }
+
+  setFindingLogos(true);
+  let updatedCount = 0;
+
+  try {
+    const batchFn = httpsCallable(getFunctions(), 'batchFindCollegeDomains');
+    const CHUNK_SIZE = 25;
+
+    for (let i = 0; i < missing.length; i += CHUNK_SIZE) {
+      const chunk = missing.slice(i, i + CHUNK_SIZE);
+      setLogoProgress(`Scanning ${Math.min(i + CHUNK_SIZE, missing.length)} / ${missing.length}...`);
+
+      const { data } = await batchFn({
+        schools: chunk.map((s) => ({ id: s.id, name: s.name, state: s.state || '' })),
+      });
+
+      const domainMap = data?.domains || {};
+
+      for (const school of chunk) {
+        const rawDomain = (domainMap[school.id] || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+        if (!rawDomain || !rawDomain.includes('.')) continue;
+
+        const logoUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(rawDomain)}&sz=128`;
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'colleges', school.id);
+
+        await updateDoc(docRef, {
+          website: school.website || `https://${rawDomain}`,
+          logoUrl,
+          updatedAt: Date.now(),
+        });
+        updatedCount++;
+      }
+    }
+
+    alert(`Done! Saved official domains & logos for ${updatedCount} schools.`);
+  } catch (err) {
+    alert('Batch logo finder error: ' + err.message);
+  } finally {
+    setFindingLogos(false);
+    setLogoProgress('');
+  }
+};
   // Live Firestore Listener
   useEffect(() => {
     if (!db || !appId) {
@@ -415,6 +471,14 @@ const handleRunRadarNow = async () => {
             className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
           >
             {scanningRadar ? <><Loader2 size={13} className="animate-spin" /> Scanning News...</> : <><Radar size={13} /> Scan Now</>}
+          </button>
+          <button
+            type="button"
+            onClick={handleBatchFindLogos}
+            disabled={findingLogos}
+            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white text-[11px] font-bold uppercase tracking-wider px-4 py-2.5 rounded-xl flex items-center gap-2 transition-colors shadow-sm"
+          >
+            {findingLogos ? (logoProgress || 'Finding Logos...') : 'Auto-Find Missing Logos'}
           </button>
         </div>
 
