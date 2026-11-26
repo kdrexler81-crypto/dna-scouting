@@ -24,7 +24,7 @@ export const LandingInfoSections = ({ colleges = [] }) => {
   }, [colleges]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 space-y-16 py-12">
+    <div className="max-w-7xl mx-auto px-4 space-y-24 py-16">
       {/* 1. RECENTLY ADDED COLLEGE PROGRAMS */}
       <section className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -33,7 +33,7 @@ export const LandingInfoSections = ({ colleges = [] }) => {
               <GraduationCap size={14} /> National Program Directory
             </span>
             <h2
-              className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
+              className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
               style={displayFont}
             >
               Recently Added College Programs
@@ -89,12 +89,12 @@ export const LandingInfoSections = ({ colleges = [] }) => {
             <Sparkles size={14} /> The DNA Standard
           </span>
           <h2
-            className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight mt-2"
+            className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight mt-2"
             style={displayFont}
           >
             Verified Data. Zero Guesswork.
           </h2>
-          <p className="text-sm text-slate-300 mt-3 leading-relaxed">
+          <p className="text-base text-slate-300 mt-3 leading-relaxed">
             Recruiting shouldn't rely on self-reported times or scattered social links. DNA Flag Ratings gives college staffs one trusted hub with clinic-verified testing, game film, and academic credentials.
           </p>
         </div>
@@ -145,12 +145,12 @@ export const LandingInfoSections = ({ colleges = [] }) => {
             <Compass size={14} /> Why Girls' Flag Football?
           </span>
           <h2
-            className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
+            className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
             style={displayFont}
           >
             Your Roadmap to College Flag Football
           </h2>
-          <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+          <p className="ext-base text-slate-600 mt-2 leading-relaxed">
             With hundreds of college varsity programs launching nationwide and flag football debuting at the 2028 Olympics, there has never been a better time for female athletes to compete and earn roster spots.
           </p>
         </div>
@@ -216,7 +216,7 @@ export const LandingInfoSections = ({ colleges = [] }) => {
               <Camera size={14} /> Live From The Turf
             </span>
             <h2
-              className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
+              className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-slate-900 mt-1"
               style={displayFont}
             >
               Follow DNA Flag Football

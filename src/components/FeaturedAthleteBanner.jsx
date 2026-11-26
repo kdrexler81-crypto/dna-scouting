@@ -49,6 +49,12 @@ export const FeaturedAthleteBanner = ({ players = [] }) => {
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300 text-[10px] font-black uppercase tracking-widest mb-2.5">
               <Sparkles size={12} /> Featured Athlete Spotlight
             </div>
+            <h2
+              className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-slate-900 mb-4"
+              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+            >
+              Featured Athlete <span className="text-[#d6336c]">Spotlight</span>
+            </h2>
 
             <h2
               className="text-3xl sm:text-4xl font-extrabold uppercase tracking-tight text-white mb-2 truncate"

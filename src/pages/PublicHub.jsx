@@ -104,7 +104,7 @@ export const PublicHub = ({ onSelect }) => {
               <div className="p-6 border-b border-slate-800 bg-gradient-to-br from-slate-900 to-slate-800">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-3xl font-extrabold uppercase tracking-tight text-white flex items-center gap-3" style={displayFont}>
+                    <h2 className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-white flex items-center gap-3" style={displayFont}>
                       <Trophy className="text-amber-400" size={26} /> National Leaderboard
                     </h2>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
@@ -183,7 +183,7 @@ export const PublicHub = ({ onSelect }) => {
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
               <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                 <div>
-                  <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
+                  <h2 className="text-4xl sm:text-5xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
                     <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
                   </h2>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
