@@ -11,7 +11,11 @@ if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
-const parser = new Parser();
+const parser = new Parser({
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  },
+});
 
 
 exports.importExternalProfile = onCall({ cors: true }, async (request) => {
@@ -383,19 +387,19 @@ exports.fetchDailyFlagNews = onSchedule(
     const appId = "1:1017762631786:web:1663a6a926887b6173fa13";
     const newsRef = db.collection("artifacts").doc(appId).collection("public").doc("data").collection("news");
 
-    // Free Google News RSS search for Girls / Women's Flag Football (past 2 days)
+    // Google News RSS search for Girls / Women's / College Flag Football (past 7 days)
     const rssUrl =
-      "https://news.google.com/rss/search?q=%22girls+flag+football%22+OR+%22women%27s+flag+football%22+when:2d&hl=en-US&gl=US&ceid=US:en";
+      "https://news.google.com/rss/search?q=(%22girls+flag+football%22+OR+%22women%27s+flag+football%22+OR+%22NCAA+flag+football%22+OR+%22NAIA+flag+football%22)+when:7d&hl=en-US&gl=US&ceid=US:en";
 
     try {
       const feed = await parser.parseURL(rssUrl);
+      logger.info(`RSS feed returned ${feed.items?.length || 0} candidate articles.`);
       if (!feed.items || feed.items.length === 0) {
-        logger.info("No new flag football headlines found today.");
         return;
       }
 
-      // Grab the 20 most recent headlines already in Firestore to prevent duplicates
-      const existingSnap = await newsRef.orderBy("timestamp", "desc").limit(20).get();
+      // Grab the 50 most recent headlines in Firestore to prevent duplicates across the 7-day window
+      const existingSnap = await newsRef.orderBy("timestamp", "desc").limit(50).get();
       const existingTitles = new Set(
         existingSnap.docs.map((doc) => (doc.data().title || "").toLowerCase().trim())
       );
@@ -403,7 +407,7 @@ exports.fetchDailyFlagNews = onSchedule(
       let addedCount = 0;
 
       for (const item of feed.items) {
-        if (addedCount >= 2) break; // Limit to 2 fresh headlines per day
+        if (addedCount >= 3) break; // Up to 3 fresh headlines per run
 
         const cleanTitle = (item.title || "").trim();
         if (!cleanTitle || existingTitles.has(cleanTitle.toLowerCase())) {
@@ -421,9 +425,10 @@ exports.fetchDailyFlagNews = onSchedule(
 
         await newsRef.add({
           title: cleanTitle,
-          category: category,
+          category,
           link: item.link || "",
-          source: item.creator || "Flag Football News",
+          source: "web",
+          sourceName: item.creator || "Flag Football News",
           automated: true,
           timestamp: Date.now(),
         });
