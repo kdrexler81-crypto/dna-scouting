@@ -11,7 +11,66 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
-const displayFont = { fontFamily: "'Outfit', sans-serif" };
+const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
+
+const ensureHttps = (url = '') => {
+  const clean = url.trim();
+  if (!clean) return '';
+  return /^https?:\/\//i.test(clean) ? clean : `https://${clean}`;
+};
+
+// --- SMART STAT PASTE PARSER (MaxPreps / Hudl / Box Score Text) ---
+const parseSmartSeasonStats = (rawText) => {
+  if (!rawText || !rawText.trim()) return { parsed: {}, count: 0 };
+  const text = rawText.replace(/\r/g, ' ');
+  const parsed = {};
+
+  const matchers = [
+    { key: 'games', regex: /(?:(?:games\s*played|games|gp|g)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:games\s*played|games|gp))/i },
+    { key: 'comp', regex: /(?:(?:completions|comp|cmp)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:completions|comp|cmp))/i },
+    { key: 'att', regex: /(?:(?:pass(?:ing)?\s*att(?:empts)?|att)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:pass(?:ing)?\s*att(?:empts)?|attempts))/i },
+    { key: 'passYds', regex: /(?:pass(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*pass(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'passTds', regex: /(?:pass(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*pass(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'passInts', regex: /(?:(?:ints?\s*thrown|pass(?:ing)?\s*ints?)\s*[:\-]?\s*(\d+)|(\d+)\s*ints?\s*thrown)/i },
+    { key: 'rushAtt', regex: /(?:(?:rush(?:ing)?\s*att(?:empts)?|carries|rushes)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:carries|rushes))/i },
+    { key: 'rushYds', regex: /(?:rush(?:ing)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rush(?:ing)?\s*(?:yds|yards))/i },
+    { key: 'rushTds', regex: /(?:rush(?:ing)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rush(?:ing)?\s*(?:tds|touchdowns))/i },
+    { key: 'rec', regex: /(?:(?:receptions|catches|rec)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:receptions|catches))/i },
+    { key: 'recYds', regex: /(?:rec(?:eiving)?\s*(?:yds|yards)\s*[:\-]?\s*([\d,]+)|([\d,]+)\s*rec(?:eiving)?\s*(?:yds|yards))/i },
+    { key: 'recTds', regex: /(?:rec(?:eiving)?\s*(?:tds|touchdowns)\s*[:\-]?\s*(\d+)|(\d+)\s*rec(?:eiving)?\s*(?:tds|touchdowns))/i },
+    { key: 'defInts', regex: /(?:(?:def(?:ensive)?\s*ints?|interceptions)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:interceptions|ints))/i },
+    { key: 'flagPullsPg', regex: /(?:flag\s*pulls\s*(?:\/g|per\s*game)\s*[:\-]?\s*([\d.]+)|([\d.]+)\s*flag\s*pulls\s*(?:\/g|per\s*game))/i },
+    { key: 'flagPullsTotal', regex: /(?:(?:total\s*)?flag\s*pulls\s*[:\-]?\s*(\d+)|(\d+)\s*flag\s*pulls(?!\s*(?:\/g|per|for)))/i },
+    { key: 'pbu', regex: /(?:(?:passes\s*defended|pass\s*breakups|pbu|pd)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:passes\s*defended|pbu|pd))/i },
+    { key: 'tfl', regex: /(?:(?:tfl|flag\s*pulls\s*for\s*loss|sacks)\s*[:\-]?\s*(\d+)|(\d+)\s*(?:tfl|sacks))/i },
+  ];
+
+  matchers.forEach(({ key, regex }) => {
+    const m = text.match(regex);
+    if (m) {
+      const val = (m[1] || m[2] || '').replace(/,/g, '');
+      if (val) parsed[key] = val;
+    }
+  });
+
+  // Auto-calculate per-game averages when Games Played is included
+  const gp = Number(parsed.games);
+  if (gp > 0) {
+    if (parsed.comp && !parsed.compPg) parsed.compPg = (Number(parsed.comp) / gp).toFixed(1);
+    if (parsed.att && !parsed.attPg) parsed.attPg = (Number(parsed.att) / gp).toFixed(1);
+    if (parsed.passYds && !parsed.passYdsPg) parsed.passYdsPg = (Number(parsed.passYds) / gp).toFixed(1);
+    if (parsed.passTds && !parsed.passTdsPg) parsed.passTdsPg = (Number(parsed.passTds) / gp).toFixed(1);
+    if (parsed.passInts && !parsed.passIntsPg) parsed.passIntsPg = (Number(parsed.passInts) / gp).toFixed(1);
+    if (parsed.rushYds && !parsed.rushYdsPg) parsed.rushYdsPg = (Number(parsed.rushYds) / gp).toFixed(1);
+    if (parsed.recYds && !parsed.recYdsPg) parsed.recYdsPg = (Number(parsed.recYds) / gp).toFixed(1);
+    if (parsed.flagPullsTotal && !parsed.flagPullsPg) parsed.flagPullsPg = (Number(parsed.flagPullsTotal) / gp).toFixed(1);
+  }
+
+  delete parsed.games;
+  delete parsed.flagPullsTotal;
+
+  return { parsed, count: Object.keys(parsed).length };
+};
 
 // --- STAT SCHEMA & CAREER TOTALS HELPERS ---
 const STAT_GROUPS = [
@@ -319,6 +378,8 @@ export const ProfilePage = ({ onBack }) => {
   // --- STATS TAB & EDITOR STATE ---
   const [selectedStatYear, setSelectedStatYear] = useState('career');
   const [activeEditYearIdx, setActiveEditYearIdx] = useState(0);
+  const [statPasteText, setStatPasteText] = useState('');
+  const [statPasteStatus, setStatPasteStatus] = useState('');
 
   // --- FAMILY PROFILE EDITOR & DELETE STATE ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -430,12 +491,30 @@ export const ProfilePage = ({ onBack }) => {
       youtube: player.youtube || '',
       tiktok: player.tiktok || '',
       hudlLink: player.hudlLink || player.highlightUrl || '',
+      hudlProfileUrl: player.hudlProfileUrl || '',
+      maxPrepsUrl: player.maxPrepsUrl || '',
+      ncsaUrl: player.ncsaUrl || '',
+      instagramReelsUrl: player.instagramReelsUrl || '',
       yearlyStats: existingSeasons,
       ...overrides
     };
   };
 
   // Open the modal pre-filled with current non-verified fields
+  const handleSmartStatPaste = () => {
+    if (!statPasteText.trim()) return;
+    const { parsed, count } = parseSmartSeasonStats(statPasteText);
+    if (count === 0) {
+      setStatPasteStatus('No stats recognized. Example: "12 games, 42 rec, 680 rec yds, 11 rec TDs, 5 INTs"');
+      return;
+    }
+    const updated = [...(editForm.yearlyStats || [createEmptySeason()])];
+    const idx = updated[activeEditYearIdx] ? activeEditYearIdx : 0;
+    updated[idx] = { ...updated[idx], ...parsed };
+    setEditForm({ ...editForm, yearlyStats: updated });
+    setStatPasteStatus(`Auto-filled ${count} stat fields into ${updated[idx].year || 'this season'}.`);
+    setStatPasteText('');
+  };
   const openEditModal = () => {
     setEditForm(buildEditFormState());
     setActiveEditYearIdx(0);
@@ -590,6 +669,10 @@ export const ProfilePage = ({ onBack }) => {
         youtube: (editForm.youtube || '').trim(),
         tiktok: (editForm.tiktok || '').trim(),
         hudlLink: (editForm.hudlLink || '').trim(),
+        hudlProfileUrl: (editForm.hudlProfileUrl || '').trim(),
+        maxPrepsUrl: (editForm.maxPrepsUrl || '').trim(),
+        ncsaUrl: (editForm.ncsaUrl || '').trim(),
+        instagramReelsUrl: (editForm.instagramReelsUrl || '').trim(),
         yearlyStats: editForm.yearlyStats || [],
         updatedAt: Date.now()
       };
@@ -1142,8 +1225,28 @@ export const ProfilePage = ({ onBack }) => {
                     <span className="px-3.5 py-2 rounded-xl bg-pink-50 text-pink-700 text-xs font-bold">Instagram</span>
                     <span className="px-3.5 py-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold">YouTube</span>
                   </div>
-                ) : (twitterHandle || player.instagram || player.youtube || player.tiktok) ? (
-                  <div className="flex flex-wrap gap-2.5">
+                ) : (twitterHandle || player.instagram || player.youtube || player.tiktok || player.hudlProfileUrl || player.maxPrepsUrl || player.ncsaUrl || player.instagramReelsUrl) ? (
+                <div className="flex flex-wrap gap-2.5">
+                  {player.hudlProfileUrl && (
+                    <a href={ensureHttps(player.hudlProfileUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold transition-all shadow-sm">
+                      <PlayCircle size={14} /> Hudl Profile <ExternalLink size={12} className="opacity-75" />
+                    </a>
+                  )}
+                  {player.maxPrepsUrl && (
+                    <a href={ensureHttps(player.maxPrepsUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold transition-all shadow-sm">
+                      <Trophy size={14} /> MaxPreps <ExternalLink size={12} className="opacity-75" />
+                    </a>
+                  )}
+                  {player.ncsaUrl && (
+                    <a href={ensureHttps(player.ncsaUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all shadow-sm">
+                      <GraduationCap size={14} /> NCSA Profile <ExternalLink size={12} className="opacity-75" />
+                    </a>
+                  )}
+                  {player.instagramReelsUrl && (
+                    <a href={ensureHttps(player.instagramReelsUrl)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-pink-600 hover:opacity-95 text-white text-xs font-bold transition-all shadow-sm">
+                      <Video size={14} /> IG Reels <ExternalLink size={12} className="opacity-75" />
+                    </a>
+                  )}
                     {twitterHandle && (
                       <a href={formatSocialUrl('twitter', twitterHandle)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm">
                         <Share2 size={14} /> X / Twitter <ExternalLink size={12} className="opacity-60" />
@@ -1435,7 +1538,27 @@ export const ProfilePage = ({ onBack }) => {
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Highlight Tape URL or Embed Code (Hudl / YouTube)</label>
                   <input type="text" placeholder="https://www.hudl.com/video/... or https://youtu.be/..." value={editForm.hudlLink} onChange={e => setEditForm({...editForm, hudlLink: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
                   <p className="text-[10px] text-slate-400 mt-1">Make sure your Hudl highlight privacy is set to Public so it plays directly on your profile.</p>
+              </div>
+
+              {/* Multi-Link Recruiting Hub */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-100">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Full Hudl Profile URL</label>
+                  <input type="url" placeholder="https://www.hudl.com/profile/..." value={editForm.hudlProfileUrl || ''} onChange={e => setEditForm({...editForm, hudlProfileUrl: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
                 </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">MaxPreps Profile URL</label>
+                  <input type="url" placeholder="https://www.maxpreps.com/..." value={editForm.maxPrepsUrl || ''} onChange={e => setEditForm({...editForm, maxPrepsUrl: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">NCSA Recruiting URL</label>
+                  <input type="url" placeholder="https://www.ncsasports.org/..." value={editForm.ncsaUrl || ''} onChange={e => setEditForm({...editForm, ncsaUrl: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Instagram Reels Highlight URL</label>
+                  <input type="url" placeholder="https://www.instagram.com/reel/..." value={editForm.instagramReelsUrl || ''} onChange={e => setEditForm({...editForm, instagramReelsUrl: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-semibold" />
+                </div>
+              </div>
               </div>
 
               {/* 3. Multi-Year In-Season Stats Editor */}
@@ -1492,6 +1615,32 @@ export const ProfilePage = ({ onBack }) => {
                 {/* Active Season Inputs */}
                 {editForm.yearlyStats?.[activeEditYearIdx] && (
                   <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                    {/* Smart Stat Paste Box */}
+                  <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 space-y-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#1c7ed6] flex items-center gap-1.5">
+                      <Sparkles size={12} /> Smart Stat Paste (Auto-Calculates Per-Game Averages)
+                    </span>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        placeholder='e.g. "12 games, 42 rec, 680 rec yds, 11 rec TDs, 5 INTs, 38 flag pulls"'
+                        value={statPasteText}
+                        onChange={(e) => setStatPasteText(e.target.value)}
+                        className="flex-1 bg-white border border-blue-200 rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#1c7ed6]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSmartStatPaste}
+                        disabled={!statPasteText.trim()}
+                        className="bg-slate-900 hover:bg-[#1c7ed6] disabled:bg-slate-400 text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2 rounded-lg transition-colors shrink-0"
+                      >
+                        Fill Stats
+                      </button>
+                    </div>
+                    {statPasteStatus && (
+                      <p className="text-[11px] font-bold text-emerald-700">{statPasteStatus}</p>
+                    )}
+                  </div>
                     <div className="w-40">
                       <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Season Year</label>
                       <input

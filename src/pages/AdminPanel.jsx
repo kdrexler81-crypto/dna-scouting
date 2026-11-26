@@ -317,6 +317,9 @@ export const AdminPanel = ({ onBack, onLogout }) => {
     sprint: '', sprintVerify: 'laser', shuttle: '', shuttleVerify: 'stopwatch', lDrill: '', lDrillVerify: 'stopwatch', mph: '', mphVerify: 'laser',
     broadFeet: '', broadInches: '', verticalInches: '', catchingPct: '', throwingPct: '', flagPullingPct: '', 
     hudlLink: '', yearlyStats: [createEmptySeason()],
+    featured: false,
+    featuredBlurb: '',
+  
     combineLocation: '', combineDate: today, accessCode: generateRandomAccessCode()
   });
 
@@ -546,6 +549,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
         heightFeet: p.height?.includes("'") ? p.height.split("'")[0] : '', heightInches: p.height?.includes("'") ? p.height.split("'")[1].replace('"', '') : '',
         broadFeet: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[0] : '', broadInches: p.metrics?.broad?.includes("'") ? p.metrics.broad.split("'")[1].replace('"', '') : '',
         catchingPct: p.metrics?.catching ? String(p.metrics.catching).replace('%', '') : '', throwingPct: p.metrics?.throwing ? String(p.metrics.throwing).replace('%', '') : '', flagPullingPct: p.metrics?.flag ? String(p.metrics.flag).replace('%', '') : '',
+        featured: Boolean(p.featured),
+        featuredBlurb: p.featuredBlurb || '',
         accessCode: lockedAccessCode
       });
       setPhotoPreview(p.avatar || null);
@@ -695,6 +700,8 @@ export const AdminPanel = ({ onBack, onLogout }) => {
         combineDate: newCombineRecord.date,
         speedVerifications: newCombineRecord.speedVerifications,
         metrics: newCombineRecord.metrics,
+        featured: Boolean(metrics.featured),
+        featuredBlurb: (metrics.featuredBlurb || '').trim(),
         updatedAt: Date.now()
       };
 
@@ -893,7 +900,44 @@ export const AdminPanel = ({ onBack, onLogout }) => {
               </div>
 
               <form onSubmit={submitCombineData} className="space-y-8">
-                
+                {/* FEATURED ATHLETE SPOTLIGHT TOGGLE */}
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(metrics.featured)}
+                    onChange={(e) =>
+                      setMetrics({ ...metrics, featured: e.target.checked })
+                    }
+                    className="w-5 h-5 rounded border-amber-300 text-amber-500 focus:ring-amber-400"
+                  />
+                  <div>
+                    <span className="block text-xs font-extrabold uppercase tracking-wider text-amber-950">
+                      Pin as Featured Athlete on Landing Page
+                    </span>
+                    <span className="block text-[10px] font-semibold text-amber-700">
+                      Spotlights this athlete in the banner above the National Leaderboard.
+                    </span>
+                  </div>
+                </label>
+
+                {metrics.featured && (
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-amber-800 mb-1">
+                      Optional Spotlight Blurb (1–2 sentences)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Blazing 4.72 laser 40 and 18 TDs this spring—top 2027 WR prospect."
+                      value={metrics.featuredBlurb || ''}
+                      onChange={(e) =>
+                        setMetrics({ ...metrics, featuredBlurb: e.target.value })
+                      }
+                      className="w-full bg-white border border-amber-200 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-900 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                )}
+              </div>
                 {/* SECURE ACCESS CODE */}
                 <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
                   <div>
