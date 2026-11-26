@@ -179,70 +179,68 @@ export const PublicHub = ({ onSelect }) => {
           </div>
 
           {/* RIGHT COLUMN (SECOND ON MOBILE): LIVE NEWS WIRE */}
-        <div className="lg:col-span-5">
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
-                  <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
-                </h2>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  Latest DNA &amp; National Flag Football Headlines
-                </p>
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
+                    <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    Latest DNA &amp; National Flag Football Headlines
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="p-4 space-y-3 max-h-[720px] overflow-y-auto">
+              <div className="p-4 space-y-3 max-h-[720px] overflow-y-auto">
+                {loading ? (
+                  <div className="bg-slate-50 p-12 rounded-2xl border border-slate-100 text-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-[#1c7ed6] border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading latest updates...</p>
+                  </div>
+                ) : combinedFeed.length === 0 ? (
+                  <div className="bg-slate-50 p-12 rounded-2xl border border-slate-100 text-center">
+                    <Activity size={32} className="mx-auto text-slate-300 mb-3" />
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No news available.</p>
+                  </div>
+                ) : (
+                  combinedFeed.map((news) => (
+                    <div key={news.id} className="bg-slate-50/70 p-4 rounded-2xl border border-slate-100 hover:bg-white hover:shadow-sm transition-all group flex gap-3.5">
+                      
+                      {/* FEED ICON */}
+                      <div className="shrink-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${
+                          news.source === 'web' ? 'bg-slate-900 text-white' : 'bg-blue-50 text-[#1c7ed6]'
+                        }`}>
+                          {getNewsIcon(news)}
+                        </div>
+                      </div>
 
-            <div className="space-y-4">
-              {loading ? (
-                <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center shadow-sm">
-                  <div className="animate-spin w-8 h-8 border-4 border-[#1c7ed6] border-t-transparent rounded-full mx-auto mb-4"></div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading latest updates...</p>
-                </div>
-              ) : combinedFeed.length === 0 ? (
-                <div className="bg-white p-12 rounded-3xl border border-slate-100 text-center shadow-sm">
-                  <Activity size={32} className="mx-auto text-slate-300 mb-3" />
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No news available.</p>
-                </div>
-              ) : (
-                combinedFeed.map((news) => (
-                  <div key={news.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-md transition-shadow group flex gap-4">
-                    
-                    {/* FEED ICON */}
-                    <div className="shrink-0">
-                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shadow-sm ${
-                        news.source === 'web' ? 'bg-slate-900 text-white' : 'bg-blue-50 text-[#1c7ed6]'
-                      }`}>
-                        {getNewsIcon(news)}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${getCategoryColor(news.category)}`}>
+                            {news.category}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                            <Calendar size={11} /> {new Date(news.timestamp).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-extrabold text-slate-900 leading-snug" style={displayFont}>
+                          {news.title}
+                        </h3>
+                        
+                        {news.link && (
+                          <a href={news.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mt-2 hover:underline">
+                            Read Full Article <ExternalLink size={11} />
+                          </a>
+                        )}
                       </div>
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2.5 mb-2">
-                        <span className={`text-[9px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full ${getCategoryColor(news.category)}`}>
-                          {news.category}
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                          <Calendar size={11} /> {new Date(news.timestamp).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h3 className="text-lg font-extrabold text-slate-900 leading-snug" style={displayFont}>
-                        {news.title}
-                      </h3>
-                      
-                    {news.link && (
-                      <a href={news.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mt-3 hover:underline">
-                        Read Full Article <ExternalLink size={11} />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
-        </div>
           
         </div>
       </div>
