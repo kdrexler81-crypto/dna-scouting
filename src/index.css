@@ -1,10 +1,32 @@
 @import "tailwindcss";
-body {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  html,
+  body {
+    background-color: #0a0a0c;
+    color: #f4f4f5;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
-h1, h2, h3, .font-display {
-  font-family: 'Barlow Condensed', sans-serif;
-  letter-spacing: 0.02em;
+/* Pro biometrics monospace for DNA Scores, 40-yd times, GPAs & rankings */
+.font-metric {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sleek dark scrollbars for Leaderboard & News Wire */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0c;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }

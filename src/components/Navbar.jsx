@@ -6,8 +6,6 @@ import {
   LogOut, LayoutDashboard, Building, Lock, ExternalLink
 } from 'lucide-react';
 
-const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
-
 export const Navbar = ({
   authRole,
   dbStatus,
@@ -35,74 +33,57 @@ export const Navbar = ({
 
   return (
     <>
-      {/* Enlarged, Clean Sticky Top Banner */}
-      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-white/10 shadow-lg print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 sm:h-24 flex items-center justify-between gap-4">
-          {/* Left: Larger Brand Logo + Wordmark */}
+      {/* Performance Lab Obsidian Top Banner */}
+      <header className="sticky top-0 z-40 bg-[#0A0A0C]/90 backdrop-blur-xl border-b border-white/10 print:hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-24 sm:h-32 flex items-center justify-between gap-6">
+          {/* Left: Enlarged Brand Logo + Wordmark */}
           <button
             type="button"
             onClick={() => goTo('/')}
-            className="flex items-center gap-3.5 sm:gap-4 text-left group shrink-0"
+            className="flex items-center gap-4 text-left group shrink-0"
           >
             <img
               src="/DNA Logo.png"
               alt="DNA Flag Football Logo"
-              className="h-14 sm:h-16 w-auto object-contain transition-transform group-hover:scale-105"
+              className="h-16 sm:h-24 w-auto object-contain transition-transform group-hover:scale-105"
               onError={(e) => { e.target.style.display = 'none'; }}
             />
             <div>
-              <span
-                className="block text-2xl sm:text-3xl font-extrabold uppercase tracking-wider text-white leading-none"
-                style={displayFont}
-              >
-                DNA Flag <span className="text-[#d6336c]">Ratings</span>
+              <span className="block text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-none">
+                DNA Flag <span className="text-[#38bdf8]">Ratings</span>
               </span>
-              <span className="hidden sm:block text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mt-1">
-                Verified Girls&apos; Flag Recruiting
+              <span className="hidden sm:block text-xs font-medium tracking-[0.18em] uppercase text-zinc-400 mt-1.5">
+                Verified Biometrics &amp; Recruiting
               </span>
             </div>
           </button>
 
           {/* Center: Clean Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-8">
-            <button
-              type="button"
-              onClick={() => goTo('/')}
-              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
-            >
-              Leaderboard
-            </button>
-            <button
-              type="button"
-              onClick={() => goTo('/colleges')}
-              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
-            >
-              College Directory
-            </button>
-            <button
-              type="button"
-              onClick={() => goTo('/roster')}
-              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
-            >
-              Roster
-            </button>
-            <button
-              type="button"
-              onClick={() => goTo('/about')}
-              className="text-xs font-extrabold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
-            >
-              Features
-            </button>
+            {[
+              { label: 'Leaderboard', path: '/' },
+              { label: 'College Directory', path: '/colleges' },
+              { label: 'Roster', path: '/roster' },
+              { label: 'Features', path: '/about' },
+            ].map((item) => (
+              <button
+                key={item.path}
+                type="button"
+                onClick={() => goTo(item.path)}
+                className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors"
+              >
+                {item.label}
+              </button>
+            ))}
           </nav>
 
-          {/* Right: Desktop Portal CTA + Menu Button */}
+          {/* Right: Crisp White CTA + Minimal Menu Button */}
           <div className="flex items-center gap-3">
             {authRole ? (
               <button
                 type="button"
                 onClick={() => goTo(dashboardRoute)}
-                className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider text-white shadow-md hover:opacity-95 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0A0C] bg-white hover:bg-zinc-200 transition-colors"
               >
                 <LayoutDashboard size={15} /> Dashboard
               </button>
@@ -110,8 +91,7 @@ export const Navbar = ({
               <button
                 type="button"
                 onClick={() => setMenuOpen(true)}
-                className="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider text-white shadow-md hover:opacity-95 transition-opacity"
-                style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-[#0A0A0C] bg-white hover:bg-zinc-200 transition-colors"
               >
                 <Lock size={14} /> Portal Login
               </button>
@@ -120,11 +100,11 @@ export const Navbar = ({
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="px-3.5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 border border-white/10"
+              className="px-4 py-2.5 rounded-xl bg-[#131316] hover:bg-[#1C1C21] text-white transition-colors flex items-center gap-2 border border-white/10"
               aria-label="Open navigation menu"
             >
-              <span className="text-[11px] font-extrabold uppercase tracking-widest">Menu</span>
-              <Menu size={20} />
+              <span className="text-xs font-semibold uppercase tracking-wider text-zinc-300">Menu</span>
+              <Menu size={18} />
             </button>
           </div>
         </div>
@@ -134,18 +114,15 @@ export const Navbar = ({
       {menuOpen && (
         <div className="fixed inset-0 z-50 flex justify-end animate-in fade-in">
           <div
-            className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
             onClick={() => setMenuOpen(false)}
           />
 
-          <div className="relative z-10 w-full max-w-xs bg-slate-950 text-white h-full shadow-2xl border-l border-white/10 flex flex-col justify-between p-6 overflow-y-auto">
+          <div className="relative z-10 w-full max-w-xs bg-[#0A0A0C] text-white h-full border-l border-white/10 flex flex-col justify-between p-6 overflow-y-auto">
             <div className="space-y-6">
-              {/* Drawer Header */}
               <div className="flex items-center justify-between pb-4 border-b border-white/10">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xl font-extrabold uppercase tracking-wider" style={displayFont}>
-                    Navigation
-                  </span>
+                  <span className="text-lg font-bold tracking-tight">Navigation</span>
                   {dbStatus === 'LIVE SYNC' && (
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Live Sync Active" />
                   )}
@@ -153,60 +130,58 @@ export const Navbar = ({
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="p-2 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white transition-colors"
+                  className="p-2 rounded-xl bg-[#131316] hover:bg-[#1C1C21] text-zinc-400 hover:text-white border border-white/10 transition-colors"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              {/* Site Links */}
-              <nav className="space-y-1.5">
+              <nav className="space-y-1">
                 <button
                   type="button"
                   onClick={() => goTo('/')}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-slate-200 hover:text-white transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[#131316] text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
                 >
-                  <Home size={16} className="text-[#1c7ed6]" /> Home & Leaderboard
+                  <Home size={16} className="text-[#38bdf8]" /> Home &amp; Leaderboard
                 </button>
                 <button
                   type="button"
                   onClick={() => goTo('/colleges')}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-slate-200 hover:text-white transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[#131316] text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
                 >
-                  <GraduationCap size={16} className="text-[#d6336c]" /> College Directory
+                  <GraduationCap size={16} className="text-[#38bdf8]" /> College Directory
                 </button>
                 <button
                   type="button"
                   onClick={() => goTo('/roster')}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-slate-200 hover:text-white transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[#131316] text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
                 >
-                  <Users size={16} className="text-emerald-400" /> Official Roster
+                  <Users size={16} className="text-zinc-400" /> Official Roster
                 </button>
                 <button
                   type="button"
                   onClick={() => goTo('/about')}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-slate-200 hover:text-white transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-[#131316] text-sm font-medium text-zinc-300 hover:text-white transition-colors text-left"
                 >
-                  <Sparkles size={16} className="text-amber-400" /> Platform Features
+                  <Sparkles size={16} className="text-zinc-400" /> Platform Features
                 </button>
                 <a
                   href="https://www.dnaflagfootball.com"
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-slate-200 hover:text-white transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-[#131316] text-sm font-medium text-zinc-300 hover:text-white transition-colors"
                 >
                   <span className="flex items-center gap-3">
-                    <Trophy size={16} className="text-sky-400" /> DNA Club & Clinics
+                    <Trophy size={16} className="text-zinc-400" /> DNA Club &amp; Clinics
                   </span>
-                  <ExternalLink size={13} className="text-slate-500" />
+                  <ExternalLink size={13} className="text-zinc-500" />
                 </a>
               </nav>
             </div>
 
-            {/* Unified Account Section: Login OR Dashboard + Sign Out */}
             <div className="pt-6 mt-6 border-t border-white/10 space-y-2.5">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 px-1 mb-2">
-                {authRole ? `Signed In (${authRole})` : 'Portal Login'}
+              <span className="block text-[11px] font-semibold uppercase tracking-widest text-zinc-500 px-1 mb-2">
+                {authRole ? `Signed In (${authRole})` : 'Portal Access'}
               </span>
 
               {authRole ? (
@@ -214,15 +189,14 @@ export const Navbar = ({
                   <button
                     type="button"
                     onClick={() => goTo(dashboardRoute)}
-                    className="w-full py-3 px-4 rounded-xl text-white text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md"
-                    style={{ background: 'linear-gradient(135deg, #1c7ed6 0%, #d6336c 100%)' }}
+                    className="w-full py-3 px-4 rounded-xl bg-white hover:bg-zinc-200 text-[#0A0A0C] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                   >
                     <LayoutDashboard size={15} /> Go to Dashboard
                   </button>
                   <button
                     type="button"
                     onClick={triggerLogout}
-                    className="w-full py-3 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-3 px-4 rounded-xl bg-[#131316] hover:bg-rose-500/20 text-rose-400 border border-white/10 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                   >
                     <LogOut size={15} /> Sign Out
                   </button>
@@ -232,28 +206,28 @@ export const Navbar = ({
                   <button
                     type="button"
                     onClick={() => triggerLogin('athlete_login')}
-                    className="w-full py-2.5 px-4 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-200 text-[#0A0A0C] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                   >
                     <Trophy size={14} /> Athlete Login
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerLogin('parent_login')}
-                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#131316] hover:bg-[#1C1C21] text-white border border-white/10 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Shield size={14} /> Parent Login
+                    <Shield size={14} className="text-emerald-400" /> Parent Login
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerLogin('recruiter_login')}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#1c7ed6] hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#131316] hover:bg-[#1C1C21] text-white border border-white/10 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Building size={14} /> College Scout Login
+                    <Building size={14} className="text-[#38bdf8]" /> College Scout Login
                   </button>
                   <button
                     type="button"
                     onClick={() => triggerLogin('admin')}
-                    className="w-full py-2 px-4 rounded-xl bg-white/5 hover:bg-white/15 text-slate-300 hover:text-white text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full py-2 px-4 rounded-xl bg-transparent hover:bg-[#131316] text-zinc-400 hover:text-white text-[11px] font-semibold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
                   >
                     <Lock size={13} /> Coach / Admin Login
                   </button>
