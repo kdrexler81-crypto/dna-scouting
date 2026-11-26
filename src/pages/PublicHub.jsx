@@ -50,7 +50,7 @@ export const PublicHub = ({ onSelect }) => {
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'news'), orderBy('timestamp', 'desc'), limit(15));
     const unsub = onSnapshot(q, (snap) => {
       const newsItems = [];
-      snap.forEach(doc => newsItems.push({ id: doc.id, ...doc.data(), source: 'internal' }));
+      snap.forEach(doc => newsItems.push({ id: doc.id, source: 'internal', ...doc.data() }));
       setNewsFeed(newsItems);
       setLoading(false);
     });
@@ -179,12 +179,20 @@ export const PublicHub = ({ onSelect }) => {
           </div>
 
           {/* RIGHT COLUMN (SECOND ON MOBILE): LIVE NEWS WIRE */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
-                <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
-              </h2>
+        <div className="lg:col-span-5">
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-3xl font-extrabold uppercase tracking-tight text-slate-900 flex items-center gap-3" style={displayFont}>
+                  <Megaphone className="text-[#1c7ed6]" size={26} /> Live News Wire
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                  Latest DNA &amp; National Flag Football Headlines
+                </p>
+              </div>
             </div>
+
+            <div className="p-4 space-y-3 max-h-[720px] overflow-y-auto">
 
             <div className="space-y-4">
               {loading ? (
@@ -223,17 +231,18 @@ export const PublicHub = ({ onSelect }) => {
                         {news.title}
                       </h3>
                       
-                      {news.source === 'web' && (
-                        <a href={news.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mt-3 hover:underline">
-                          Read Full Article <ExternalLink size={11} />
-                        </a>
-                      )}
-                    </div>
+                    {news.link && (
+                      <a href={news.link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] font-bold text-[#1c7ed6] uppercase tracking-widest mt-3 hover:underline">
+                        Read Full Article <ExternalLink size={11} />
+                      </a>
+                    )}
                   </div>
-                ))
-              )}
+                </div>
+              ))
+            )}
             </div>
           </div>
+        </div>
           
         </div>
       </div>
