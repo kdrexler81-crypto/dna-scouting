@@ -286,14 +286,15 @@ export const CollegeDirectory = ({ onBack }) => {
                       </div>
                     </div>
 
-                   <div className="flex items-center gap-3.5 mb-4">
-                    <CollegeLogo school={school} size="md" />
-                    <h2
-                      className="text-2xl font-extrabold text-slate-900 leading-tight"
-                      style={displayFont}
-                    >
-                      {school.name}
-                    </h2>
+                    <div className="flex items-center gap-3.5 mb-4">
+                      <CollegeLogo school={school} size="md" />
+                      <h2
+                        className="text-2xl font-extrabold text-slate-900 leading-tight"
+                        style={displayFont}
+                      >
+                        {school.name}
+                      </h2>
+                    </div>
                   </div>
 
                   {/* GATED COACH CONTACT SECTION */}
