@@ -5,7 +5,7 @@ import {
   GraduationCap, MapPin, ArrowRight, ShieldCheck, Video, FileCheck,
   Sparkles, Compass, Trophy, Users, Camera, ExternalLink
 } from 'lucide-react';
-
+import { CollegeLogo } from './CollegeLogo';
 const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
 
 // --- INSTAGRAM SETTINGS (Edit these anytime) ---
@@ -65,10 +65,13 @@ export const LandingInfoSections = ({ colleges = [] }) => {
                     <MapPin size={11} className="text-[#d6336c]" /> {school.state || 'US'}
                   </span>
                 </div>
+                <div className="flex items-center gap-3.5 mt-3">
+                <CollegeLogo school={school} size="md" />
                 <h3 className="text-base font-extrabold text-slate-900 leading-snug">
                   {school.name}
                 </h3>
               </div>
+            </div>
               <p className="text-[11px] font-semibold text-slate-500 truncate">
                 Head Coach: <span className="text-slate-800 font-bold">{school.coach || 'TBA'}</span>
               </p>

@@ -8,6 +8,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { useColleges } from '../hooks/useColleges';
 import { useCollegeActions } from '../hooks/useCollegeActions';
+import { CollegeLogo } from '../components/CollegeLogo';
 
 const displayFont = { fontFamily: "'Barlow Condensed', sans-serif" };
 
@@ -285,8 +286,10 @@ export const CollegeDirectory = ({ onBack }) => {
                       </div>
                     </div>
 
+                   <div className="flex items-center gap-3.5 mb-4">
+                    <CollegeLogo school={school} size="md" />
                     <h2
-                      className="text-2xl font-extrabold text-slate-900 leading-tight mb-4"
+                      className="text-2xl font-extrabold text-slate-900 leading-tight"
                       style={displayFont}
                     >
                       {school.name}
